@@ -50,10 +50,11 @@ def test_clicked_bars_map_back_to_the_rows_they_count():
     assert charts.picked_bars(fig, [{"curve_number": 99, "point_index": 0}]) == []
 
 
-def test_indicator_panes_sit_under_the_price_with_fixed_scales():
+def test_indicators_share_one_pane_and_histogram_shows_only_extremes():
     df = make_engine_df()
     n = len(df)
-    df = df.assign(rsi=55.0, dtosck=80.0, dtoscd=60.0, histogram=[(-30.0, 0.0, 30.0)[i % 3] for i in range(n)])
+    df = df.assign(rsi=55.0, dtosck=80.0, dtoscd=60.0,
+                   histogram=[(-30.0, 0.0, 30.0, 10.0)[i % 4] for i in range(n)])
     p = runner.RunParams(mode="backtest", timeframes=("1D",), lengths=(4,),
                          stages=(ew.STAGE_IN_PROGRESS, ew.STAGE_COMPLETED), horizon_bars=30)
     row = runner.run_engine(df, p).iloc[0]
@@ -62,13 +63,15 @@ def test_indicator_panes_sit_under_the_price_with_fixed_scales():
 
     plain = charts.signal_chart(price, row, None, **kwargs)
     fig = charts.signal_chart(price, row, None, panes=["rsi", "dtosc", "histogram"], pane_height=100, **kwargs)
-    assert plain.layout.height == 600 and fig.layout.height == 900
-    assert list(fig.layout.yaxis2.range) == [0, 100] and list(fig.layout.yaxis3.range) == [0, 100]
-    assert list(fig.layout.yaxis4.range) == [-50, 50]
+    assert plain.layout.height == 600 and fig.layout.height == 700            # one extra pane only
+    assert list(fig.layout.yaxis2.range) == [0, 100] and "yaxis3" not in fig.layout
     names = {t.name: t for t in fig.data}
-    assert {"RSI 14", "DTosc K", "DTosc D", "Histogram"} <= set(names)
-    assert names["RSI 14"].yaxis == "y2" and names["DTosc K"].yaxis == "y3" and names["Histogram"].yaxis == "y4"
-    assert set(names["Histogram"].marker.color) == {charts.GOOD, charts.BAD, charts.C["muted"]}
-    # panes without data are left out
+    for name in ("RSI 14", "DTosc K", "DTosc D", "Histogram"):
+        assert names[name].yaxis == "y2"                                      # all on the same layer
+    hist = names["Histogram"]
+    assert set(hist.y) == {-30.0, 30.0} and hist.base == 50                   # nothing inside +/-20
+    assert all((c == charts.GOOD) == (v < 0) for c, v in zip(hist.marker.color, hist.y))
+    assert set(hist.marker.color) == {charts.GOOD, charts.BAD}
+    # no indicator data -> no pane
     assert charts.signal_chart(make_engine_df()[lambda d: d["Ticker"] == row["Ticker"]], row, None,
                                panes=["rsi"], **kwargs).layout.height == 600

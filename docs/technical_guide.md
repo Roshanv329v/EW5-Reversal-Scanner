@@ -108,7 +108,7 @@ Calculated with TA-Lib for every ticker and timeframe:
 `a, b, c, d` depend on `type_val` in `stock_data.py` (2 → 13, 8, 5, 5).
 Indicators are stored in `stock.csv`, copied into result files at the signal bar
 (`signal_indicators` in `config.yaml`) and shown in tables. The Elliott Wave engine does not
-read them. On the chart, EMA 13 / 55 are drawn on price and RSI, DT oscillator and histogram in panes below it.
+read them. On the chart, EMA 13 / 55 are drawn on price and RSI, DT oscillator and histogram in one pane below it.
 
 ### stock.csv schema
 
@@ -191,7 +191,7 @@ Results are cached by `stock.csv` modified time plus parameters, so repeating a 
 - The x-axis is a category axis (one slot per bar), so nights, weekends and holidays leave no gaps.
 - Level groups, the evaluation window, and trigger / stop / target-hit markers are overlaid.
 - EMA 13 and EMA 55 are read from `stock.csv`.
-- Indicator panes sit under the price, each with its own fixed scale like TradingView: RSI 14 (0–100, bands 30/70), DT oscillator K and D (0–100, bands 25/75) and the histogram (RSI − 50, bands ±20; green below −20, red above +20). One toggle switches them on or off; `chart.indicator_panes` and `chart.pane_height` in `config.yaml` control which panes and how tall.
+- One indicator pane sits under the price on a fixed 0–100 scale, like a TradingView oscillator pane: RSI 14, DT oscillator K and D as lines, with guide lines at 30, 50 and 70. The histogram (RSI − 50) is drawn from the 50 line and only where it is below −20 (green) or above +20 (red), the same colours as the table. One toggle switches the pane on or off; `chart.indicator_panes` and `chart.pane_height` in `config.yaml` control which series are drawn and how tall the pane is.
 
 ---
 

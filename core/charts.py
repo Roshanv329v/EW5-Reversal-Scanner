@@ -32,14 +32,11 @@ LEVEL_GROUPS: dict[str, list[tuple[str, str, str]]] = {
 _LEVEL_LABEL = {"STOP": "STOP / W5_END"}
 EMA_GROUP = "EMA 13 / 55"
 EMA_COLOURS = ("#fab219", C["magenta"])              # fast, slow
-# Indicator panes under the price chart (TradingView style: own pane, own fixed scale)
-PANES: dict[str, dict[str, Any]] = {
-    "rsi": dict(columns=("rsi",), title="RSI 14", range=(0, 100), bands=(30, 70), ticks=(30, 50, 70)),
-    "dtosc": dict(columns=("dtosck", "dtoscd"), title="DT Oscillator", range=(0, 100), bands=(25, 75),
-                  ticks=(25, 75)),
-    "histogram": dict(columns=("histogram",), title="Histogram (RSI − 50)", range=(-50, 50),
-                      bands=(-20, 20), ticks=(-20, 0, 20)),
-}
+# One indicator pane under the price chart, 0-100 scale: series name -> stock.csv columns
+PANE_SERIES: dict[str, tuple[str, ...]] = {
+    "rsi": ("rsi",), "dtosc": ("dtosck", "dtoscd"), "histogram": ("histogram",)}
+PANE_BANDS = (30, 70)                                # dashed guide lines; the middle is 50
+HIST_LIMIT = 20                                      # histogram bars are drawn only beyond +/- this
 GOOD, BAD = "#2fbf71", C["red"]                      # histogram below -20 / above +20
 _LABEL_GAP_PX = 12                      # minimum vertical distance between level labels
 
@@ -91,11 +88,11 @@ def wave_overlay(price: pd.DataFrame, signal_time: Any, length: int, pivot_tie: 
 def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], horizon_bars: int,
                  bars_before: int, groups: Sequence[str], height: int,
                  emas: Sequence[tuple[str, str]] = (), panes: Sequence[str] = (),
-                 pane_height: int = 130) -> go.Figure:
+                 pane_height: int = 170) -> go.Figure:
     """
     Candlestick for one signal. The x-axis is a category axis (one slot per bar), so
-    nights, weekends and holidays leave no gaps. `panes` (keys of PANES) adds indicator
-    panes below the price, each `pane_height` px high and sharing the time axis.
+    nights, weekends and holidays leave no gaps. `panes` (keys of PANE_SERIES) are drawn
+    together in ONE indicator pane below the price (0-100 scale, `pane_height` px high).
     """
     p = price.sort_values("time").reset_index(drop=True)
     t_sig = pd.Timestamp(row["signal_time"])
@@ -115,11 +112,12 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
         return pd.Timestamp(t).strftime(fmt)
 
     panes = [name for name in panes
-             if all(c in win.columns for c in PANES[name]["columns"])
-             and win[list(PANES[name]["columns"])].notna().any().any()]
-    total_height = height + pane_height * len(panes)
-    fig = make_subplots(rows=1 + len(panes), cols=1, shared_xaxes=True, vertical_spacing=0.022,
-                        row_heights=[height, *([pane_height] * len(panes))])
+             if all(c in win.columns for c in PANE_SERIES[name])
+             and win[list(PANE_SERIES[name])].notna().any().any()]
+    has_pane = bool(panes)
+    total_height = height + (pane_height if has_pane else 0)
+    fig = make_subplots(rows=2 if has_pane else 1, cols=1, shared_xaxes=True, vertical_spacing=0.022,
+                        row_heights=[height, pane_height] if has_pane else [height])
     fig.add_trace(go.Candlestick(
         x=labels, open=win["Open"], high=win["High"], low=win["Low"], close=win["Close"],
         name="Price", increasing_line_color=C["aqua"], decreasing_line_color=C["red"],
@@ -193,41 +191,41 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
             marker=dict(symbol=symbol, size=13, color=colour, line=dict(color=C["surface"], width=2)),
             hovertemplate=f"{name}<br>%{{x}}<br>%{{y:,.2f}}<extra></extra>"))
 
-    # ---- indicator panes
-    sig_row = win.iloc[k_sig]
-    for r, name in enumerate(panes, start=2):
-        spec = PANES[name]
-        low_band, high_band = spec["bands"]
-        if name == "rsi":
-            fig.add_trace(go.Scatter(x=labels, y=win["rsi"], mode="lines", name="RSI 14", showlegend=False,
-                                     line=dict(color=C["violet"], width=1.6),
-                                     hovertemplate="RSI: %{y:.1f}<extra></extra>"), row=r, col=1)
-            reading = f"{sig_row['rsi']:.1f}" if pd.notna(sig_row["rsi"]) else "–"
-        elif name == "dtosc":
-            for column, label, colour in (("dtosck", "DTosc K", C["blue"]), ("dtoscd", "DTosc D", C["orange"])):
-                fig.add_trace(go.Scatter(x=labels, y=win[column], mode="lines", name=label,
-                                         line=dict(color=colour, width=1.6),
-                                         hovertemplate=f"{label}: %{{y:.1f}}<extra></extra>"), row=r, col=1)
-            reading = " · ".join(f"{k} {sig_row[c]:.1f}" for k, c in (("K", "dtosck"), ("D", "dtoscd"))
-                                 if pd.notna(sig_row[c])) or "–"
-        else:
+    # ---- indicator pane: everything on one 0-100 layer
+    if has_pane:
+        sig_row = win.iloc[k_sig]
+        readings: list[str] = []
+        if "histogram" in panes:
+            # histogram = RSI - 50, so it is drawn from the 50 line; only the extreme bars are shown
             values = win["histogram"]
-            colours = [GOOD if v < low_band else BAD if v > high_band else C["muted"] for v in values.fillna(0)]
-            fig.add_trace(go.Bar(x=labels, y=values, name="Histogram", showlegend=False,
-                                 marker_color=colours, marker_line_width=0,
-                                 hovertemplate="Histogram: %{y:.1f}<extra></extra>"), row=r, col=1)
-            reading = f"{sig_row['histogram']:.1f}" if pd.notna(sig_row["histogram"]) else "–"
-        fig.add_hrect(y0=low_band, y1=high_band, fillcolor=C["violet"], opacity=0.07, line_width=0,
-                      layer="below", row=r, col=1)
-        for level in (low_band, high_band):
-            fig.add_hline(y=level, line=dict(color=C["muted"], width=1, dash="dash"), row=r, col=1)
-        if name != "dtosc":
-            mid = (spec["range"][0] + spec["range"][1]) / 2
-            fig.add_hline(y=mid, line=dict(color=C["axis"], width=1, dash="dot"), row=r, col=1)
-        fig.update_yaxes(range=list(spec["range"]), tickmode="array", tickvals=list(spec["ticks"]),
-                         fixedrange=True, showgrid=False, row=r, col=1)
-        fig.add_annotation(xref="paper", x=0.004, xanchor="left", yref=f"y{r} domain", y=0.97,
-                           yanchor="top", showarrow=False, text=f"<b>{spec['title']}</b>  {reading}",
+            extreme = values.abs() > HIST_LIMIT
+            fig.add_trace(go.Bar(
+                x=[x for x, keep in zip(labels, extreme) if keep], y=values[extreme], base=50,
+                name="Histogram", marker_color=[GOOD if v < 0 else BAD for v in values[extreme]],
+                marker_line_width=0, opacity=0.75, showlegend=False, customdata=values[extreme],
+                hovertemplate="Histogram: %{customdata:.1f}<extra></extra>"), row=2, col=1)
+        lines = []
+        if "rsi" in panes:
+            lines.append(("rsi", "RSI 14", C["violet"]))
+        if "dtosc" in panes:
+            lines += [("dtosck", "DTosc K", C["blue"]), ("dtoscd", "DTosc D", C["orange"])]
+        for column, label, colour in lines:
+            fig.add_trace(go.Scatter(x=labels, y=win[column], mode="lines", name=label,
+                                     line=dict(color=colour, width=1.6),
+                                     hovertemplate=f"{label}: %{{y:.1f}}<extra></extra>"), row=2, col=1)
+            if pd.notna(sig_row[column]):
+                readings.append(f"{label} {sig_row[column]:.1f}")
+        if "histogram" in panes and pd.notna(sig_row["histogram"]):
+            readings.append(f"Histogram {sig_row['histogram']:.1f}")
+        fig.add_hrect(y0=PANE_BANDS[0], y1=PANE_BANDS[1], fillcolor=C["violet"], opacity=0.06,
+                      line_width=0, layer="below", row=2, col=1)
+        for level in PANE_BANDS:
+            fig.add_hline(y=level, line=dict(color=C["muted"], width=1, dash="dash"), row=2, col=1)
+        fig.add_hline(y=50, line=dict(color=C["axis"], width=1, dash="dot"), row=2, col=1)
+        fig.update_yaxes(range=[0, 100], tickmode="array", tickvals=[PANE_BANDS[0], 50, PANE_BANDS[1]],
+                         fixedrange=True, showgrid=False, row=2, col=1)
+        fig.add_annotation(xref="paper", x=0.004, xanchor="left", yref="y2 domain", y=0.98,
+                           yanchor="top", showarrow=False, text="  ·  ".join(readings),
                            font=dict(size=11, color=C["ink2"]), bgcolor="rgba(26,26,25,0.75)")
 
     title = (f"{row['Ticker']} · {row['time_frame']} · {row.get('degree', '')} · "

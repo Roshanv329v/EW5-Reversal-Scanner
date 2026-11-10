@@ -43,10 +43,10 @@ chart:
   height: 680
   ema_fast: "13_ema"          # EMA columns drawn on the signal chart
   ema_slow: "55_ema"
-  indicator_panes: ["rsi", "dtosc", "histogram"]   # panes under the price chart, top to bottom
-  pane_height: 130            # height of each indicator pane
+  indicator_panes: ["rsi", "dtosc", "histogram"]   # series drawn together in the one indicator pane
+  pane_height: 190            # height of the indicator pane
   overlay_height: 500         # price pane height inside the pop-up overlay
-  overlay_pane_height: 105
+  overlay_pane_height: 160
 
 # indicator values (at the signal bar) copied into every results file
 signal_indicators: ["rsi", "dtosck", "dtoscd", "histogram", "13_ema", "21_ema", "55_ema", "atr14", "cci"]

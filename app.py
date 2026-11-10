@@ -521,7 +521,7 @@ def _signal_chart(row: pd.Series, params: dict[str, Any], prefix: str, compact: 
     emas = ([("EMA 13", cfg["chart"]["ema_fast"]), ("EMA 55", cfg["chart"]["ema_slow"])]
             if show_ema else [])
     show_panes = toggles[len(charts.LEVEL_GROUPS) + 1].toggle(
-        "Indicators", key=f"{prefix}_ind", help="RSI, DT oscillator (K, D) and histogram panes under the price")
+        "Indicators", key=f"{prefix}_ind", help="RSI, DT oscillator (K, D) and histogram in one pane under the price")
     chart_cfg = cfg["chart"]
 
     stock = stock_df()
