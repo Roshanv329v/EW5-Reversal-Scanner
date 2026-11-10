@@ -405,7 +405,7 @@ _FILTER_KEYS = {"time_frame": "f_tf", "degree": "f_degree", "reversal_side": "f_
                 "stage": "f_stage", "status": "f_status", "result": "f_result"}
 _FILTER_LABELS = {"time_frame": "Timeframe", "degree": "Degree", "reversal_side": "Side",
                   "stage": "Stage", "status": "Status", "result": "Result"}
-_CHART_TOGGLES = [*charts.LEVEL_GROUPS, "ema"]
+_CHART_TOGGLES = [*charts.LEVEL_GROUPS, "ema", "ind"]
 
 
 def _apply_prefs(saved: dict[str, Any]) -> None:
@@ -507,8 +507,11 @@ _TABLE_COLS = ["Ticker", "time_frame", "degree", "reversal_side", "stage", "sign
                "mfe_pct", "mae_pct", "first_target_hit", "TRIGGER", "STOP", "W4_END",
                *cfg["signal_indicators"]]
 
-def _signal_chart(row: pd.Series, params: dict[str, Any], prefix: str) -> None:
-    """Level / EMA toggles and the candlestick for one signal. `prefix` keeps widget keys apart."""
+def _signal_chart(row: pd.Series, params: dict[str, Any], prefix: str, compact: bool = False) -> None:
+    """
+    Level / EMA / indicator toggles and the candlestick for one signal.
+    `prefix` keeps widget keys apart; `compact` uses the smaller overlay sizes.
+    """
     toggles = st.columns(len(charts.LEVEL_GROUPS) + 2)
     for name in _CHART_TOGGLES:
         st.session_state.setdefault(f"{prefix}_{name}", True)
@@ -517,6 +520,9 @@ def _signal_chart(row: pd.Series, params: dict[str, Any], prefix: str) -> None:
     show_ema = toggles[len(charts.LEVEL_GROUPS)].toggle(charts.EMA_GROUP, key=f"{prefix}_ema")
     emas = ([("EMA 13", cfg["chart"]["ema_fast"]), ("EMA 55", cfg["chart"]["ema_slow"])]
             if show_ema else [])
+    show_panes = toggles[len(charts.LEVEL_GROUPS) + 1].toggle(
+        "Indicators", key=f"{prefix}_ind", help="RSI, DT oscillator (K, D) and histogram panes under the price")
+    chart_cfg = cfg["chart"]
 
     stock = stock_df()
     price = stock[(stock["Ticker"] == row["Ticker"]) & (stock["time_frame"] == row["time_frame"])]
@@ -531,8 +537,10 @@ def _signal_chart(row: pd.Series, params: dict[str, Any], prefix: str) -> None:
     fig = charts.signal_chart(
         price, row, overlay,
         horizon_bars=int(params.get("horizon_bars", ENGINE["horizon_bars"])),
-        bars_before=int(cfg["chart"]["bars_before"]), groups=groups,
-        height=int(cfg["chart"]["height"]), emas=emas)
+        bars_before=int(chart_cfg["bars_before"]), groups=groups,
+        height=int(chart_cfg["overlay_height" if compact else "height"]), emas=emas,
+        panes=chart_cfg["indicator_panes"] if show_panes else (),
+        pane_height=int(chart_cfg["overlay_pane_height" if compact else "pane_height"]))
     st.plotly_chart(fig, theme=None, config=PLOT_CONFIG, key=f"{prefix}_fig")
     if overlay is None:
         st.caption("The engine has no wave count at this bar, so only price and levels are shown.")
@@ -550,7 +558,7 @@ def _open_chart_overlay(row: pd.Series, params: dict[str, Any]) -> None:
             outcome = row["status"] if pd.isna(row.get("result")) else f"{row['status']} · {row['result']}"
             facts.append(("Outcome", outcome))
         st.caption("  |  ".join(f"**{label}** {value}" for label, value in facts))
-        _signal_chart(row, params, prefix="dlg")
+        _signal_chart(row, params, prefix="dlg", compact=True)
 
     st.dialog(title, width="large")(body)()
 

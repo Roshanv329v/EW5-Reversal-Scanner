@@ -48,3 +48,27 @@ def test_clicked_bars_map_back_to_the_rows_they_count():
             assert int(runner.range_mask(res, bars).sum()) >= height   # shared bin edges count twice
     assert total == int(res["status"].eq("TRIGGERED").sum())
     assert charts.picked_bars(fig, [{"curve_number": 99, "point_index": 0}]) == []
+
+
+def test_indicator_panes_sit_under_the_price_with_fixed_scales():
+    df = make_engine_df()
+    n = len(df)
+    df = df.assign(rsi=55.0, dtosck=80.0, dtoscd=60.0, histogram=[(-30.0, 0.0, 30.0)[i % 3] for i in range(n)])
+    p = runner.RunParams(mode="backtest", timeframes=("1D",), lengths=(4,),
+                         stages=(ew.STAGE_IN_PROGRESS, ew.STAGE_COMPLETED), horizon_bars=30)
+    row = runner.run_engine(df, p).iloc[0]
+    price = df[df["Ticker"] == row["Ticker"]]
+    kwargs = dict(horizon_bars=30, bars_before=150, groups=list(charts.LEVEL_GROUPS), height=600)
+
+    plain = charts.signal_chart(price, row, None, **kwargs)
+    fig = charts.signal_chart(price, row, None, panes=["rsi", "dtosc", "histogram"], pane_height=100, **kwargs)
+    assert plain.layout.height == 600 and fig.layout.height == 900
+    assert list(fig.layout.yaxis2.range) == [0, 100] and list(fig.layout.yaxis3.range) == [0, 100]
+    assert list(fig.layout.yaxis4.range) == [-50, 50]
+    names = {t.name: t for t in fig.data}
+    assert {"RSI 14", "DTosc K", "DTosc D", "Histogram"} <= set(names)
+    assert names["RSI 14"].yaxis == "y2" and names["DTosc K"].yaxis == "y3" and names["Histogram"].yaxis == "y4"
+    assert set(names["Histogram"].marker.color) == {charts.GOOD, charts.BAD, charts.C["muted"]}
+    # panes without data are left out
+    assert charts.signal_chart(make_engine_df()[lambda d: d["Ticker"] == row["Ticker"]], row, None,
+                               panes=["rsi"], **kwargs).layout.height == 600

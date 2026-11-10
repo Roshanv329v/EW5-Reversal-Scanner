@@ -58,7 +58,7 @@ Notes on the data:
   60m bars of a day, then the rest. For NSE that is `09:15` and `13:15`, like TradingView.
 - Indicators (`calculate_indicator_values` in `stock_data.py`, needs TA-Lib) are recalculated on
   the full history after every update and stored in `stock.csv`. They are shown in tables only;
-  the chart draws EMA 13 and EMA 55.
+  the chart draws EMA 13 / 55 on price and RSI, DT oscillator and histogram in panes below it.
 - Prices are split-adjusted but not dividend-adjusted (`auto_adjust: false`), like TradingView's default.
 - A ticker whose newest stored bar is older than the incremental window gets its full history
   again, so a long pause never leaves a hole.
