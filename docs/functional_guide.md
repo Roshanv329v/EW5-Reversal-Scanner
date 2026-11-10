@@ -40,14 +40,72 @@ levels needed to judge a **reversal against that trend**.
 
 ### Degree (ZigZag length)
 
-| Length | Degree | Typical use |
-|---|---|---|
-| 4 | minor | Short swings, frequent signals, more noise |
-| 8 | intermediate | Swing-sized moves |
-| 16 | major | Large trend turns, few signals; needs ~500 bars of history |
+The degree is the **size of swing** the engine counts. A ZigZag length of *N* means a high or
+low only counts as a pivot when it stands out from the *N* bars before it. A bigger length
+ignores small wiggles and counts only large waves.
 
-A signal that appears on **both 1D and 4hr**, or on two degrees at once, has more structure
-behind it than a lone minor-degree signal.
+| Length | Degree | What it counts | Signals | Typical target distance |
+|---|---|---|---|---|
+| 4 | **minor** | Small swings of a few bars | Many | Small |
+| 8 | **intermediate** | Swing-sized moves of one to several weeks | Fewer | Medium |
+| 16 | **major** | Large trend legs lasting months | Rare | Large; needs ~500 bars of history |
+
+The same degree means a different amount of time on each timeframe, because one 1D bar is a
+day and one 4hr bar is half a day:
+
+| | minor (4) | intermediate (8) | major (16) |
+|---|---|---|---|
+| **4hr** | swings of a few days | swings of one to two weeks | swings of several weeks |
+| **1D** | swings of one to two weeks | swings of several weeks | swings of months |
+
+How to use the three together:
+
+- **Major** tells you where the big trend is in its life. Use it as the background, not as a
+  short-term trigger. A major wave 5 that is completing is the context in which smaller
+  reversal signals deserve more attention.
+- **Intermediate** is the working degree for swing-sized moves.
+- **Minor** gives the earliest and most frequent signals, with the smallest objectives and the
+  most noise. It is most useful when it agrees with the degree above it.
+- **Agreement matters more than any single degree.** A SHORT on 4hr minor while 1D intermediate
+  is also at wave 5 of a bullish impulse is one story told twice. A minor signal against a
+  young higher-degree trend is usually just a pause.
+
+#### Which degree fits an F&O holding period under two weeks
+
+Two weeks is about **10 daily bars or 20 4hr bars**. The move you are waiting for (TRIGGER to
+W4_END) has to fit inside that window, so the degree should be chosen by how long its
+corrections normally take.
+
+Measured on this app's own universe (walk-forward backtest, Nov 2025 to Sep 2026, 1,651
+signals, stage WAVE5_IN_PROGRESS, 30-bar horizon). For triggered signals that reached W4_END:
+
+| Timeframe · degree | Bars to reach W4_END (median / 75% within) | In calendar terms | Median distance entry → W4_END | Median distance entry → STOP |
+|---|---|---|---|---|
+| 4hr · minor | 2 / 6 bars | 1 to 3 trading days | 2.5% | 2.8% |
+| 4hr · intermediate | 4.5 / 10 bars | 2 to 5 trading days | 3.4% | 2.8% |
+| 4hr · major | 8 / 16 bars | 4 to 8 trading days | 5.5% | 2.8% |
+| 1D · minor | 2 / 7 bars | 2 to 7 trading days | 3.4% | 3.8% |
+| 1D · intermediate | 3 / 8 bars | 3 to 8 trading days | 5.3% | 3.6% |
+| 1D · major | 3.5 / 8 bars | 4 to 8 trading days | 5.9% | 3.7% |
+
+Reading it for a holding period under two weeks:
+
+- **4hr intermediate and 1D minor are the natural fit.** Their corrections are sized for a
+  one-to-two-week swing, most of the ones that worked finished within about a week, and the
+  objective is at least as far away as the stop.
+- **4hr minor** resolves fastest (often within three days) but the objective is small, about
+  the same size as the stop. It suits very short holds and is the noisiest.
+- **1D intermediate** offers a larger objective for a similar stop distance, and in this sample
+  usually still finished inside eight trading days. It is the upper end of what fits.
+- **Major** (either timeframe) is best treated as direction and context. Its full correction
+  can take longer than a short-dated contract allows, and there are few signals.
+
+A practical setup for this kind of holding period: run the screen with lengths **4 and 8**, keep
+**16** switched on only to see the bigger picture, and set `horizon_bars` to **10 for 1D** or
+**20 for 4hr** when you backtest, so the statistics describe a two-week hold and not a six-week one.
+
+These numbers come from one period and one universe. They describe what happened, not what
+will happen; re-run the backtest on your own dates before relying on them.
 
 ### The levels
 

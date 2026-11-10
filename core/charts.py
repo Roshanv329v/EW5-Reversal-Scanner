@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional, Sequence
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -203,20 +204,22 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
 
 
 # ----------------------------------------------------------------------------------
-# Breakdown charts
+# Breakdown charts (every bar carries `customdata` so a click can filter the table)
 # ----------------------------------------------------------------------------------
 def _stacked_counts(res: pd.DataFrame, by: str, order: Sequence[str], colours: dict[str, str],
                     height: int, title: str) -> go.Figure:
-    group = res["time_frame"].astype(str) + "<br>" + res["degree"].astype(str)
-    table = pd.crosstab(group, res[by])
+    """Stacked bars per time_frame × degree. customdata of a bar = [time_frame, degree, value of `by`]."""
+    table = res.groupby(["time_frame", "degree", by]).size().unstack(by, fill_value=0)
+    x = [f"{tf}<br>{degree}" for tf, degree in table.index]
     fig = go.Figure()
     for key in [k for k in order if k in table.columns] + [k for k in table.columns if k not in order]:
         fig.add_trace(go.Bar(
-            x=table.index, y=table[key], name=key, marker_color=colours.get(key, C["muted"]),
+            x=x, y=table[key], name=key, marker_color=colours.get(key, C["muted"]),
             marker_line=dict(color=C["surface"], width=2),
-            hovertemplate=f"{key}: %{{y}}<extra>%{{x}}</extra>"))
+            customdata=[[tf, degree, key] for tf, degree in table.index],
+            hovertemplate=f"{key}: %{{y}}<extra>%{{customdata[0]}} · %{{customdata[1]}}</extra>"))
     _base_layout(fig, height, title)
-    fig.update_layout(barmode="stack", bargap=0.45)
+    fig.update_layout(barmode="stack", bargap=0.45, clickmode="event+select")
     fig.update_xaxes(showgrid=False, tickangle=0)
     fig.update_yaxes(title_text="signals")
     return fig
@@ -234,18 +237,40 @@ def side_breakdown(res: pd.DataFrame, height: int = 360) -> go.Figure:
                            "Signals by timeframe × degree")
 
 
-def mfe_mae_distribution(res: pd.DataFrame, height: int = 360) -> go.Figure:
-    """Two histograms on a shared y-axis: best (MFE) and worst (MAE) move after entry."""
+def mfe_mae_distribution(res: pd.DataFrame, height: int = 360, bins: int = 20) -> go.Figure:
+    """
+    Two histograms on a shared y-axis: best (MFE) and worst (MAE) move after entry.
+    Bars are pre-binned; customdata of a bar = [column, bin low, bin high].
+    """
     trig = res[res["status"].eq("TRIGGERED")]
     fig = make_subplots(rows=1, cols=2, shared_yaxes=True, horizontal_spacing=0.06,
                         subplot_titles=("MFE % (best move)", "MAE % (worst move)"))
     for col, (name, column, colour) in enumerate(
             (("MFE %", "mfe_pct", C["blue"]), ("MAE %", "mae_pct", C["orange"])), start=1):
-        fig.add_trace(go.Histogram(
-            x=trig[column], name=name, nbinsx=20, marker_color=colour,
-            marker_line=dict(color=C["surface"], width=2),
-            hovertemplate="%{x}%: %{y} signals<extra></extra>"), row=1, col=col)
+        values = trig[column].dropna().to_numpy()
+        if len(values) == 0:
+            continue
+        counts, edges = np.histogram(values, bins=bins)
+        keep = counts > 0
+        lows, highs = edges[:-1][keep], edges[1:][keep]
+        fig.add_trace(go.Bar(
+            x=(lows + highs) / 2, y=counts[keep], width=(highs - lows) * 0.92, name=name,
+            marker_color=colour, marker_line=dict(color=C["surface"], width=1),
+            customdata=[[column, float(a), float(b)] for a, b in zip(lows, highs)],
+            hovertemplate="%{customdata[1]:.1f}% to %{customdata[2]:.1f}%: %{y} signals<extra></extra>"),
+            row=1, col=col)
     _base_layout(fig, height, "MFE / MAE of triggered signals")
-    fig.update_layout(showlegend=False, bargap=0.05)
+    fig.update_layout(showlegend=False, clickmode="event+select")
     fig.update_yaxes(title_text="signals", col=1)
     return fig
+
+
+def picked_bars(fig: go.Figure, points: Sequence[dict]) -> list[list]:
+    """customdata of the bars named in a Streamlit plotly selection (looked up in the figure)."""
+    out = []
+    for point in points:
+        try:
+            out.append(list(fig.data[int(point["curve_number"])].customdata[int(point["point_index"])]))
+        except (KeyError, IndexError, TypeError, ValueError):
+            continue
+    return out

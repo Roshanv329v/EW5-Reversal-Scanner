@@ -14,6 +14,22 @@ from core import charts, data_store as ds, prefs, runner
 from core.config import ROOT, load_config, resolve
 
 st.set_page_config(page_title="Elliott Wave 5 Reversal", page_icon="📈", layout="wide")
+
+UP, DOWN = "#2fbf71", "#e66767"                       # green / red used for sides and readings
+st.markdown("""
+<style>
+.block-container {padding-top: 2.2rem;}
+/* centred, pill-like tabs */
+.stTabs [role="tablist"] {justify-content: center; gap: 0.5rem;}
+.stTabs [role="tab"] {padding: 0.65rem 1.4rem; border-radius: 12px 12px 0 0;}
+.stTabs [role="tab"] p {font-size: 1.02rem; font-weight: 600;}
+.stTabs [role="tab"][aria-selected="true"] {background: rgba(57,135,229,0.14);}
+/* cards */
+[data-testid="stMetric"] {border-radius: 14px;}
+[data-testid="stMetricValue"] {font-weight: 700; letter-spacing: -0.01em;}
+[data-testid="stMetricLabel"] p {font-weight: 600; opacity: 0.85;}
+</style>
+""", unsafe_allow_html=True)
 cfg = load_config()
 ds.setup_logging(cfg["logs_dir"])
 ENGINE = cfg["engine"]
@@ -67,7 +83,7 @@ def _fmt(value: float, suffix: str = "%") -> str:
 # Sidebar: data update inputs
 # ----------------------------------------------------------------------------------
 with st.sidebar:
-    st.header("Data update")
+    st.header(":material/cloud_download: Data update")
     tickers_path = st.text_input("Stock tickers file", _rel(cfg["tickers_file"]),
                                  help="CSV with a `Ticker` column in yfinance format, e.g. RELIANCE.NS")
     pasted = st.text_area("…or paste stock tickers", placeholder="RELIANCE.NS, TCS.NS, INFY.NS",
@@ -80,17 +96,30 @@ with st.sidebar:
     inc_days = st.number_input("Incremental days", min_value=1, max_value=700,
                                value=int(cfg["incremental_days"]),
                                help="How much recent data each update re-downloads")
-    do_update = st.button("Update data", type="primary", width="stretch",
+    do_update = st.button("Update data", type="primary", width="stretch", icon=":material/sync:",
                           help="New tickers get their full history; all others only the last "
                                "N days, merged into stock.csv")
     st.divider()
     confirm_full = st.checkbox("Yes, replace all stored history")
     do_full = st.button("Full re-download", disabled=not confirm_full, width="stretch",
+                        icon=":material/history:",
                         help="Use after a split / bonus, or to rebuild stock.csv")
 
 # Shown as Dashboard · Data · Run / Backtest · User Guide. The code below still runs
 # Data -> Run -> Dashboard so a fresh run can pre-select its file in the dashboard.
-tab_dash, tab_data, tab_run, tab_guide = st.tabs(["Dashboard", "Data", "Run / Backtest", "User Guide"])
+_data_now = stock_df()
+_head = st.columns([3, 2], vertical_alignment="center")
+_head[0].markdown("## :material/candlestick_chart: Elliott Wave 5 Reversal")
+_head[0].caption("Wave-5 exhaustion screener, backtest and signal charts for stocks, indices and commodities")
+if not _data_now.empty:
+    _head[1].markdown(
+        f":blue-badge[:material/database: {_data_now['Ticker'].nunique()} tickers] "
+        f":green-badge[:material/schedule: Data to {_data_now['time'].max():%d %b %Y}] "
+        f":violet-badge[:material/inventory_2: {len(runner.list_results(cfg['results_dir']))} saved runs]")
+
+tab_dash, tab_data, tab_run, tab_guide = st.tabs([
+    ":material/monitoring: Dashboard", ":material/database: Data",
+    ":material/query_stats: Run / Backtest", ":material/menu_book: User Guide"])
 
 
 # ----------------------------------------------------------------------------------
@@ -107,7 +136,7 @@ def _stock_tickers() -> list[str]:
 
 
 with tab_data:
-    st.subheader("Stock data")
+    st.subheader(":material/database: Stock data")
     st.caption(f"`{_rel(cfg['stock_csv'])}` · Daily and 4hr bars (built from 60m) from yfinance, "
                "stored as timezone-naive IST, with indicators")
 
@@ -192,7 +221,7 @@ with tab_data:
 # Tab 2 - Run / Backtest
 # ----------------------------------------------------------------------------------
 with tab_run:
-    st.subheader("Run the Wave 5 screener")
+    st.subheader(":material/query_stats: Run the Wave 5 screener")
     data = stock_df()
     if data.empty:
         st.info("Download data first (Data tab).")
@@ -268,7 +297,7 @@ with tab_run:
                 with st.expander("Show them"):
                     st.dataframe(short, hide_index=True, width="content")
 
-            if st.button("Run", type="primary"):
+            if st.button("Run", type="primary", icon=":material/play_arrow:"):
                 params = runner.RunParams(
                     mode=mode, timeframes=tuple(run_tfs), lengths=tuple(sorted(lengths)),
                     stages=tuple(stages), horizon_bars=int(horizon),
@@ -318,14 +347,16 @@ def _kpi_cards(view: pd.DataFrame, state_key: str) -> pd.DataFrame:
     if active not in masks:
         active = st.session_state[state_key] = None
     st.session_state["stat_current"] = active
-    cards = [("Trigger rate", _fmt(k["trigger_rate"]), "triggered", "Signals whose close broke the TRIGGER level"),
-             ("Extended", _fmt(k["extended_pct"]), "extended", "Wave 5 made a new extreme before the trigger"),
-             ("W4 target hit", _fmt(k["w4_hit_rate"]), "w4", "Of triggered signals"),
-             ("FIB 0.5 hit", _fmt(k["fib50_hit_rate"]), "fib50", "Of triggered signals"),
-             ("Stop rate", _fmt(k["stop_rate"]), "stopped", "Of triggered signals"),
-             ("Avg MFE", _fmt(k["avg_mfe"]), "mfe",
+    cards = [(":material/bolt: Trigger rate", _fmt(k["trigger_rate"]), "triggered",
+              "Signals whose close broke the TRIGGER level"),
+             (":material/trending_up: Extended", _fmt(k["extended_pct"]), "extended",
+              "Wave 5 made a new extreme before the trigger"),
+             (":material/flag: W4 target hit", _fmt(k["w4_hit_rate"]), "w4", "Of triggered signals"),
+             (":material/target: FIB 0.5 hit", _fmt(k["fib50_hit_rate"]), "fib50", "Of triggered signals"),
+             (":material/shield: Stop rate", _fmt(k["stop_rate"]), "stopped", "Of triggered signals"),
+             (":material/north_east: Avg MFE", _fmt(k["avg_mfe"]), "mfe",
               "Average best move after entry. The button keeps triggered signals at or above it."),
-             ("Avg MAE", _fmt(k["avg_mae"]), "mae",
+             (":material/south_east: Avg MAE", _fmt(k["avg_mae"]), "mae",
               "Average worst move after entry. The button keeps triggered signals at or below it.")]
 
     def card(col, label: str, value: str, name: Optional[str], tip: Optional[str]) -> None:
@@ -333,16 +364,18 @@ def _kpi_cards(view: pd.DataFrame, state_key: str) -> pd.DataFrame:
             st.metric(label, value, help=tip)
             if name is None:
                 st.button("Show all", key=f"{state_key}_all", width="stretch", disabled=active is None,
+                          icon=":material/select_all:",
                           on_click=_toggle_stat, args=(state_key, active))
             else:
                 on = active == name
                 st.button(f"✓ Showing {int(masks[name].sum()):,}" if on else f"Show {int(masks[name].sum()):,}",
                           key=f"{state_key}_{name}", width="stretch", type="primary" if on else "secondary",
+                          icon=":material/filter_alt:",
                           on_click=_toggle_stat, args=(state_key, name),
                           help="Click again to clear" if on else "Filter the signal table to these signals")
 
     row1, row2 = st.columns(4), st.columns(4)
-    card(row1[0], "Signals", f"{k['signals']:,}", None, None)
+    card(row1[0], ":material/radar: Signals", f"{k['signals']:,}", None, None)
     for col, (label, value, name, tip) in zip([*row1[1:], *row2], cards):
         card(col, label, value, name, tip)
     return view[masks[active]] if active else view
@@ -351,7 +384,7 @@ def _kpi_cards(view: pd.DataFrame, state_key: str) -> pd.DataFrame:
 def _live_cards(view: pd.DataFrame, state_key: str) -> pd.DataFrame:
     """Stat cards for live screens: counts by timeframe / degree / side, each count clickable."""
     cols = st.columns(4)
-    cols[0].metric("Signals", f"{len(view):,}", border=True)
+    cols[0].metric(":material/radar: Signals", f"{len(view):,}", border=True)
     out = view
     for col, (label, field) in zip(cols[1:], (("By timeframe", "time_frame"), ("By degree", "degree"),
                                               ("By side", "reversal_side"))):
@@ -432,7 +465,7 @@ def _filters(res: pd.DataFrame) -> pd.DataFrame:
                                    disabled=col not in res.columns)
              for slot, col in zip(st.columns(6), _FILTER_KEYS)}
 
-    row2 = st.columns([2, 3, 1, 1, 1], vertical_alignment="bottom")
+    row2 = st.columns([2, 2.2, 1.3, 1.1, 0.9], vertical_alignment="bottom")
     search = row2[0].text_input("Ticker search", key="f_search", placeholder="e.g. BAJ")
     ratio = res["w5_vs_w1"].dropna()
     lo, hi = (float(ratio.min()), float(ratio.max())) if len(ratio) else (0.0, 1.0)
@@ -443,11 +476,12 @@ def _filters(res: pd.DataFrame) -> pd.DataFrame:
     else:
         rng = (lo, hi)
     row2[2].button("Save filters", type="primary", width="stretch", on_click=_save_filters,
+                   icon=":material/save:",
                    help="Remember these filters, the selected stat and the chart toggles. "
                         "The dashboard opens with them every time.")
-    row2[3].button("Restore saved", width="stretch", on_click=_restore_filters,
+    row2[3].button("Restore", width="stretch", on_click=_restore_filters, icon=":material/restore:",
                    disabled=not cfg["dashboard_filters_file"].exists())
-    row2[4].button("Clear", width="stretch", on_click=_clear_filters)
+    row2[4].button("Clear", width="stretch", on_click=_clear_filters, icon=":material/filter_alt_off:")
     note = st.session_state.pop("prefs_note", None)
     if note:
         st.caption(note)
@@ -521,6 +555,42 @@ def _open_chart_overlay(row: pd.Series, params: dict[str, Any]) -> None:
     st.dialog(title, width="large")(body)()
 
 
+def _chart_pick(slot, fig, key: str) -> list[list]:
+    """Draw a breakdown chart whose bars can be clicked; returns the clicked bars' data."""
+    event = slot.plotly_chart(fig, theme=None, config=PLOT_CONFIG, key=key,
+                              on_select="rerun", selection_mode="points")
+    return charts.picked_bars(fig, event.selection.points)
+
+
+def _bump(key: str) -> None:
+    st.session_state[key] = st.session_state.get(key, 0) + 1
+
+
+def _style_signals(table: pd.DataFrame):
+    """Colours: SHORT red / LONG green; histogram below -20 green, above +20 red."""
+    def side(value: Any) -> str:
+        colour = DOWN if value == "SHORT" else UP if value == "LONG" else None
+        return f"color: {colour}; font-weight: 700" if colour else ""
+
+    def histogram(value: Any) -> str:
+        if pd.isna(value):
+            return ""
+        if value < -20:
+            return f"color: {UP}; background-color: rgba(47,191,113,0.14); font-weight: 600"
+        if value > 20:
+            return f"color: {DOWN}; background-color: rgba(230,103,103,0.14); font-weight: 600"
+        return ""
+
+    formats = {"signal_time": lambda t: "" if pd.isna(t) else f"{t:%Y-%m-%d %H:%M}"}
+    styled = table.style.format({k: v for k, v in formats.items() if k in table.columns},
+                                precision=2, na_rep="")
+    if "reversal_side" in table.columns:
+        styled = styled.map(side, subset=["reversal_side"])
+    if "histogram" in table.columns:
+        styled = styled.map(histogram, subset=["histogram"])
+    return styled
+
+
 def _on_table_click(table_key: str) -> None:
     """
     Remember which row was clicked last - through its checkbox or through any cell -
@@ -568,32 +638,60 @@ with tab_dash:
             if filtered.empty:
                 st.warning("No signals match the filters.")
                 view = filtered
-            elif evaluated:
-                view = _kpi_cards(filtered, stat_key)
-                left, right = st.columns(2)
-                left.plotly_chart(charts.outcome_breakdown(filtered), theme=None, config=PLOT_CONFIG)
-                right.plotly_chart(charts.mfe_mae_distribution(filtered), theme=None, config=PLOT_CONFIG)
-                with st.expander("Summary table (by timeframe × degree)"):
-                    st.dataframe(runner.summarize(filtered), hide_index=True)
             else:
-                view = _live_cards(filtered, stat_key)
-                st.plotly_chart(charts.side_breakdown(filtered), theme=None, config=PLOT_CONFIG)
+                view = _kpi_cards(filtered, stat_key) if evaluated else _live_cards(filtered, stat_key)
+
+                # ---- breakdown charts: click a bar to narrow the table
+                nonce_key = f"chartsel_{chosen}"
+                suffix = f"{chosen}_{len(filtered)}_{st.session_state.get(nonce_key, 0)}"
+                st.markdown("#### :material/bar_chart: Breakdown")
+                st.caption("Click a bar to filter the signal table to the signals inside it. "
+                           "Shift-click adds more bars.")
+                picked_notes: list[str] = []
+                chart_mask = pd.Series(True, index=filtered.index)
+                if evaluated:
+                    left, right = st.columns(2)
+                    bars = _chart_pick(left, charts.outcome_breakdown(filtered), f"outcome_{suffix}")
+                    ranges = _chart_pick(right, charts.mfe_mae_distribution(filtered), f"mfemae_{suffix}")
+                    if bars:
+                        chart_mask &= runner.bar_mask(filtered, "status", bars)
+                        picked_notes += [f"{tf} {degree} {value}" for tf, degree, value in bars]
+                    if ranges:
+                        chart_mask &= runner.range_mask(filtered, ranges)
+                        picked_notes += [f"{'MFE' if col == 'mfe_pct' else 'MAE'} {low:.1f}% to {high:.1f}%"
+                                         for col, low, high in ranges]
+                    with st.expander("Summary table (by timeframe × degree)", icon=":material/table_chart:"):
+                        st.dataframe(runner.summarize(filtered), hide_index=True)
+                else:
+                    bars = _chart_pick(st, charts.side_breakdown(filtered), f"sides_{suffix}")
+                    if bars:
+                        chart_mask &= runner.bar_mask(filtered, "reversal_side", bars)
+                        picked_notes += [f"{tf} {degree} {value}" for tf, degree, value in bars]
+                if picked_notes:
+                    note = st.columns([5, 1], vertical_alignment="center")
+                    note[0].markdown(":material/filter_alt: **Chart filter:** " + " · ".join(picked_notes))
+                    note[1].button("Clear chart filter", width="stretch", icon=":material/close:",
+                                   on_click=_bump, args=(nonce_key,))
+                    view = view[chart_mask.loc[view.index]]
+            if "signal_time" in view.columns:
+                view = view.sort_values("signal_time", ascending=False, kind="stable")   # newest first
             view = view.reset_index(drop=True)
 
             if not filtered.empty:
-                st.subheader("Signals")
-                narrowed = " · narrowed by the selected stat" if len(view) < len(filtered) else ""
-                st.caption(f"{len(view)} of {len(res)} signals{narrowed}")
+                st.markdown("#### :material/table_rows: Signals")
+                narrowed = " · narrowed by the selected stat / chart bar" if len(view) < len(filtered) else ""
+                st.caption(f"{len(view)} of {len(res)} signals{narrowed} · newest first")
             if view.empty:
                 if not filtered.empty:
-                    st.warning("No signals behind this stat.")
+                    st.warning("No signals behind this selection.")
             else:
                 table_head = st.columns([4, 1])
                 table_head[0].caption("Click any cell of a signal to open its chart in an overlay. The same chart stays below.")
                 reopen = table_head[1].button("Open chart overlay", width="stretch",
+                                              icon=":material/open_in_full:",
                                               help="Opens the overlay again for the selected row")
                 table_key = f"signals_{chosen}_{len(view)}"
-                st.dataframe(view[[c for c in _TABLE_COLS if c in view.columns]], hide_index=True,
+                st.dataframe(_style_signals(view[[c for c in _TABLE_COLS if c in view.columns]]), hide_index=True,
                              height=300, on_select=lambda key=table_key: _on_table_click(key),
                              selection_mode=["single-row", "single-cell"], key=table_key)
                 picked = st.session_state.get(f"{table_key}_row", 0)
@@ -601,10 +699,12 @@ with tab_dash:
                 if st.session_state.pop("open_overlay", False) or reopen:
                     _open_chart_overlay(row, params)
 
-                st.subheader(f"{row['Ticker']} · {row['time_frame']} · {row['degree']}")
+                side_colour = "red" if row["reversal_side"] == "SHORT" else "green"
+                st.markdown(f"#### :material/candlestick_chart: {row['Ticker']} · {row['time_frame']} · "
+                            f"{row['degree']} · :{side_colour}[{row['reversal_side']}]")
                 _signal_chart(row, params, prefix="grp")
 
-                st.markdown("**Signal details**")
+                st.markdown("#### :material/info: Signal details")
                 d1, d2 = st.columns([3, 2])
                 level_names = list(ew.LEVEL_NAMES)
                 fields = row.drop(labels=[c for c in [*level_names, "reversal_levels"] if c in row.index])

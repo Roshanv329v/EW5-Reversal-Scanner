@@ -179,6 +179,22 @@ def stat_masks(res: pd.DataFrame) -> dict[str, pd.Series]:
     }
 
 
+def bar_mask(res: pd.DataFrame, by: str, bars: Sequence[Sequence[Any]]) -> pd.Series:
+    """Rows behind clicked breakdown bars; each bar = [time_frame, degree, value of `by`]."""
+    mask = pd.Series(False, index=res.index)
+    for tf, degree, value in bars:
+        mask |= res["time_frame"].eq(tf) & res["degree"].eq(degree) & res[by].eq(value)
+    return mask
+
+
+def range_mask(res: pd.DataFrame, bars: Sequence[Sequence[Any]]) -> pd.Series:
+    """Triggered rows behind clicked MFE / MAE histogram bars; each bar = [column, low, high]."""
+    mask = pd.Series(False, index=res.index)
+    for column, low, high in bars:
+        mask |= res[column].between(float(low), float(high))
+    return mask & res["status"].eq("TRIGGERED")
+
+
 # ----------------------------------------------------------------------------------
 # Results files
 # ----------------------------------------------------------------------------------

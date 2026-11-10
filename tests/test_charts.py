@@ -25,3 +25,26 @@ def test_overlay_matches_signal_levels_and_chart_builds():
     assert fig.data[0].type == "candlestick" and fig.layout.xaxis.type == "category"
     assert charts.outcome_breakdown(res).data and charts.mfe_mae_distribution(res).data
     assert charts.side_breakdown(res).data
+
+
+def test_clicked_bars_map_back_to_the_rows_they_count():
+    df = make_engine_df()
+    p = runner.RunParams(mode="backtest", timeframes=("1D",), lengths=(4, 8, 16),
+                         stages=(ew.STAGE_IN_PROGRESS, ew.STAGE_COMPLETED), horizon_bars=30)
+    res = runner.run_engine(df, p)
+
+    fig = charts.outcome_breakdown(res)
+    for curve, trace in enumerate(fig.data):
+        for i, height in enumerate(trace.y):
+            bars = charts.picked_bars(fig, [{"curve_number": curve, "point_index": i}])
+            assert int(runner.bar_mask(res, "status", bars).sum()) == height
+
+    hist = charts.mfe_mae_distribution(res)
+    total = 0
+    for curve, trace in enumerate(hist.data[:1]):                      # MFE panel
+        for i, height in enumerate(trace.y):
+            bars = charts.picked_bars(hist, [{"curve_number": curve, "point_index": i}])
+            total += height
+            assert int(runner.range_mask(res, bars).sum()) >= height   # shared bin edges count twice
+    assert total == int(res["status"].eq("TRIGGERED").sum())
+    assert charts.picked_bars(fig, [{"curve_number": 99, "point_index": 0}]) == []
