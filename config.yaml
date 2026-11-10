@@ -1,0 +1,48 @@
+# All tunable values live here. Paths are relative to this file's folder.
+
+# ---- files -------------------------------------------------------------------
+tickers_file: data/tickers.csv
+stock_csv: data/stock.csv
+backups_dir: data/backups
+results_dir: results
+logs_dir: logs
+backups_keep: 5
+dashboard_filters_file: data/dashboard_filters.json   # saved dashboard filters
+
+# ---- data download -----------------------------------------------------------
+timeframes: ["1D", "4hr"]
+incremental_days: 30          # how much recent data to re-download on each update
+full_history:
+  "1D": "3y"                  # first download / new ticker
+  "4hr": "730d"               # yfinance 60m limit is ~730 days
+intraday_max_days: 729        # hard cap for any 60m request (yfinance limit)
+timezone: Asia/Kolkata
+batch_size: 50                # tickers per yf.download call
+retries: 3
+backoff_seconds: 2            # sleep = backoff_seconds * attempt number
+auto_adjust: false            # false = split-adjusted only (like TradingView's default)
+price_decimals: 2             # OHLC rounding when stored (removes float32 noise like 2309.1001)
+short_history_bars: 500       # flag tickers with fewer bars than this
+indicator_decimals: 4         # rounding of indicator columns
+
+
+# ---- engine ------------------------------------------------------------------
+min_bars: 120
+engine:
+  lengths: [4, 8, 16]
+  horizon_bars: 30
+  pivot_tie: strict
+  stages: ["WAVE5_IN_PROGRESS"]
+  min_w5_vs_w1: 0.0
+  hi_source: high
+  lo_source: low
+
+# ---- dashboard chart ---------------------------------------------------------
+chart:
+  bars_before: 150            # bars shown before the signal
+  height: 680
+  ema_fast: "13_ema"          # EMA columns drawn on the signal chart
+  ema_slow: "55_ema"
+
+# indicator values (at the signal bar) copied into every results file
+signal_indicators: ["rsi", "dtosck", "dtoscd", "histogram", "13_ema", "21_ema", "55_ema", "atr14", "cci"]

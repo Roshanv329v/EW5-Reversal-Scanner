@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+data/stock.csv
+data/stock.csv.tmp
+data/backups/
+results/
+logs/
+data/dashboard_filters.json
+.DS_Store
