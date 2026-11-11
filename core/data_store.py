@@ -2,7 +2,8 @@
 Incremental NSE data store.
 
 Downloads Daily and 60m bars from yfinance, converts everything to timezone-naive
-IST, builds 4hr bars from the 60m bars (stock_data.build_4h_from_hourly), merges into
+IST, keeps the 60m bars and also builds 4hr bars from them
+(stock_data.build_4h_from_hourly; one 60m download serves both), merges into
 one stock.csv and adds the indicators (stock_data.calculate_indicator_values):
 
     Ticker, time, time_frame, Open, High, Low, Close, Volume, <indicator columns>
@@ -34,7 +35,8 @@ BASE_SCHEMA = ["Ticker", "time", "time_frame", *OHLC, "Volume"]
 SCHEMA = [*BASE_SCHEMA, *INDICATOR_COLS]
 KEYS = ["Ticker", "time_frame", "time"]
 TIME_FMT = "%Y-%m-%d %H:%M:%S"
-YF_INTERVAL = {"1D": "1d", "4hr": "60m"}       # yfinance has no 4h: 60m is converted
+# time_frame -> yfinance interval. 60m is stored as it comes; 4hr is built from the same 60m bars.
+YF_INTERVAL = {"1D": "1d", "60m": "60m", "4hr": "60m"}
 
 log = logging.getLogger("ew_app.data")
 
@@ -114,6 +116,8 @@ def to_schema(raw: Optional[pd.DataFrame], ticker: str, time_frame: str, cfg: di
         df.index = df.index.normalize()
     elif time_frame == "4hr":
         df = bars_4h(df)
+    elif time_frame == "60m":
+        pass                                         # stored as downloaded
     else:
         raise ValueError(f"Unsupported time_frame: {time_frame}")
 
@@ -312,14 +316,20 @@ def update_data(cfg: dict, tickers: Sequence[str], timeframes: Sequence[str],
     inc_start = (today - timedelta(days=int(incremental_days))).strftime("%Y-%m-%d")
     last_bar = existing.groupby(["time_frame", "Ticker"])["time"].max() if not existing.empty else {}
 
-    jobs: list[tuple[str, str, list[str]]] = []          # (time_frame, "full"/"incremental", batch)
-    size = int(cfg["batch_size"])
+    # Timeframes that come from the same yfinance interval share one download (60m and 4hr).
+    sources: dict[str, list[str]] = {}
     for tf in timeframes:
+        sources.setdefault(YF_INTERVAL[tf], []).append(tf)
+
+    jobs: list[tuple[str, list[str], str, list[str]]] = []   # (interval, timeframes, kind, batch)
+    size = int(cfg["batch_size"])
+    for interval, tfs in sources.items():
         need_full = [t for t in tickers
-                     if full or (tf, t) not in last_bar or last_bar[(tf, t)] < pd.Timestamp(inc_start)]
+                     if full or any((tf, t) not in last_bar or last_bar[(tf, t)] < pd.Timestamp(inc_start)
+                                    for tf in tfs)]
         incremental = [t for t in tickers if t not in need_full]
         for kind, group in (("full", need_full), ("incremental", incremental)):
-            jobs += [(tf, kind, group[i:i + size]) for i in range(0, len(group), size)]
+            jobs += [(interval, tfs, kind, group[i:i + size]) for i in range(0, len(group), size)]
 
     say(f"Update started: {len(tickers)} tickers, timeframes {list(timeframes)}, "
         f"{'FULL re-download' if full else f'incremental {incremental_days}d'}")
@@ -327,26 +337,28 @@ def update_data(cfg: dict, tickers: Sequence[str], timeframes: Sequence[str],
     new_frames: list[pd.DataFrame] = []
     failed: dict[str, list[str]] = {tf: [] for tf in timeframes}
     refreshed: list[tuple[str, str]] = []
-    for n, (tf, kind, batch) in enumerate(jobs, start=1):
+    for n, (interval, tfs, kind, batch) in enumerate(jobs, start=1):
+        label = " + ".join(tfs)
         if progress:
-            progress(n - 1, len(jobs), f"{tf} · {kind} · {batch[0]} … ({len(batch)} tickers)")
-        period, start = (cfg["full_history"][tf], None) if kind == "full" else (None, inc_start)
-        if tf == "4hr":
+            progress(n - 1, len(jobs), f"{label} · {kind} · {batch[0]} … ({len(batch)} tickers)")
+        period, start = (cfg["full_history"][tfs[0]], None) if kind == "full" else (None, inc_start)
+        if interval != "1d":
             # 60m data only exists for ~730 days. A start date works for every ticker; a
             # `period` fails for stocks listed more recently than that.
             floor = (today - timedelta(days=int(cfg["intraday_max_days"]))).strftime("%Y-%m-%d")
             period, start = None, max(start or floor, floor)
-        say(f"{tf} {kind}: {len(batch)} tickers ({period or 'from ' + str(start)})")
-        got = _fetch_with_retries(fetch, batch, YF_INTERVAL[tf], period, start,
+        say(f"{label} {kind}: {len(batch)} tickers ({period or 'from ' + str(start)})")
+        got = _fetch_with_retries(fetch, batch, interval, period, start,
                                   int(cfg["retries"]), float(cfg["backoff_seconds"]), say)
         for t in batch:
-            frame = to_schema(got.get(t), t, tf, cfg)
-            if frame.empty:
-                failed[tf].append(t)
-            else:
-                new_frames.append(frame)
-                if kind == "full":
-                    refreshed.append((t, tf))
+            for tf in tfs:
+                frame = to_schema(got.get(t), t, tf, cfg)
+                if frame.empty:
+                    failed[tf].append(t)
+                else:
+                    new_frames.append(frame)
+                    if kind == "full":
+                        refreshed.append((t, tf))
     if progress:
         progress(len(jobs), len(jobs), "Merging and saving")
 

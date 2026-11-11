@@ -26,7 +26,7 @@ Data flow:
 tickers.csv + indian_index + commodity ──► yfinance (1d, 60m)
         │
         ▼
-IST conversion ─► 60m → 4hr ─► merge + dedupe ─► indicators ─► data/stock.csv
+IST conversion ─► 60m (kept) + 60m → 4hr ─► merge + dedupe ─► indicators ─► data/stock.csv
                                                                     │
                           screen_wave5 / backtest_wave5 ◄───────────┤
                                      │                              │
@@ -77,9 +77,15 @@ Steps of one update:
 
 Running the same update twice produces the identical file.
 
+### 60m and 4hr from one download
+
+Three timeframes are stored: `1D`, `4hr` and `60m`. The 60m bars are saved as downloaded
+(NSE: 09:15, 10:15 … 15:15, seven per session), and the same download is used to build the 4hr
+bars, so adding 60m costs no extra requests. yfinance serves about 730 days of 60m data.
+
 ### 60m → 4hr (`build_4h_from_hourly`)
 
-yfinance has no 4-hour interval, so `interval="60m"` is downloaded and converted per day:
+yfinance has no 4-hour interval, so the 60m bars are converted per day:
 
 - the **first four** 60m bars of the day form the first bar,
 - the **remaining** bars of the day form the second bar,
@@ -118,7 +124,7 @@ rsi, rsi_a, e, f, storsi, dtosck, dtoscd, maValue, normalizedRSI, histogram,
 13_ema, 21_ema, 55_ema, atr14, cci
 ```
 
-`time` is `YYYY-MM-DD HH:MM:SS` in IST. `time_frame` is `1D` or `4hr`.
+`time` is `YYYY-MM-DD HH:MM:SS` in IST. `time_frame` is `1D`, `4hr` or `60m`.
 Prices are split-adjusted but not dividend-adjusted (`auto_adjust: false`).
 
 ---
@@ -225,4 +231,5 @@ Restart the app after changing `config.yaml`, `stock_data.py` or anything under 
 - yfinance serves only about 730 days of 60m data, so 4hr history cannot go back further.
 - Some Yahoo sector indices (several `NIFTY_*.NS`) return almost no daily history.
 - Yahoo data can be late or revised; the incremental window re-downloads recent bars for that reason.
-- The engine is pure Python: a walk-forward backtest over ~245 tickers and two timeframes takes a while.
+- The engine is pure Python: with 60m included, a live screen over all three timeframes takes about 15 seconds and long 60m backtests take longer.
+- `stock.csv` is about 235 MB once 60m bars are stored, so `backups_keep` is set to 3.

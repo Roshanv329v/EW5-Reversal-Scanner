@@ -137,7 +137,7 @@ def _stock_tickers() -> list[str]:
 
 with tab_data:
     st.subheader(":material/database: Stock data")
-    st.caption(f"`{_rel(cfg['stock_csv'])}` · Daily and 4hr bars (built from 60m) from yfinance, "
+    st.caption(f"`{_rel(cfg['stock_csv'])}` · Daily, 4hr and 60m bars from yfinance (4hr is built from the 60m bars), "
                "stored as timezone-naive IST, with indicators")
 
     if do_update or do_full:

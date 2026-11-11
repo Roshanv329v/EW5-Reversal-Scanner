@@ -6,15 +6,16 @@ stock_csv: data/stock.csv
 backups_dir: data/backups
 results_dir: results
 logs_dir: logs
-backups_keep: 5
+backups_keep: 3               # stock.csv is large once 60m bars are stored
 dashboard_filters_file: data/dashboard_filters.json   # saved dashboard filters
 
 # ---- data download -----------------------------------------------------------
-timeframes: ["1D", "4hr"]
+timeframes: ["1D", "4hr", "60m"]   # 4hr and 60m come from one 60m download
 incremental_days: 30          # how much recent data to re-download on each update
 full_history:
   "1D": "3y"                  # first download / new ticker
   "4hr": "730d"               # yfinance 60m limit is ~730 days
+  "60m": "730d"
 intraday_max_days: 729        # hard cap for any 60m request (yfinance limit)
 timezone: Asia/Kolkata
 batch_size: 50                # tickers per yf.download call

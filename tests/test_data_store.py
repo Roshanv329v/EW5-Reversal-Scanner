@@ -172,3 +172,37 @@ def test_final_list_is_stocks_plus_indices_plus_commodities():
     final = stock_data.build_final_list(["ABB.NS", "^NSEI"])
     assert final[0] == "ABB.NS" and final.count("^NSEI") == 1
     assert set(stock_data.indian_index) <= set(final) and set(stock_data.commodity) <= set(final)
+
+
+# ---------------------------------------------------------------- 60m timeframe
+def test_60m_is_stored_and_shares_one_download_with_4hr(cfg):
+    fetch = FakeFetch(days=20)
+    report = ds.update_data(cfg, ["AAA.NS"], ["1D", "4hr", "60m"], 30, fetch=fetch, today=TODAY)
+    assert [call[1] for call in fetch.calls] == ["1d", "60m"]            # one intraday download
+    assert not report.failed
+
+    stored = ds.load_stock_csv(cfg["stock_csv"])
+    counts = stored.groupby("time_frame").size().to_dict()
+    assert counts == {"1D": 20, "4hr": 40, "60m": 140}                   # 7 hourly bars per day
+    hourly = stored[stored["time_frame"] == "60m"]
+    assert sorted(hourly["time"].dt.strftime("%H:%M").unique()) == [
+        "09:15", "10:15", "11:15", "12:15", "13:15", "14:15", "15:15"]
+    # each 4hr bar is exactly the aggregate of its 60m bars
+    day = hourly[hourly["time"].dt.date == hourly["time"].dt.date.iloc[0]]
+    first_4h = stored[(stored["time_frame"] == "4hr")].iloc[0]
+    assert first_4h["Open"] == day["Open"].iloc[0] and first_4h["High"] == day["High"].iloc[:4].max()
+    assert first_4h["Close"] == day["Close"].iloc[3]
+    assert stored.loc[stored["time_frame"] == "60m", "13_ema"].notna().any()   # indicators too
+
+
+def test_adding_60m_later_downloads_full_intraday_history_once(cfg):
+    fetch = FakeFetch(days=60)
+    ds.update_data(cfg, ["AAA.NS"], ["1D", "4hr"], 30, fetch=fetch, today=TODAY)
+    ds.update_data(cfg, ["AAA.NS"], ["1D", "4hr", "60m"], 30, fetch=fetch, today=TODAY)
+    interval, start = fetch.calls[-1][1], fetch.calls[-1][3]
+    assert interval == "60m" and start < "2026-02-11"                    # not just the last 30 days
+    first = ds.load_stock_csv(cfg["stock_csv"])
+    ds.update_data(cfg, ["AAA.NS"], ["1D", "4hr", "60m"], 30, fetch=fetch, today=TODAY)
+    assert fetch.calls[-1][3] == "2026-02-11"                            # now incremental
+    pd.testing.assert_frame_equal(first, ds.load_stock_csv(cfg["stock_csv"]))
+    assert not first.duplicated(ds.KEYS).any()

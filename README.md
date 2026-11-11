@@ -3,7 +3,7 @@
 A local Streamlit app (http://localhost:8501) with four tabs:
 
 1. **Dashboard** – KPIs, breakdowns, a filterable signal table and a candlestick chart per signal with the wave count, reversal levels and EMA 13 / 55.
-2. **Data** – download / incrementally update Daily and 4hr bars from yfinance into `data/stock.csv`, with indicators.
+2. **Data** – download / incrementally update Daily, 4hr and 60m bars from yfinance into `data/stock.csv`, with indicators.
 3. **Run / Backtest** – run the Elliott Wave 5 screener (`elliott_wave5_screener.py`, unchanged) live, as of a past date, or walk-forward.
 4. **User Guide** – how to use it for F&O study, and the technical documentation (also in `docs/`).
 
@@ -54,6 +54,7 @@ download picks that up.
 Notes on the data:
 
 - Times are stored as timezone-naive IST. Daily bars are at `00:00:00`.
+- 60m bars are stored as downloaded; the same download also feeds the 4hr bars.
 - 4hr bars are built from 60m bars by `build_4h_from_hourly` in `stock_data.py`: the first four
   60m bars of a day, then the rest. For NSE that is `09:15` and `13:15`, like TradingView.
 - Indicators (`calculate_indicator_values` in `stock_data.py`, needs TA-Lib) are recalculated on

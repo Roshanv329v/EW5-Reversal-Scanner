@@ -51,12 +51,17 @@ ignores small wiggles and counts only large waves.
 | 16 | **major** | Large trend legs lasting months | Rare | Large; needs ~500 bars of history |
 
 The same degree means a different amount of time on each timeframe, because one 1D bar is a
-day and one 4hr bar is half a day:
+day, one 4hr bar is half a day and one 60m bar is an hour (seven per NSE session):
 
 | | minor (4) | intermediate (8) | major (16) |
 |---|---|---|---|
+| **60m** | swings inside one to two days | swings of a few days | swings of one to two weeks |
 | **4hr** | swings of a few days | swings of one to two weeks | swings of several weeks |
 | **1D** | swings of one to two weeks | swings of several weeks | swings of months |
+
+**60m** is the fastest view. Use it for timing an entry inside a 4hr or 1D signal you already
+like, or for very short holds. It has the most signals and the most noise, and 60m history
+only goes back about two years.
 
 How to use the three together:
 
@@ -72,7 +77,7 @@ How to use the three together:
 
 #### Which degree fits an F&O holding period under two weeks
 
-Two weeks is about **10 daily bars or 20 4hr bars**. The move you are waiting for (TRIGGER to
+Two weeks is about **10 daily bars, 20 4hr bars or 70 60m bars**. The move you are waiting for (TRIGGER to
 W4_END) has to fit inside that window, so the degree should be chosen by how long its
 corrections normally take.
 
@@ -100,9 +105,13 @@ Reading it for a holding period under two weeks:
 - **Major** (either timeframe) is best treated as direction and context. Its full correction
   can take longer than a short-dated contract allows, and there are few signals.
 
+On **60m**, the degree that matches a one-to-two-week swing is **major** (length 16); 60m minor
+and intermediate are intraday to few-day moves. The table above was measured before 60m was
+enabled, so run your own 60m backtest for comparable numbers.
+
 A practical setup for this kind of holding period: run the screen with lengths **4 and 8**, keep
-**16** switched on only to see the bigger picture, and set `horizon_bars` to **10 for 1D** or
-**20 for 4hr** when you backtest, so the statistics describe a two-week hold and not a six-week one.
+**16** switched on only to see the bigger picture, and set `horizon_bars` to **10 for 1D**,
+**20 for 4hr** or **70 for 60m** when you backtest, so the statistics describe a two-week hold and not a six-week one.
 
 These numbers come from one period and one universe. They describe what happened, not what
 will happen; re-run the backtest on your own dates before relying on them.
@@ -160,7 +169,7 @@ The app works on the cash/spot price. If you study F&O trades from it, these are
   entry to STOP. The dashboard's hit rates tell you how often W4_END and FIB 0.5 were actually
   reached in the backtest.
 - **Timeframe and expiry.** `horizon_bars` is how long a signal is followed (30 bars = about six
-  weeks on 1D, about three weeks on 4hr). A view that needs weeks to play out does not fit a
+  weeks on 1D, about three weeks on 4hr, about four trading days on 60m). A view that needs weeks to play out does not fit a
   contract expiring in days.
 - **Futures vs options.** A futures position has linear profit and loss and can gap through the
   STOP level. A bought option limits the loss to the premium but loses value with time, so a

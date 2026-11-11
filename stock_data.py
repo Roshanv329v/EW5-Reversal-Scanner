@@ -29,13 +29,8 @@ import talib
 # Ticker lists. Symbols are used exactly as written (yfinance format) - no renaming.
 # ----------------------------------------------------------------------------------
 indian_index = ['^NSEI', '^NSEBANK', '^CNXAUTO', '^CNXPSE', '^CNXFMCG', '^CNXIT', '^CNXPHARMA',
-                '^CNXPSUBANK', '^CNXENERGY', '^INDIAVIX', 'NIFTY_FIN_SERVICE.NS', '^BSESN',
-                # sector indices that were in data/tickers.csv (moved here, yfinance format)
-                'NIFTY_CEMENT.NS', 'NIFTY_CHEMICALS.NS', 'NIFTY_CONSR_DURBL.NS',
-                'NIFTY_FINSEREXBNK.NS', 'NIFTY_HEALTHCARE.NS', 'NIFTY_MIDSML_HLTH.NS',
-                'NIFTY_MS_FIN_SERV.NS', 'NIFTY_MS_IT_TELCM.NS', 'NIFTY_OIL_AND_GAS.NS',
-                'NIFTY_PVT_BANK.NS', 'NIFTY_REITS_REALTY.NS', 'NIFTY500_HEALTH.NS']
-commodity = ['NG=F', 'CL=F', 'GC=F', 'BTC-USD', 'ETH-USD', 'XRP-USD', 'SOL-USD', 'USDT-USD']
+                '^CNXPSUBANK', '^CNXENERGY', '^INDIAVIX', 'NIFTY_FIN_SERVICE.NS', '^BSESN']
+commodity = ['NG=F', 'CL=F', 'GC=F', 'SI=F']
 
 
 def read_stock_tickers(path: Path) -> list[str]:
