@@ -92,6 +92,44 @@ def bars_4h(hourly: pd.DataFrame) -> pd.DataFrame:
     return out.set_index("Date").rename_axis(None)
 
 
+def weekly_bars(daily: pd.DataFrame, name: str = "1W", week_ends: str = "SUN") -> pd.DataFrame:
+    """
+    Daily rows (stock.csv base schema, any number of tickers) -> weekly rows. Each bar
+    is stamped with the first day of its week (Monday when weeks end on Sunday). The
+    newest bar is the week still in progress, like the newest daily bar during a session.
+    """
+    if daily.empty:
+        return empty_frame()
+    d = daily.sort_values(["Ticker", "time"])
+    week = d["time"].dt.to_period(f"W-{week_ends}").dt.start_time
+    out = (d.assign(time=week).groupby(["Ticker", "time"], sort=True)
+             .agg(Open=("Open", "first"), High=("High", "max"), Low=("Low", "min"),
+                  Close=("Close", "last"), Volume=("Volume", "sum"))
+             .reset_index())
+    out["time_frame"] = name
+    return out[BASE_SCHEMA]
+
+
+def with_weekly(bars: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Replace the weekly rows with ones rebuilt from the stored daily rows."""
+    wk = cfg["htf"]["weekly"]
+    rest = bars[bars["time_frame"] != wk["name"]][BASE_SCHEMA]
+    weekly = weekly_bars(rest[rest["time_frame"] == wk["source"]], wk["name"], wk["week_ends"])
+    if weekly.empty:
+        return _sorted(rest)
+    return _sorted(pd.concat([rest, weekly], ignore_index=True))
+
+
+def rebuild_weekly(cfg: dict) -> int:
+    """Build the weekly bars for a stock.csv that has none yet. Returns the weekly row count."""
+    stored = load_stock_csv(cfg["stock_csv"])
+    if stored.empty:
+        return 0
+    merged = add_indicators(with_weekly(stored[BASE_SCHEMA], cfg), int(cfg["indicator_decimals"]))
+    save_stock_csv(merged, cfg["stock_csv"], cfg["backups_dir"], int(cfg["backups_keep"]))
+    return int(merged["time_frame"].eq(cfg["htf"]["weekly"]["name"]).sum())
+
+
 def empty_frame() -> pd.DataFrame:
     df = pd.DataFrame({c: pd.Series(dtype="float64") for c in BASE_SCHEMA})
     df["Ticker"] = df["Ticker"].astype("object")
@@ -372,6 +410,7 @@ def update_data(cfg: dict, tickers: Sequence[str], timeframes: Sequence[str],
 
     saved = not new.empty
     if saved:
+        merged = with_weekly(merged, cfg)                 # weekly bars follow the daily ones
         say(f"Calculating indicators for {merged.groupby(['Ticker', 'time_frame']).ngroups} series")
         merged = add_indicators(merged, int(cfg["indicator_decimals"]))
         save_stock_csv(merged, cfg["stock_csv"], cfg["backups_dir"], int(cfg["backups_keep"]))

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pandas as pd
+
 import elliott_wave5_screener as ew
 from core import charts, runner
 from tests.conftest import make_engine_df
@@ -75,3 +77,12 @@ def test_indicators_share_one_pane_and_histogram_shows_only_extremes():
     # no indicator data -> no pane
     assert charts.signal_chart(make_engine_df()[lambda d: d["Ticker"] == row["Ticker"]], row, None,
                                panes=["rsi"], **kwargs).layout.height == 600
+
+
+def test_alignment_breakdown_bars_carry_their_alignment():
+    stats = pd.DataFrame({"alignment": ["AGAINST", "ALIGNED"], "signals": [30, 10], "stop_rate": [60.0, 40.0],
+                          "t1_hit_rate": [45.0, 55.0], "t2_hit_rate": [20.0, 35.0]})
+    fig = charts.alignment_breakdown(stats, "T1", "T2")
+    assert [t.name for t in fig.data] == ["Stop rate", "T1", "T2"]
+    assert charts.picked_bars(fig, [{"curve_number": 1, "point_index": 0}]) == [["ALIGNED"]]   # ALIGNED first
+    assert list(fig.data[0].y) == [40.0, 60.0]

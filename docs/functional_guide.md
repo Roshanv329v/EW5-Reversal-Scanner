@@ -296,6 +296,89 @@ description of one period, not a forecast.
 
 ---
 
+## Trading with the higher timeframe
+
+The expensive mistake is a trade that looks right on a small chart while the bigger chart is
+moving the other way: a LONG on 60m inside a 4hr and daily downtrend. To make that visible,
+every signal is tagged with the trend of the timeframes above it.
+
+| Signal timeframe | Parent | Grandparent |
+|---|---|---|
+| 60m | 4hr | 1D |
+| 4hr | 1D | 1W |
+| 1D | 1W | none |
+
+Weekly (1W) bars are built from the stored daily bars, so nothing extra is downloaded.
+
+**Trend of a higher-timeframe bar** (from the EMA 13 and EMA 55 you already see on the chart):
+
+- **BULLISH**: close above EMA 55 and EMA 13 above EMA 55.
+- **BEARISH**: close below EMA 55 and EMA 13 below EMA 55.
+- **NEUTRAL**: anything else (price and averages disagree, usually a range or a turn).
+
+**Alignment of the signal:**
+
+| Alignment | Meaning |
+|---|---|
+| **ALIGNED** | Every higher timeframe points the way of the trade (LONG with bullish, SHORT with bearish). |
+| **MIXED** | The parent is neutral, or parent and grandparent disagree. |
+| **AGAINST** | The parent points the other way. This is the lower-timeframe-bullish, higher-timeframe-bearish trap. |
+| **UNKNOWN** | No higher timeframe, or not enough history for its EMA 55 yet. |
+
+A signal only reads a higher-timeframe bar that had already **finished** when the signal bar
+closed, so the backtest never sees the future.
+
+### Where to find it
+
+- **Signal table**: the `alignment` column sits next to the side (green, amber, red);
+  `htf1_trend` (parent) and `htf2_trend` (grandparent) are at the end of the table.
+- **HTF alignment filter** at the top of each dashboard. Pick ALIGNED and press *Save filters*
+  to make it your default view.
+- **Results by higher-timeframe alignment** chart and table under the breakdown charts: stop
+  rate, target hit rates, MFE and MAE for each group. Click a bar to see its signals.
+- **Run / Backtest**: *Keep only signals aligned with the higher timeframes* drops everything
+  else before the file is saved. Leave it off if you want to compare the groups.
+
+### How to use it as a plan
+
+| Alignment | Suggested handling |
+|---|---|
+| ALIGNED | The setup to study first. All targets are reasonable to consider. |
+| MIXED | Smaller objective (first target), or wait for the parent to pick a side. |
+| AGAINST | Skip, or treat as a short counter-trend scalp at most. |
+
+EW5 is a counter-trend idea on its own timeframe, so most EW5 signals are AGAINST: an
+up-impulse on 60m normally sits inside a rising 4hr chart. The ALIGNED ones are the special
+case where the small impulse was only a bounce inside a bigger opposite trend, and the
+reversal takes you back into that trend.
+
+### What the backtest says (11 May to 11 Nov 2026, all tickers, default settings)
+
+| | Signals | Stop rate | Target 1 hit | Target 2 hit | Avg MAE |
+|---|---|---|---|---|---|
+| EW5 ALIGNED | 255 | 56.5% | 58.8% | 51.9% | 1.6% |
+| EW5 MIXED | 361 | 52.6% | 59.5% | 42.8% | 1.8% |
+| EW5 AGAINST | 2,484 | 55.0% | 51.4% | 31.8% | 1.7% |
+| EW3 ALIGNED | 441 | 62.1% | 56.1% | 12.6% | 1.8% |
+| EW3 MIXED | 181 | 66.0% | 54.6% | 9.3% | 1.8% |
+| EW3 AGAINST | 952 | 66.5% | 50.5% | 10.5% | 1.6% |
+
+Rates are out of triggered signals. Targets are W4 end and FIB 0.5 for EW5, W1 end and
+W3 1.618 for EW3.
+
+Read this honestly:
+
+- Alignment **raises the target hit rates**, most clearly for EW5: the deeper FIB 0.5 target
+  is hit 52% of the time when aligned against 32% when against.
+- Alignment does **not lower the stop rate or the average adverse move** by much in this
+  sample (EW3 improves by about four points, EW5 not at all). The stop still gets hit more
+  than half the time. Alignment improves how far winners go, not how often a trade is stopped.
+- So the loss on a single trade is still set by your stop distance and position size. The
+  alignment filter is a reason to prefer one setup over another, not a replacement for a stop.
+- Six months is one market phase. Rerun the backtest over other periods before relying on it.
+
+---
+
 ## Good habits with this tool
 
 - Click through the charts. The wave labels show exactly what the engine counted; if the count

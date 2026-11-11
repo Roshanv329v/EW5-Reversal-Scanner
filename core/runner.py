@@ -19,6 +19,7 @@ import pandas as pd
 
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
+from core import htf
 
 MODES = {"live": "Live screen", "asof": "Point-in-time (as-of date)", "backtest": "Walk-forward backtest"}
 HI_SOURCES = ("high", "close", "max open/close")
@@ -26,6 +27,7 @@ LO_SOURCES = ("low", "close", "min open/close")
 TARGETS = ("W4_END", "FIB_0.500", "FIB_0.618", "FIB_0.764", "FIB_0.854")
 LEVEL_COLS = {"ew5": "reversal_levels", "ew3": "wave_levels"}        # list column per strategy
 LEVEL_NAMES = {"ew5": ew.LEVEL_NAMES, "ew3": ew3.LEVEL_NAMES}
+SIDE_COLS = {"ew5": "reversal_side", "ew3": "trade_side"}
 FILE_PREFIX = {"ew5": "", "ew3": "ew3_"}                              # EW5 keeps its file names
 
 
@@ -52,6 +54,7 @@ class RunParams:
     contexts: tuple[str, ...] = ew3.DEFAULT_CONTEXTS                  # ew3 only
     min_retrace: float = ew3.DEFAULT_MIN_RETRACE                      # ew3 only
     max_retrace: float = ew3.DEFAULT_MAX_RETRACE                      # ew3 only
+    aligned_only: bool = False                  # keep only signals ALIGNED with the higher timeframes
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)
@@ -77,13 +80,24 @@ def end_of_day(date: Any) -> pd.Timestamp:
 # ----------------------------------------------------------------------------------
 # Engine calls
 # ----------------------------------------------------------------------------------
-def run_engine(df: pd.DataFrame, p: RunParams, indicator_cols: Sequence[str] = ()) -> pd.DataFrame:
+def run_engine(df: pd.DataFrame, p: RunParams, indicator_cols: Sequence[str] = (),
+               htf_cfg: Optional[dict] = None) -> pd.DataFrame:
     """
     Run one of the three modes on stock data and return the result with level columns.
     `indicator_cols` from stock.csv are copied in at the signal bar (display only - the
-    engine itself never sees them).
+    engine itself never sees them). With `htf_cfg` (config.yaml `htf`), every signal also
+    gets the trend of its higher timeframes and an `alignment` column (core/htf.py).
     """
-    data = df[df["time_frame"].isin(p.timeframes)]
+    res = _run_screener(df[df["time_frame"].isin(p.timeframes)], p, indicator_cols)
+    if htf_cfg is None:
+        return res
+    res = htf.attach_alignment(res, df, SIDE_COLS[p.strategy], htf_cfg)
+    if p.aligned_only:
+        res = res[res["alignment"].eq(htf.ALIGNED)].reset_index(drop=True)
+    return res
+
+
+def _run_screener(data: pd.DataFrame, p: RunParams, indicator_cols: Sequence[str]) -> pd.DataFrame:
     if p.strategy == "ew3":
         return attach_indicators(explode_levels(_run_ew3(data, p), ew3.LEVEL_NAMES, LEVEL_COLS["ew3"]),
                                  data, indicator_cols)

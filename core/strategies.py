@@ -17,7 +17,7 @@ import pandas as pd
 
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew5
-from core import charts
+from core import charts, htf
 from core.charts import C
 
 
@@ -84,6 +84,12 @@ class Strategy:
             "avg_mae": float(trig["mae_pct"].mean()) if n_trig else float("nan"),
         }
 
+    def alignment_stats(self, res: pd.DataFrame) -> pd.DataFrame:
+        """The headline numbers once per higher-timeframe alignment bucket."""
+        rows = [{"alignment": name, **self.kpis(res[res["alignment"].eq(name)])}
+                for name in htf.ALIGNMENTS if res["alignment"].eq(name).any()]
+        return pd.DataFrame(rows)
+
 
 # ----------------------------------------------------------------------------------
 # EW5 - wave 5 reversal
@@ -101,10 +107,11 @@ EW5 = Strategy(
     level_groups=charts.LEVEL_GROUPS, level_labels={"STOP": "STOP / W5_END"},
     wave_name="Impulse 1-5", ratio_col="w5_vs_w1",
     filter_cols=(("time_frame", "Timeframe"), ("degree", "Degree"), ("reversal_side", "Side"),
-                 ("stage", "Stage"), ("status", "Status"), ("result", "Result")),
-    table_cols=("Ticker", "time_frame", "degree", "reversal_side", "status", "result", "mfe_pct", "mae_pct",
+                 ("alignment", "HTF alignment"), ("stage", "Stage"), ("status", "Status"), ("result", "Result")),
+    table_cols=("Ticker", "time_frame", "degree", "reversal_side", "alignment", "status", "result",
+                "mfe_pct", "mae_pct",
                 "stage", "signal_time", "close", "w5_end_price", "bars_since_w5", "w5_vs_w1",
-                "entry_price", "first_target_hit", "TRIGGER", "STOP", "W4_END"),
+                "entry_price", "first_target_hit", "TRIGGER", "STOP", "W4_END", "htf1_trend", "htf2_trend"),
     fact_levels=(("Trigger", "TRIGGER"), ("Stop", "STOP"), ("W4 end", "W4_END")),
     prefs_file_key="dashboard_filters_file",
     summarize=ew5.summarize_backtest,
@@ -145,10 +152,12 @@ EW3 = Strategy(
     level_labels={"STOP": "STOP / W2_END", "W0_START": "W0_START (invalid beyond)"},
     wave_name="Waves 0-1-2", ratio_col="w2_retrace",
     filter_cols=(("time_frame", "Timeframe"), ("degree", "Degree"), ("trade_side", "Side"),
-                 ("stage", "Stage"), ("context", "Context"), ("status", "Status"), ("result", "Result")),
-    table_cols=("Ticker", "time_frame", "degree", "trade_side", "status", "result", "mfe_pct", "mae_pct",
+                 ("alignment", "HTF alignment"), ("stage", "Stage"), ("context", "Context"), ("status", "Status"), ("result", "Result")),
+    table_cols=("Ticker", "time_frame", "degree", "trade_side", "alignment", "status", "result",
+                "mfe_pct", "mae_pct",
                 "stage", "context", "signal_time", "close", "w2_end_price", "bars_since_w2", "w2_retrace",
-                "entry_price", "first_target_hit", "TRIGGER", "STOP", "W1_END", "W3_TGT_1.618xW1"),
+                "entry_price", "first_target_hit", "TRIGGER", "STOP", "W1_END", "W3_TGT_1.618xW1",
+                "htf1_trend", "htf2_trend"),
     fact_levels=(("Trigger", "TRIGGER"), ("Stop", "STOP"), ("W1 end", "W1_END"),
                  ("W3 1.618", "W3_TGT_1.618xW1")),
     prefs_file_key="dashboard_filters_file_ew3",

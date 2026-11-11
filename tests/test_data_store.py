@@ -52,18 +52,23 @@ def test_update_twice_gives_identical_file(cfg):
     assert not stored.duplicated(ds.KEYS).any()
 
 
+def _daily(stored: pd.DataFrame) -> pd.DataFrame:
+    """The downloaded daily rows (weekly rows are derived from them on every update)."""
+    return stored[stored["time_frame"] == "1D"].reset_index(drop=True)
+
+
 def test_second_update_is_incremental_and_replaces_revised_bars(cfg):
     fetch = FakeFetch()
     ds.update_data(cfg, TICKERS, ["1D"], 30, fetch=fetch, today=TODAY)
     assert fetch.calls[-1][2] == cfg["full_history"]["1D"]          # first run: full history
-    old = ds.load_stock_csv(cfg["stock_csv"])
+    old = _daily(ds.load_stock_csv(cfg["stock_csv"]))
 
     fetch.bump = 5.0                                                # the source revised its bars
     ds.update_data(cfg, TICKERS, ["1D"], 30, fetch=fetch, today=TODAY)
     _, _, period, start = fetch.calls[-1]
     assert period is None and start == "2026-02-11"                 # only the last 30 days
 
-    new = ds.load_stock_csv(cfg["stock_csv"])
+    new = _daily(ds.load_stock_csv(cfg["stock_csv"]))
     assert len(new) == len(old)
     recent = new["time"] >= "2026-02-11"
     np.testing.assert_allclose(new.loc[recent, "Close"], old.loc[recent, "Close"] + 5.0)
@@ -78,7 +83,7 @@ def test_new_ticker_gets_full_history_and_failures_are_collected(cfg):
     kinds = {call[0]: call[2] for call in fetch.calls[1:]}
     assert kinds[("AAA.NS",)] is None                               # incremental
     assert report.failed == {"1D": ["BAD.NS"]}
-    stored = ds.load_stock_csv(cfg["stock_csv"])
+    stored = _daily(ds.load_stock_csv(cfg["stock_csv"]))
     assert stored.groupby("Ticker").size().to_dict() == {"AAA.NS": 60, "BBB.NS": 60}
 
 
@@ -183,7 +188,7 @@ def test_60m_is_stored_and_shares_one_download_with_4hr(cfg):
 
     stored = ds.load_stock_csv(cfg["stock_csv"])
     counts = stored.groupby("time_frame").size().to_dict()
-    assert counts == {"1D": 20, "4hr": 40, "60m": 140}                   # 7 hourly bars per day
+    assert counts == {"1D": 20, "1W": 4, "4hr": 40, "60m": 140}          # 7 hourly bars per day; 1W from 1D
     hourly = stored[stored["time_frame"] == "60m"]
     assert sorted(hourly["time"].dt.strftime("%H:%M").unique()) == [
         "09:15", "10:15", "11:15", "12:15", "13:15", "14:15", "15:15"]

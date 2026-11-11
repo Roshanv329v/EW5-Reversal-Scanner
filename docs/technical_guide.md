@@ -98,6 +98,14 @@ For NSE symbols this gives `09:15` (09:15–13:15) and `13:15` (13:15–15:30), 
 TradingView 4h chart. Instruments that trade around the clock (crypto, commodity futures) also
 get two bars per day by this rule: the first four hours, then the rest of the day.
 
+### Weekly bars (`weekly_bars`, `with_weekly`)
+
+`1W` is not downloaded. After every update the weekly rows are dropped and rebuilt from all
+stored `1D` rows: first open, highest high, lowest low, last close, summed volume per
+Monday-to-Sunday week (`htf.weekly.week_ends`). A bar is stamped with the Monday of its week.
+The newest bar is the week still in progress. `rebuild_weekly(cfg)` (button in the Data tab)
+adds them to a stock.csv that has none.
+
 ### Indicators (`calculate_indicator_values`)
 
 Calculated with TA-Lib for every ticker and timeframe:
@@ -126,7 +134,8 @@ rsi, rsi_a, e, f, storsi, dtosck, dtoscd, maValue, normalizedRSI, histogram,
 13_ema, 21_ema, 55_ema, atr14, cci
 ```
 
-`time` is `YYYY-MM-DD HH:MM:SS` in IST. `time_frame` is `1D`, `4hr` or `60m`.
+`time` is `YYYY-MM-DD HH:MM:SS` in IST. `time_frame` is `1D`, `4hr`, `60m` or `1W`
+(weekly, derived from `1D`).
 Prices are split-adjusted but not dividend-adjusted (`auto_adjust: false`).
 
 ---
@@ -229,6 +238,29 @@ After the engine returns:
 
 Results are cached by `stock.csv` modified time plus parameters, so repeating a run is instant.
 
+### Higher-timeframe alignment (core/htf.py)
+
+`run_engine(..., htf_cfg=cfg["htf"])` calls `htf.attach_alignment` after the screener. It adds
+three columns and changes nothing else; the screeners are not involved.
+
+| Column | Content |
+|---|---|
+| `htf1_trend` | trend of the parent timeframe (`htf.ladder` in config.yaml) |
+| `htf2_trend` | trend of the grandparent timeframe (empty when there is none) |
+| `alignment` | `ALIGNED`, `MIXED`, `AGAINST` or `UNKNOWN` |
+
+- `bar_trend`: BULLISH when `Close > slow EMA` and `fast EMA > slow EMA`, BEARISH when both are
+  below, NEUTRAL otherwise, UNKNOWN when an EMA is missing (`htf.ema_fast`, `htf.ema_slow`).
+- `completed_trend`: per ticker, each bar carries the trend of the bar **before** it.
+- `_lookup`: `merge_asof` (backward, by ticker) from `signal_time` to the higher-timeframe bar
+  that contains it. Together with the shift above, a signal reads the last higher bar that
+  started before its own higher bar, which is always finished when the signal bar closes.
+  Example: a 60m signal at 11:15 uses the previous day's second 4hr bar, yesterday's daily bar.
+- `alignment`: AGAINST when the parent opposes the side; ALIGNED when every known higher
+  timeframe agrees; MIXED otherwise; UNKNOWN without a parent trend.
+- `RunParams.aligned_only` keeps only ALIGNED rows before the results are saved.
+- `Strategy.alignment_stats` gives the KPI set per alignment for the dashboard chart and table.
+
 ### Outcome columns (from `evaluate_signals`)
 
 `status`, `trigger_time`, `entry_price` (close of the trigger bar), `stopped`, `stop_time`,
@@ -277,6 +309,11 @@ Restart the app after changing `config.yaml`, `stock_data.py` or anything under 
 ## Known limits
 
 - yfinance serves only about 730 days of 60m data, so 4hr history cannot go back further.
+- Weekly EMA 55 needs 55 weeks. With 3 years of daily data the first year of weekly trend is
+  UNKNOWN; raise `full_history."1D"` for a longer weekly history.
+- Higher-timeframe lookup assumes a daily bar covers one IST calendar day. That holds for NSE.
+  For the four commodity futures, which trade past midnight IST, an intraday signal between
+  00:00 and about 03:30 IST can read a daily bar that is up to a few hours from finished.
 - Some Yahoo sector indices (several `NIFTY_*.NS`) return almost no daily history.
 - Yahoo data can be late or revised; the incremental window re-downloads recent bars for that reason.
 - The engine is pure Python: with 60m included, a live screen over all three timeframes takes about 15 seconds and long 60m backtests take longer.

@@ -21,6 +21,7 @@ STATUS_COLOR = {"TRIGGERED": C["blue"], "EXTENDED": C["orange"], "FAILED": C["or
                 "NOT_TRIGGERED": C["aqua"], "NO_DATA": C["muted"]}
 EW5_TARGETS = ("W4_END", "FIB_0.500", "FIB_0.618", "FIB_0.764", "FIB_0.854")
 SIDE_COLOR = {"SHORT": C["blue"], "LONG": C["orange"]}
+ALIGN_ORDER = ("ALIGNED", "MIXED", "AGAINST", "UNKNOWN")           # higher-timeframe alignment
 
 # Level groups that can be switched on/off: name -> [(level, colour, dash)]
 LEVEL_GROUPS: dict[str, list[tuple[str, str, str]]] = {
@@ -325,6 +326,28 @@ def mfe_mae_distribution(res: pd.DataFrame, height: int = 360, bins: int = 20) -
     _base_layout(fig, height, "MFE / MAE of triggered signals")
     fig.update_layout(showlegend=False, clickmode="event+select")
     fig.update_yaxes(title_text="signals", col=1)
+    return fig
+
+
+def alignment_breakdown(stats: pd.DataFrame, t1_label: str, t2_label: str, height: int = 360) -> go.Figure:
+    """
+    Grouped bars per higher-timeframe alignment: stop rate and the two target hit rates
+    (all out of triggered signals). customdata of a bar = [alignment].
+    """
+    order = [a for a in ALIGN_ORDER if a in set(stats["alignment"])]
+    table = stats.set_index("alignment").loc[order]
+    x = [f"{name}<br>{int(table.at[name, 'signals']):,} signals" for name in order]
+    fig = go.Figure()
+    for name, column, colour in (("Stop rate", "stop_rate", C["orange"]), (t1_label, "t1_hit_rate", C["blue"]),
+                                 (t2_label, "t2_hit_rate", C["aqua"])):
+        fig.add_trace(go.Bar(
+            x=x, y=table[column], name=name, marker_color=colour,
+            marker_line=dict(color=C["surface"], width=2), customdata=[[a] for a in order],
+            hovertemplate=f"{name}: %{{y:.1f}}%<extra>%{{customdata[0]}}</extra>"))
+    _base_layout(fig, height, "Results by higher-timeframe alignment")
+    fig.update_layout(barmode="group", bargap=0.3, clickmode="event+select")
+    fig.update_xaxes(showgrid=False, tickangle=0)
+    fig.update_yaxes(title_text="% of triggered", ticksuffix="%")
     return fig
 
 

@@ -11,13 +11,13 @@ import streamlit as st
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
 import stock_data
-from core import charts, data_store as ds, prefs, runner, strategies
+from core import charts, data_store as ds, htf, prefs, runner, strategies
 from core.strategies import Strategy
 from core.config import ROOT, load_config, resolve
 
 st.set_page_config(page_title="Elliott Wave Scanner", page_icon="📈", layout="wide")
 
-UP, DOWN = "#2fbf71", "#e66767"                       # green / red used for sides and readings
+UP, DOWN, AMBER = "#2fbf71", "#e66767", "#e0a526"                       # green / red used for sides and readings
 st.markdown("""
 <style>
 .block-container {padding-top: 2.2rem;}
@@ -35,6 +35,8 @@ st.markdown("""
 cfg = load_config()
 ds.setup_logging(cfg["logs_dir"])
 ENGINE = cfg["engine"]
+HTF = cfg["htf"]
+WEEKLY = HTF["weekly"]["name"]
 PLOT_CONFIG = {"displaylogo": False, "scrollZoom": False}   # wheel scrolls the page, not the chart
 
 
@@ -54,7 +56,7 @@ def stock_df() -> pd.DataFrame:
 @st.cache_data(show_spinner=False)
 def _run_engine(path: str, mtime: float, params_json: str) -> pd.DataFrame:
     return runner.run_engine(_load_stock(path, mtime), runner.RunParams.from_json(params_json),
-                             cfg["signal_indicators"])
+                             cfg["signal_indicators"], HTF)
 
 
 @st.cache_data(show_spinner=False)
@@ -141,7 +143,8 @@ def _stock_tickers() -> list[str]:
 with tab_data:
     st.subheader(":material/database: Stock data")
     st.caption(f"`{_rel(cfg['stock_csv'])}` · Daily, 4hr and 60m bars from yfinance (4hr is built from the 60m bars), "
-               "stored as timezone-naive IST, with indicators")
+               "stored as timezone-naive IST, with indicators. "
+               f"Weekly ({WEEKLY}) bars are built from the daily ones for the higher-timeframe trend.")
 
     if do_update or do_full:
         stocks = _stock_tickers()
@@ -192,6 +195,13 @@ with tab_data:
             st.info(f"{len(new_ones)} ticker(s) in your list are not in stock.csv yet and will get a "
                     f"full download on the next update: {', '.join(new_ones[:15])}"
                     + (" …" if len(new_ones) > 15 else ""))
+        if WEEKLY not in set(data["time_frame"].unique()):
+            st.warning(f"stock.csv has no weekly ({WEEKLY}) bars yet. Daily signals need them for the "
+                       "higher-timeframe trend.")
+            if st.button("Build weekly bars from the daily data", icon=":material/calendar_view_week:"):
+                with st.spinner("Building weekly bars and indicators…"):
+                    ds.rebuild_weekly(cfg)
+                st.rerun()
     if not data.empty:
         left, right = st.columns([1, 1])
         with left:
@@ -256,7 +266,10 @@ with tab_run:
         stage_default = cfg["ew3"]["stages"] if is_ew3 else ENGINE["stages"]
         a, b, c = st.columns(3)
         available_tfs = sorted(data["time_frame"].unique())
-        run_tfs = a.multiselect("Timeframes", available_tfs, default=available_tfs, key="run_tfs")
+        run_tfs = a.multiselect("Timeframes", available_tfs, key="run_tfs",
+                                default=[tf for tf in available_tfs if tf in cfg["timeframes"]] or available_tfs,
+                                help=f"{WEEKLY} is built from the daily bars. It is used for the higher-timeframe "
+                                     "trend and can also be scanned.")
         lengths = b.multiselect("ZigZag lengths", list(ew.DEFAULT_LENGTHS), default=ENGINE["lengths"],
                                 format_func=lambda n: f"{n} ({ew.DEGREE_NAMES.get(n, '')})")
         stages = c.multiselect("Stages", list(S_run.stages), default=stage_default, key=f"run_stages_{S_run.key}")
@@ -296,6 +309,12 @@ with tab_run:
             resignal = c.checkbox("resignal_on_extension", disabled=mode != "backtest",
                                   help="Backtest only: a new signal each time wave 5 makes a new confirmed extreme")
             d.caption(f"min_bars = {cfg['min_bars']} (config.yaml)")
+
+        aligned_only = st.checkbox(
+            "Keep only signals aligned with the higher timeframes",
+            help="Every signal is tagged ALIGNED / MIXED / AGAINST from the trend of the timeframes above it "
+                 "(60m → 4hr, 1D · 4hr → 1D, 1W · 1D → 1W). Leave this off to keep all of them and filter "
+                 "on the dashboard, where the results of each group can be compared.")
 
         problems = []
         if not run_tfs:
@@ -338,7 +357,7 @@ with tab_run:
                     as_of=str(as_of) if as_of else None, start=str(start) if start else None,
                     end=str(end) if end else None,
                     strategy=S_run.key, contexts=tuple(contexts),
-                    min_retrace=min_retrace, max_retrace=max_retrace)
+                    min_retrace=min_retrace, max_retrace=max_retrace, aligned_only=bool(aligned_only))
                 with st.spinner("Running the Elliott Wave engine…"):
                     result = _run_engine(str(cfg["stock_csv"]), cfg["stock_csv"].stat().st_mtime,
                                          params.to_json())
@@ -420,11 +439,13 @@ def _kpi_cards(S: Strategy, view: pd.DataFrame, state_key: str) -> pd.DataFrame:
 
 def _live_cards(S: Strategy, view: pd.DataFrame, state_key: str) -> pd.DataFrame:
     """Stat cards for live screens: counts by timeframe / degree / side, each count clickable."""
-    cols = st.columns(4)
+    fields = [("By timeframe", "time_frame"), ("By degree", "degree"), ("By side", S.side_col)]
+    if "alignment" in view.columns:
+        fields.append(("By HTF alignment", "alignment"))
+    cols = st.columns(len(fields) + 1)
     cols[0].metric(":material/radar: Signals", f"{len(view):,}", border=True)
     out = view
-    for col, (label, field) in zip(cols[1:], (("By timeframe", "time_frame"), ("By degree", "degree"),
-                                              ("By side", S.side_col))):
+    for col, (label, field) in zip(cols[1:], fields):
         counts = view[field].value_counts()
         key = f"{state_key}_{field}"
         if st.session_state.get(key) not in counts.index:
@@ -588,6 +609,15 @@ def _signal_chart(S: Strategy, row: pd.Series, params: dict[str, Any], prefix: s
         st.caption("The engine has no wave count at this bar, so only price and levels are shown.")
 
 
+def _htf_note(row: pd.Series) -> str:
+    """e.g. 'ALIGNED · 4hr BULLISH · 1D BULLISH' (empty for results saved before this existed)."""
+    if pd.isna(row.get("alignment")):
+        return ""
+    parents = HTF["ladder"].get(row["time_frame"], [])
+    trends = [f"{tf} {row[col]}" for tf, col in zip(parents, htf.TREND_COLS) if pd.notna(row.get(col))]
+    return " · ".join([str(row["alignment"]), *trends])
+
+
 def _open_chart_overlay(S: Strategy, row: pd.Series, params: dict[str, Any]) -> None:
     """Pop-up with the same chart, so a clicked signal can be read without scrolling."""
     title = f"{S.key.upper()} · {row['Ticker']} · {row['time_frame']} · {row['degree']} · {row[S.side_col]}"
@@ -599,6 +629,8 @@ def _open_chart_overlay(S: Strategy, row: pd.Series, params: dict[str, Any]) -> 
         if pd.notna(row.get("status")):
             outcome = row["status"] if pd.isna(row.get("result")) else f"{row['status']} · {row['result']}"
             facts.append(("Outcome", outcome))
+        if _htf_note(row):
+            facts.append(("Higher timeframes", _htf_note(row)))
         st.caption("  |  ".join(f"**{label}** {value}" for label, value in facts))
         _signal_chart(S, row, params, prefix="dlg", compact=True)
 
@@ -631,6 +663,14 @@ def _style_signals(table: pd.DataFrame, side_col: str):
             return f"color: {DOWN}; background-color: rgba(230,103,103,0.14); font-weight: 600"
         return ""
 
+    def aligned(value: Any) -> str:
+        colour = {htf.ALIGNED: UP, htf.MIXED: AMBER, htf.AGAINST: DOWN}.get(value)
+        return f"color: {colour}; font-weight: 700" if colour else ""
+
+    def trend(value: Any) -> str:
+        colour = {htf.BULLISH: UP, htf.BEARISH: DOWN}.get(value)
+        return f"color: {colour}" if colour else ""
+
     formats = {"signal_time": lambda t: "" if pd.isna(t) else f"{t:%Y-%m-%d %H:%M}"}
     styled = table.style.format({k: v for k, v in formats.items() if k in table.columns},
                                 precision=2, na_rep="")
@@ -638,6 +678,11 @@ def _style_signals(table: pd.DataFrame, side_col: str):
         styled = styled.map(side, subset=[side_col])
     if "histogram" in table.columns:
         styled = styled.map(histogram, subset=["histogram"])
+    if "alignment" in table.columns:
+        styled = styled.map(aligned, subset=["alignment"])
+    trend_cols = [c for c in htf.TREND_COLS if c in table.columns]
+    if trend_cols:
+        styled = styled.map(trend, subset=trend_cols)
     return styled
 
 
@@ -718,6 +763,29 @@ def render_dashboard(S: Strategy) -> None:
             chart_mask &= runner.range_mask(filtered, ranges)
             picked_notes += [f"{'MFE' if col == 'mfe_pct' else 'MAE'} {low:.1f}% to {high:.1f}%"
                              for col, low, high in ranges]
+        if "alignment" in filtered.columns:
+            stats = S.alignment_stats(filtered)
+            left, right = st.columns(2)
+            (t1_label, _), (t2_label, _) = S.target_cards
+            picked_align = _chart_pick(left, charts.alignment_breakdown(
+                stats, t1_label.split(": ", 1)[-1], t2_label.split(": ", 1)[-1]), f"align_{suffix}")
+            with right.container(border=True):
+                st.markdown("**Does trading with the higher timeframe pay?**")
+                st.caption("ALIGNED: every higher timeframe points the way of the trade · "
+                           "AGAINST: the next timeframe up points the other way · MIXED: in between. "
+                           "Rates are out of triggered signals.")
+                st.dataframe(
+                    stats.rename(columns={
+                        "alignment": "Alignment", "signals": "Signals", "trigger_rate": "Trigger %",
+                        "fail_pct": "Failed %", "t1_hit_rate": "Target 1 %", "t2_hit_rate": "Target 2 %",
+                        "stop_rate": "Stop %", "avg_mfe": "Avg MFE %", "avg_mae": "Avg MAE %"}),
+                    hide_index=True,
+                    column_config={c: st.column_config.NumberColumn(format="%.1f") for c in (
+                        "Trigger %", "Failed %", "Target 1 %", "Target 2 %", "Stop %", "Avg MFE %", "Avg MAE %")})
+            if picked_align:
+                names = [a for (a,) in picked_align]
+                chart_mask &= filtered["alignment"].isin(names)
+                picked_notes += [f"HTF {a}" for a in names]
         with st.expander("Summary table (by timeframe × degree)", icon=":material/table_chart:"):
             st.dataframe(S.summarize(filtered), hide_index=True)
     else:
@@ -758,6 +826,9 @@ def render_dashboard(S: Strategy) -> None:
     side_colour = "red" if row[S.side_col] == "SHORT" else "green"
     st.markdown(f"#### :material/candlestick_chart: {row['Ticker']} · {row['time_frame']} · "
                 f"{row['degree']} · :{side_colour}[{row[S.side_col]}]")
+    if _htf_note(row):
+        align_colour = {htf.ALIGNED: "green", htf.AGAINST: "red", htf.MIXED: "orange"}.get(row["alignment"], "gray")
+        st.markdown(f":material/stacked_line_chart: **Higher timeframes:** :{align_colour}[{_htf_note(row)}]")
     _signal_chart(S, row, params, prefix="grp")
 
     st.markdown("#### :material/info: Signal details")

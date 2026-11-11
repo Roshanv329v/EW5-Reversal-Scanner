@@ -46,6 +46,20 @@ ew3:
   min_retrace: 0.382          # wave 2 must retrace at least this much of wave 1
   max_retrace: 0.786          # ... and at most this much (must stay below 1.0)
 
+# ---- higher-timeframe trend (trade in the direction of the bigger picture) -----
+htf:
+  weekly:
+    name: "1W"                # weekly bars, built from the stored 1D bars (no download)
+    source: "1D"
+    week_ends: "SUN"          # a week runs Monday to Sunday; the bar is stamped with its Monday
+  ladder:                     # signal timeframe -> [parent, grandparent]
+    "60m": ["4hr", "1D"]
+    "4hr": ["1D", "1W"]
+    "1D": ["1W"]
+    "1W": []
+  ema_fast: "13_ema"          # bullish: close > slow and fast > slow; bearish: both below
+  ema_slow: "55_ema"
+
 # ---- dashboard chart ---------------------------------------------------------
 chart:
   bars_before: 150            # bars shown before the signal

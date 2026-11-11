@@ -8,6 +8,10 @@ A local Streamlit app (http://localhost:8501) with five tabs:
 4. **Run / Backtest** – pick EW5 or EW3 and run it live, as of a past date, or walk-forward.
 5. **User Guide** – how to use both for F&O study, and the technical documentation (also in `docs/`).
 
+Every signal is tagged with the trend of the timeframes above it (60m → 4hr → 1D → 1W) as
+ALIGNED / MIXED / AGAINST, so trades can be kept in the direction of the bigger picture.
+Weekly bars are built from the stored daily bars.
+
 Everything stays in local files. No database, no Docker.
 
 ## Setup and start
@@ -99,7 +103,7 @@ defaults, chart size). Restart the app after editing it.
 ## Files
 
 ```
-app.py                     Streamlit app, 4 tabs
+app.py                     Streamlit app, 5 tabs
 config.yaml                all parameters
 elliott_wave5_screener.py  Elliott Wave engine and EW5 screener (unchanged)
 elliott_wave3_screener.py  EW3 screener (wave 2 finished / wave 3 starting)
@@ -109,6 +113,7 @@ docs/                      user guide shown in the app
 core/config.py             loads config.yaml
 core/data_store.py         download, IST conversion, merge/dedupe, indicators, safe write
 core/runner.py             runs the engine, explodes levels, saves/loads results
+core/htf.py                higher-timeframe trend and alignment of each signal
 core/charts.py             Plotly charts
 data/                      tickers.csv, stock.csv, backups/
 results/                   one CSV + JSON per run
