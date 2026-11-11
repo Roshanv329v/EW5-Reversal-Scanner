@@ -12,11 +12,12 @@ stock_data.py              ticker lists, 60m → 4hr conversion, indicators, com
 core/config.py             loads config.yaml, resolves paths
 core/data_store.py         download, IST conversion, merge/dedupe, indicators, safe write
 core/runner.py             calls the engine, explodes levels, saves/loads results
+core/htf.py                higher-timeframe trend and alignment of every signal
 core/charts.py             Plotly figures
 docs/                      this guide
 data/tickers.csv           stock tickers (one column: Ticker)
 data/stock.csv             all bars, all timeframes, with indicators
-data/backups/              previous stock.csv copies (last 5)
+data/backups/              previous stock.csv copies (last 3, `backups_keep`)
 results/                   one CSV + JSON per run
 logs/data_update.log       download log
 tests/                     pytest
@@ -28,12 +29,16 @@ Data flow:
 tickers.csv + indian_index + commodity ──► yfinance (1d, 60m)
         │
         ▼
-IST conversion ─► 60m (kept) + 60m → 4hr ─► merge + dedupe ─► indicators ─► data/stock.csv
-                                                                    │
-                          screen_wave5 / backtest_wave5 ◄───────────┤
-                                     │                              │
-                                     ▼                              ▼
-                          results/<mode>_<time>.csv ──────────► Dashboard
+IST conversion ─► 60m (kept) + 60m → 4hr ─► merge + dedupe ─► 1D → 1W ─► indicators ─► data/stock.csv
+                                                                                │
+                 EW5: screen_wave5 / backtest_wave5 ◄───────────────────────────┤
+                 EW3: screen_wave3 / backtest_wave3                             │
+                                     │                                          │
+                                     ▼                                          │
+                 higher-timeframe alignment (core/htf.py) ◄─────────────────────┤
+                                     │                                          │
+                                     ▼                                          ▼
+                 results/[ew3_]<mode>_<time>.csv ─────────────────► EW5 tab / EW3 tab
 ```
 
 ---
@@ -290,7 +295,12 @@ three columns and changes nothing else; the screeners are not involved.
 | `batch_size`, `retries`, `backoff_seconds` | Download behaviour |
 | `auto_adjust`, `price_decimals`, `indicator_decimals` | Price handling |
 | `short_history_bars`, `min_bars` | History thresholds |
-| `engine.*` | Default lengths, horizon, pivot tie, stages, sources |
+| `engine.*` | Default lengths, horizon, pivot tie, stages, sources (EW5, shared with EW3) |
+| `ew3.*` | EW3 default stages, contexts and wave-2 retracement range |
+| `htf.weekly.*` | Weekly timeframe name, its source timeframe and the week end day |
+| `htf.ladder` | Parent and grandparent timeframe of each signal timeframe |
+| `htf.ema_fast`, `htf.ema_slow` | EMA columns that define the higher-timeframe trend |
+| `dashboard_filters_file`, `dashboard_filters_file_ew3` | Saved filters of the EW5 and EW3 tabs |
 | `chart.*`, `signal_indicators` | Chart size, EMA columns, indicators copied into results |
 
 Restart the app after changing `config.yaml`, `stock_data.py` or anything under `core/`.

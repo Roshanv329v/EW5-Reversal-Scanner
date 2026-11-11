@@ -1,4 +1,26 @@
-> This guide covers both screeners. **EW5** (wave 5 reversal) is described first; **EW3** (wave 3 start) has its own section further down. The data, timeframes, degrees, indicators and backtest ideas apply to both.
+> This guide covers the three building blocks of the app:
+>
+> 1. **EW5** – wave 5 reversal (described first).
+> 2. **EW3** – wave 2 finished / wave 3 starting (its own section further down).
+> 3. **Higher-timeframe alignment** – a tag on every EW5 and EW3 signal that says whether the
+>    bigger timeframes agree with the trade (section "Trading with the higher timeframe").
+>
+> The data, timeframes, degrees, indicators and backtest ideas apply to both screeners.
+
+## The three pieces at a glance
+
+| | EW5 tab | EW3 tab |
+|---|---|---|
+| Looks for | The **end** of a five-wave move | The **start of wave 3** (waves 1 and 2 done) |
+| Trades | Against the move that is ending | With the move that is starting |
+| Side column | `reversal_side` | `trade_side` |
+| Stop level | Wave-5 end | Wave-2 end |
+| First / second target card | W4 end / FIB 0.5 | W1 end / W3 1.618 |
+| Fails when | Wave 5 extends (`EXTENDED`) | Wave-2 end breaks (`FAILED`) |
+
+On top of both sits the **higher-timeframe alignment**: each signal is marked ALIGNED, MIXED or
+AGAINST from the trend of the timeframes above it (60m → 4hr → 1D → 1W). It is a filter and a
+column in both tabs, not a third screener.
 
 ## What this app looks for
 
@@ -23,10 +45,15 @@ levels needed to judge a **reversal against that trend**.
 1. **Data tab → Update data** after the market closes (or any time; today's unfinished bar is
    replaced on the next update). Only the last *N* days are downloaded. A ticker you added to
    `data/tickers.csv` gets its full history automatically.
-2. **Run / Backtest tab → Live screen → Run.** This lists every ticker sitting at wave 5 right now.
-3. **Dashboard tab.** Filter the table, click a row, read the chart.
-4. From time to time, run a **Walk-forward backtest** to see how these signals behaved on your
-   own universe.
+   Weekly bars are rebuilt from the daily ones in the same step.
+2. **Run / Backtest tab → pick EW5 → Live screen → Run**, then the same for **EW3**. This lists
+   every ticker sitting at wave 5, and every ticker whose wave 2 has just finished.
+3. **EW5 tab and EW3 tab.** Set the **HTF alignment** filter to ALIGNED (add MIXED if the list
+   is too short), then filter the rest, click a row and read the chart.
+4. Read the **Higher timeframes** line above the chart before anything else. AGAINST means the
+   next timeframe up is moving the other way.
+5. From time to time, run a **Walk-forward backtest** for each screener to see how these signals
+   behaved on your own universe, and compare the alignment groups in the breakdown.
 
 ---
 
@@ -286,12 +313,16 @@ counts as hit at entry.
   the wave-5 end, the same stock can later appear in **EW3** with context AFTER_WAVE5. That is
   the second, more confirmed entry into the same reversal.
 - **EW3 with AFTER_ABC** is a trend-continuation idea and has no EW5 counterpart.
+- Both tabs carry the same **HTF alignment** column, so an EW5 reversal and the EW3 follow-up
+  can be judged against the same bigger picture.
 - On the 60m timeframe EW3 produces many signals. The degree and two-week guidance above
   applies in the same way: pick the degree whose swings match your holding period.
 
 On this app's universe (six months to 11 Nov 2026, all three timeframes, default settings) EW3
-gave 1,566 signals: 54% triggered, 45% failed first, and of the triggered ones 52% reached the
-wave-1 end and 11% the 1.618 target, with 66% stopped at some point. Treat these as a
+gave 1,574 signals: 54% triggered, 45% failed first, and of the triggered ones 52% reached the
+wave-1 end and 11% the 1.618 target, with 65% stopped at some point. EW5 over the same period
+gave 3,100 signals: 59% triggered, 41% extended first, and of the triggered ones 53% reached
+the wave-4 end and 35% FIB 0.5, with 55% stopped at some point. Treat these as a
 description of one period, not a forecast.
 
 ---
@@ -347,10 +378,16 @@ closed, so the backtest never sees the future.
 | MIXED | Smaller objective (first target), or wait for the parent to pick a side. |
 | AGAINST | Skip, or treat as a short counter-trend scalp at most. |
 
-EW5 is a counter-trend idea on its own timeframe, so most EW5 signals are AGAINST: an
-up-impulse on 60m normally sits inside a rising 4hr chart. The ALIGNED ones are the special
-case where the small impulse was only a bounce inside a bigger opposite trend, and the
-reversal takes you back into that trend.
+**In EW5 and in EW3 the tag is read the same way, but it means something different:**
+
+- **EW5 (counter-trend).** Most EW5 signals are AGAINST, because a five-wave rise on 60m
+  normally sits inside a rising 4hr chart. An ALIGNED EW5 signal is the special case where the
+  small impulse was only a bounce inside a bigger opposite trend, so the reversal takes you
+  back into that trend. An AGAINST EW5 signal is a top or bottom call against every timeframe.
+- **EW3 (with-trend).** EW3 already trades in the direction of its own new move. ALIGNED means
+  the higher timeframes are moving that way too, typical for context AFTER_ABC (an old trend
+  resuming). AGAINST is common for context AFTER_WAVE5, where the reversal is still young and
+  the higher timeframes have not turned yet.
 
 ### What the backtest says (11 May to 11 Nov 2026, all tickers, default settings)
 
@@ -383,6 +420,9 @@ Read this honestly:
 
 - Click through the charts. The wave labels show exactly what the engine counted; if the count
   looks forced to you, skip the signal.
-- Use the filters: timeframe, degree, side, stage, `w5_vs_w1` range.
+- Use the filters: timeframe, degree, side, HTF alignment, stage, and the range slider
+  (`w5_vs_w1` in EW5, `w2_retrace` in EW3).
+- Check the alignment before the wave count. A clean count against the higher timeframe is
+  still a trade against the higher timeframe.
 - Tickers flagged **short history** (fewer than 500 bars) give unreliable major-degree counts.
 - After a split or bonus issue, run **Full re-download** so old prices are adjusted.

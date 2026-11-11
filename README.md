@@ -81,7 +81,7 @@ Notes on the data:
   only the data known at that bar.
 
 Set the timeframes, ZigZag lengths, stages and filters, then press **Run**. The result opens in
-the **Dashboard** tab.
+the **EW5** or **EW3** tab.
 
 ## Where results are saved
 
