@@ -1,6 +1,9 @@
 """
-Runs the Elliott Wave 5 screener / backtest (elliott_wave5_screener.py, unchanged)
-and stores the results: one CSV per run plus a JSON with the parameters used.
+Runs a screener / backtest and stores the results: one CSV per run plus a JSON with
+the parameters used. Two strategies share this runner:
+
+    ew5 - wave 5 reversal            (elliott_wave5_screener.py, unchanged)
+    ew3 - wave 2 finished / wave 3   (elliott_wave3_screener.py)
 """
 
 from __future__ import annotations
@@ -14,14 +17,16 @@ from typing import Any, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
 
 MODES = {"live": "Live screen", "asof": "Point-in-time (as-of date)", "backtest": "Walk-forward backtest"}
 HI_SOURCES = ("high", "close", "max open/close")
 LO_SOURCES = ("low", "close", "min open/close")
 TARGETS = ("W4_END", "FIB_0.500", "FIB_0.618", "FIB_0.764", "FIB_0.854")
-_TIME_COLS = ("signal_time", "w5_end_time", "trigger_time", "stop_time",
-              *(f"hit_{t}_time" for t in TARGETS))
+LEVEL_COLS = {"ew5": "reversal_levels", "ew3": "wave_levels"}        # list column per strategy
+LEVEL_NAMES = {"ew5": ew.LEVEL_NAMES, "ew3": ew3.LEVEL_NAMES}
+FILE_PREFIX = {"ew5": "", "ew3": "ew3_"}                              # EW5 keeps its file names
 
 
 @dataclass(frozen=True)
@@ -41,6 +46,12 @@ class RunParams:
     as_of: Optional[str] = None                 # YYYY-MM-DD (asof mode)
     start: Optional[str] = None                 # YYYY-MM-DD (backtest mode)
     end: Optional[str] = None
+    # --- strategy. For ew3, `max_bars_since_w5` means bars since the wave-2 pivot and
+    #     `resignal_on_extension` means "signal again when the wave-2 pivot moves".
+    strategy: str = "ew5"
+    contexts: tuple[str, ...] = ew3.DEFAULT_CONTEXTS                  # ew3 only
+    min_retrace: float = ew3.DEFAULT_MIN_RETRACE                      # ew3 only
+    max_retrace: float = ew3.DEFAULT_MAX_RETRACE                      # ew3 only
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)
@@ -48,8 +59,9 @@ class RunParams:
     @classmethod
     def from_json(cls, text: str) -> "RunParams":
         d = json.loads(text)
-        for key in ("timeframes", "lengths", "stages"):
-            d[key] = tuple(d[key])
+        for key in ("timeframes", "lengths", "stages", "contexts"):
+            if key in d:
+                d[key] = tuple(d[key])
         return cls(**d)
 
 
@@ -72,6 +84,9 @@ def run_engine(df: pd.DataFrame, p: RunParams, indicator_cols: Sequence[str] = (
     engine itself never sees them).
     """
     data = df[df["time_frame"].isin(p.timeframes)]
+    if p.strategy == "ew3":
+        return attach_indicators(explode_levels(_run_ew3(data, p), ew3.LEVEL_NAMES, LEVEL_COLS["ew3"]),
+                                 data, indicator_cols)
     common = dict(lengths=p.lengths, stages=p.stages, max_bars_since_w5=p.max_bars_since_w5,
                   min_w5_vs_w1=p.min_w5_vs_w1, hi_source=p.hi_source, lo_source=p.lo_source,
                   pivot_tie=p.pivot_tie, min_bars=p.min_bars)
@@ -92,6 +107,22 @@ def run_engine(df: pd.DataFrame, p: RunParams, indicator_cols: Sequence[str] = (
     return attach_indicators(explode_levels(res), data, indicator_cols)
 
 
+def _run_ew3(data: pd.DataFrame, p: RunParams) -> pd.DataFrame:
+    common = dict(lengths=p.lengths, stages=p.stages, contexts=p.contexts, min_retrace=p.min_retrace,
+                  max_retrace=p.max_retrace, max_bars_since_w2=p.max_bars_since_w5,
+                  hi_source=p.hi_source, lo_source=p.lo_source, pivot_tie=p.pivot_tie, min_bars=p.min_bars)
+    if p.mode == "live":
+        return ew3.screen_wave3(data, **common)
+    if p.mode == "asof":
+        res = ew3.screen_wave3(data, as_of=end_of_day(p.as_of), **common)
+        return ew3.evaluate_signals(res, data, p.horizon_bars) if not res.empty else res
+    if p.mode == "backtest":
+        return ew3.backtest_wave3(data, start=pd.Timestamp(p.start) if p.start else None,
+                                  end=end_of_day(p.end) if p.end else None, horizon_bars=p.horizon_bars,
+                                  resignal_on_new_w2=p.resignal_on_extension, **common)
+    raise ValueError(f"Unknown mode: {p.mode}")
+
+
 def attach_indicators(res: pd.DataFrame, df: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
     """Add the stock.csv indicator values of each signal's own bar (Ticker, time_frame, signal_time)."""
     cols = [c for c in columns if c in df.columns and c not in res.columns]
@@ -104,11 +135,12 @@ def attach_indicators(res: pd.DataFrame, df: pd.DataFrame, columns: Sequence[str
     return res.merge(look, on=keys, how="left")
 
 
-def explode_levels(res: pd.DataFrame) -> pd.DataFrame:
-    """Add one float column per LEVEL_NAMES entry; the `reversal_levels` list column is kept."""
+def explode_levels(res: pd.DataFrame, level_names: Sequence[str] = ew.LEVEL_NAMES,
+                   col: str = "reversal_levels") -> pd.DataFrame:
+    """Add one float column per level name; the list column (`col`) is kept."""
     out = res.copy()
-    parsed = [dict(item.split("=", 1) for item in levels) for levels in out["reversal_levels"]]
-    for name in ew.LEVEL_NAMES:
+    parsed = [dict(item.split("=", 1) for item in levels) for levels in out[col]]
+    for name in level_names:
         out[name] = pd.Series([float(d[name]) if name in d else np.nan for d in parsed],
                               index=out.index, dtype="float64")
     return out
@@ -118,11 +150,11 @@ def has_outcomes(res: pd.DataFrame) -> bool:
     return "status" in res.columns
 
 
-def summarize(res: pd.DataFrame) -> pd.DataFrame:
+def summarize(res: pd.DataFrame, strategy: str = "ew5") -> pd.DataFrame:
     """summarize_backtest() for results that carry outcome columns, else an empty frame."""
     if res.empty or not has_outcomes(res):
         return pd.DataFrame()
-    return ew.summarize_backtest(res)
+    return (ew3 if strategy == "ew3" else ew).summarize_backtest(res)
 
 
 def check_min_bars(df: pd.DataFrame, cutoff: Any, min_bars: int,
@@ -200,12 +232,13 @@ def range_mask(res: pd.DataFrame, bars: Sequence[Sequence[Any]]) -> pd.Series:
 # ----------------------------------------------------------------------------------
 def save_results(res: pd.DataFrame, p: RunParams, results_dir: Path,
                  stock_csv: Optional[Path] = None, stamp: Optional[str] = None) -> Path:
-    """Write results/<mode>_<YYYYmmdd_HHMMSS>.csv and a .json with the parameters."""
+    """Write results/[ew3_]<mode>_<YYYYmmdd_HHMMSS>.csv and a .json with the parameters."""
     results_dir.mkdir(parents=True, exist_ok=True)
     stamp = stamp or datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = results_dir / f"{p.mode}_{stamp}.csv"
+    path = results_dir / f"{FILE_PREFIX.get(p.strategy, '')}{p.mode}_{stamp}.csv"
     out = res.copy()
-    out["reversal_levels"] = [json.dumps(list(v)) for v in out["reversal_levels"]]
+    col = LEVEL_COLS.get(p.strategy, "reversal_levels")
+    out[col] = [json.dumps(list(v)) for v in out[col]]
     out.to_csv(path, index=False, date_format="%Y-%m-%d %H:%M:%S")
     meta = {"created": stamp, "rows": len(res), "stock_csv": str(stock_csv) if stock_csv else None,
             "params": asdict(p)}
@@ -213,21 +246,31 @@ def save_results(res: pd.DataFrame, p: RunParams, results_dir: Path,
     return path
 
 
-def list_results(results_dir: Path) -> list[Path]:
-    """Result CSVs, newest first."""
+def strategy_of(path: Path) -> str:
+    """Which strategy a results file belongs to (from its name)."""
+    for key, prefix in FILE_PREFIX.items():
+        if prefix and path.name.startswith(prefix):
+            return key
+    return "ew5"
+
+
+def list_results(results_dir: Path, strategy: Optional[str] = None) -> list[Path]:
+    """Result CSVs, newest first; optionally only those of one strategy."""
     if not results_dir.exists():
         return []
-    return sorted(results_dir.glob("*.csv"), key=lambda f: f.stat().st_mtime, reverse=True)
+    files = sorted(results_dir.glob("*.csv"), key=lambda f: f.stat().st_mtime, reverse=True)
+    return [f for f in files if strategy is None or strategy_of(f) == strategy]
 
 
 def load_results(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Read a results CSV back (times parsed, levels as a list) with its parameters."""
     res = pd.read_csv(path)
-    for col in _TIME_COLS:
-        if col in res.columns:
+    for col in res.columns:
+        if col.endswith("_time"):
             res[col] = pd.to_datetime(res[col])
-    if "reversal_levels" in res.columns:
-        res["reversal_levels"] = [json.loads(v) for v in res["reversal_levels"]]
+    for col in LEVEL_COLS.values():
+        if col in res.columns:
+            res[col] = [json.loads(v) for v in res[col]]
     meta_path = path.with_suffix(".json")
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
     return res, meta

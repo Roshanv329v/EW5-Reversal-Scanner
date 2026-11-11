@@ -10,7 +10,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "config.yaml"
 _PATH_KEYS = ("tickers_file", "stock_csv", "backups_dir", "results_dir", "logs_dir",
-              "dashboard_filters_file")
+              "dashboard_filters_file", "dashboard_filters_file_ew3")
 
 
 def resolve(path: str | Path) -> Path:

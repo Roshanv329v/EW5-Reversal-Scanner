@@ -8,3 +8,4 @@ results/
 logs/
 data/dashboard_filters.json
 .DS_Store
+data/dashboard_filters_ew3.json

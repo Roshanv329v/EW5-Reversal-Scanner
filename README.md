@@ -1,11 +1,12 @@
-# Elliott Wave 5 Reversal – local app
+# Elliott Wave Scanner (EW5 reversal and EW3 wave-3 start) – local app
 
-A local Streamlit app (http://localhost:8501) with four tabs:
+A local Streamlit app (http://localhost:8501) with five tabs:
 
-1. **Dashboard** – KPIs, breakdowns, a filterable signal table and a candlestick chart per signal with the wave count, reversal levels and EMA 13 / 55.
-2. **Data** – download / incrementally update Daily, 4hr and 60m bars from yfinance into `data/stock.csv`, with indicators.
-3. **Run / Backtest** – run the Elliott Wave 5 screener (`elliott_wave5_screener.py`, unchanged) live, as of a past date, or walk-forward.
-4. **User Guide** – how to use it for F&O study, and the technical documentation (also in `docs/`).
+1. **EW5** – wave 5 reversal dashboard: KPIs, clickable breakdowns, a filterable signal table and a candlestick chart per signal with the wave count, reversal levels, EMA 13 / 55 and an indicator pane.
+2. **EW3** – the same dashboard for wave 3 starts (wave 2 finished), built on the same Elliott Wave engine.
+3. **Data** – download / incrementally update Daily, 4hr and 60m bars from yfinance into `data/stock.csv`, with indicators.
+4. **Run / Backtest** – pick EW5 or EW3 and run it live, as of a past date, or walk-forward.
+5. **User Guide** – how to use both for F&O study, and the technical documentation (also in `docs/`).
 
 Everything stays in local files. No database, no Docker.
 
@@ -80,7 +81,7 @@ the **Dashboard** tab.
 
 ## Where results are saved
 
-`results/<mode>_<YYYYmmdd_HHMMSS>.csv` (mode = `live`, `asof` or `backtest`) plus a `.json` with
+`results/<mode>_<YYYYmmdd_HHMMSS>.csv` for EW5 and `results/ew3_<mode>_<YYYYmmdd_HHMMSS>.csv` for EW3 (mode = `live`, `asof` or `backtest`) plus a `.json` with
 the same name holding the parameters used. The CSV has one numeric column per reversal level
 (`W0_START` … `W5_TGT_1.618xW1`) and the original `reversal_levels` list.
 
@@ -100,7 +101,9 @@ defaults, chart size). Restart the app after editing it.
 ```
 app.py                     Streamlit app, 4 tabs
 config.yaml                all parameters
-elliott_wave5_screener.py  Elliott Wave engine (unchanged)
+elliott_wave5_screener.py  Elliott Wave engine and EW5 screener (unchanged)
+elliott_wave3_screener.py  EW3 screener (wave 2 finished / wave 3 starting)
+core/strategies.py         what differs between EW5 and EW3
 stock_data.py              ticker lists, 60m → 4hr, indicators, command-line data update
 docs/                      user guide shown in the app
 core/config.py             loads config.yaml

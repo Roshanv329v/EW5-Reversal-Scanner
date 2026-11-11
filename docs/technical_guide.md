@@ -3,9 +3,11 @@
 Everything is local files. No database.
 
 ```
-app.py                     Streamlit app: Dashboard · Data · Run / Backtest · User Guide
+app.py                     Streamlit app: EW5 · EW3 · Data · Run / Backtest · User Guide
 config.yaml                every tunable value
-elliott_wave5_screener.py  Elliott Wave engine (never modified by the app)
+elliott_wave5_screener.py  Elliott Wave engine and EW5 screener (never modified by the app)
+elliott_wave3_screener.py  EW3 screener: wave 2 finished / wave 3 starting, on the same engine
+core/strategies.py         what differs between EW5 and EW3 (columns, levels, stats, chart groups)
 stock_data.py              ticker lists, 60m → 4hr conversion, indicators, command-line update
 core/config.py             loads config.yaml, resolves paths
 core/data_store.py         download, IST conversion, merge/dedupe, indicators, safe write
@@ -161,13 +163,59 @@ major-degree counts.
 
 ---
 
+## EW3 screener (elliott_wave3_screener.py)
+
+EW3 adds no new wave engine. It drives the same `ElliottWaveEngine` bar by bar and reads the
+three latest ZigZag points after each bar: 0 (start of wave 1), 1 (end of wave 1) and 2 (end of
+wave 2, the latest confirmed pivot). `elliott_wave5_screener.py` is imported, not changed.
+
+A setup exists on bar *t* when all of these hold:
+
+1. The three points are real, alternating pivots and each wave spans at least one bar.
+2. Wave 1 moved away from point 0, and wave 2 retraced it by `min_retrace` to `max_retrace`
+   (`max_retrace` must be below 1, so point 0 is never passed).
+3. No bar since the wave-2 pivot has gone beyond the wave-2 end.
+
+Stage is `WAVE3_CONFIRMED` once a close beyond the wave-1 end has occurred since the pivot,
+otherwise `WAVE2_COMPLETED`. Context comes from the engine's latest impulse: `AFTER_WAVE5` when
+point 0 is that impulse's wave-5 end and the new move is against it, `AFTER_ABC` when point 0
+is the end of its a-b-c correction and the new move is with it, else `OTHER`.
+
+The wave-2 pivot is confirmed one bar after it forms, like every pivot in the engine, so
+nothing uses future bars. `screen_wave3(df, as_of=d)` equals `screen_wave3(df[df.time <= d])`,
+and every walk-forward signal equals the point-in-time screen on its own bar (both tested).
+
+| Function | Purpose |
+|---|---|
+| `screen_wave3(df, as_of=None, …)` | Live and point-in-time screen |
+| `backtest_wave3(df, start, end, horizon_bars, …)` | Walk-forward backtest |
+| `evaluate_signals(signals, df, horizon_bars)` | Forward outcome |
+| `summarize_backtest(results)` | Hit-rate table |
+
+Levels (`wave_levels`, fixed order): `W0_START, W1_END, W2_END, TRIGGER, STOP,
+W2_RET_0.382 … 0.786, W3_TGT_1.000xW1, 1.618xW1, 2.618xW1`. TRIGGER is the high (LONG) or low
+(SHORT) of the wave-2 bar; STOP is the wave-2 end; targets are projected from the wave-2 end.
+
+Outcome: `FAILED` if price goes beyond the wave-2 end before the trigger, `TRIGGERED` on a
+close beyond TRIGGER, else `NOT_TRIGGERED`. After the trigger, `hit_<target>` is recorded for
+`W1_END` and the three wave-3 targets, with the wave-2 end as stop. Same-bar conflicts count
+the failure or stop first.
+
+Result files are named `ew3_<mode>_<time>.csv`; EW5 files keep their names. Each tab lists only
+its own files and saves its own filters (`dashboard_filters_file` and
+`dashboard_filters_file_ew3`). EW3 defaults live under `ew3:` in `config.yaml`.
+
+---
+
 ## Run modes (core/runner.py)
 
-| Mode | Call |
-|---|---|
-| Live screen | `screen_wave5(df)` |
-| Point-in-time | `screen_wave5(df, as_of=end of that day)` then `evaluate_signals` |
-| Walk-forward | `backtest_wave5(df, start, end of end day, horizon_bars, …)` |
+The Run tab has a strategy switch (EW5 / EW3). Both use the same three modes:
+
+| Mode | EW5 call | EW3 call |
+|---|---|---|
+| Live screen | `screen_wave5(df)` | `screen_wave3(df)` |
+| Point-in-time | `screen_wave5(df, as_of=…)` then `evaluate_signals` | `screen_wave3(df, as_of=…)` then `evaluate_signals` |
+| Walk-forward | `backtest_wave5(df, start, end, horizon_bars, …)` | `backtest_wave3(df, start, end, horizon_bars, …)` |
 
 An as-of or end **date** means the end of that day (`23:59:59`), so the daily bar and both 4hr
 bars of that day are included for both timeframes.

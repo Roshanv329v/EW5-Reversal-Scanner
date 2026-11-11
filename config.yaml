@@ -7,7 +7,8 @@ backups_dir: data/backups
 results_dir: results
 logs_dir: logs
 backups_keep: 3               # stock.csv is large once 60m bars are stored
-dashboard_filters_file: data/dashboard_filters.json   # saved dashboard filters
+dashboard_filters_file: data/dashboard_filters.json       # saved EW5 dashboard filters
+dashboard_filters_file_ew3: data/dashboard_filters_ew3.json   # saved EW3 dashboard filters
 
 # ---- data download -----------------------------------------------------------
 timeframes: ["1D", "4hr", "60m"]   # 4hr and 60m come from one 60m download
@@ -37,6 +38,13 @@ engine:
   min_w5_vs_w1: 0.0
   hi_source: high
   lo_source: low
+
+# ---- EW3 (wave 2 finished / wave 3 starting) defaults --------------------------
+ew3:
+  stages: ["WAVE2_COMPLETED"]
+  contexts: ["AFTER_WAVE5", "AFTER_ABC"]   # add "OTHER" for every 0-1-2 (about 10x more signals)
+  min_retrace: 0.382          # wave 2 must retrace at least this much of wave 1
+  max_retrace: 0.786          # ... and at most this much (must stay below 1.0)
 
 # ---- dashboard chart ---------------------------------------------------------
 chart:

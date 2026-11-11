@@ -10,32 +10,34 @@ from typing import Any, Optional, Sequence
 FILTER_COLUMNS = ("time_frame", "degree", "reversal_side", "stage", "status", "result")
 
 
-def default_prefs() -> dict[str, Any]:
+def default_prefs(columns: Sequence[str] = FILTER_COLUMNS) -> dict[str, Any]:
     return {
-        **{col: [] for col in FILTER_COLUMNS},
+        **{col: [] for col in columns},
         "search": "",
-        "w5_vs_w1": [None, None],      # [low, high]; None = "no limit on that side"
+        "ratio": [None, None],         # range slider [low, high]; None = "no limit on that side"
         "stat": None,                  # active stat card, e.g. "triggered"
         "chart_groups": {},            # level group / "ema" -> shown?
     }
 
 
-def load_prefs(path: Path) -> dict[str, Any]:
+def load_prefs(path: Path, columns: Sequence[str] = FILTER_COLUMNS) -> dict[str, Any]:
     """Saved state merged over the defaults. A missing or unreadable file gives the defaults."""
-    prefs = default_prefs()
+    prefs = default_prefs(columns)
     try:
         saved = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return prefs
     if isinstance(saved, dict):
+        if "ratio" not in saved and "w5_vs_w1" in saved:        # files written before EW3 existed
+            saved["ratio"] = saved["w5_vs_w1"]
         prefs.update({k: v for k, v in saved.items() if k in prefs})
     return prefs
 
 
-def save_prefs(path: Path, prefs: dict[str, Any]) -> None:
+def save_prefs(path: Path, prefs: dict[str, Any], columns: Sequence[str] = FILTER_COLUMNS) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    clean = {k: prefs.get(k, v) for k, v in default_prefs().items()}
+    clean = {k: prefs.get(k, v) for k, v in default_prefs(columns).items()}
     path.write_text(json.dumps(clean, indent=2), encoding="utf-8")
 
 

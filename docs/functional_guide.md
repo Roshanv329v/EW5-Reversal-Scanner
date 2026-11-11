@@ -1,3 +1,5 @@
+> This guide covers both screeners. **EW5** (wave 5 reversal) is described first; **EW3** (wave 3 start) has its own section further down. The data, timeframes, degrees, indicators and backtest ideas apply to both.
+
 ## What this app looks for
 
 Elliott Wave theory says a trend unfolds in **five waves** (1-2-3-4-5) and is then corrected in
@@ -209,6 +211,88 @@ Things to keep in mind:
 - Costs, slippage, lot sizes and option pricing are **not** modelled.
 - A handful of signals is not a statistic. Look at the signal count before trusting a percentage.
 - Past behaviour of a pattern does not guarantee its future behaviour.
+
+---
+
+## EW3: wave 2 finished, wave 3 starting
+
+EW5 looks for the **end** of a trend. EW3 looks for the **start of the strongest part** of a new
+one. In Elliott Wave terms, wave 1 is the first push, wave 2 pulls back against it without
+breaking the start of wave 1, and wave 3 is usually the longest and fastest leg. "Wave 2
+finished" and "wave 3 starting" are the same moment, so this is one screener.
+
+| Waves 1-2 found | Side shown |
+|---|---|
+| BULLISH (up, then a pullback that holds) | **LONG** |
+| BEARISH (down, then a bounce that fails) | **SHORT** |
+
+EW3 trades **with** the new move, where EW5 trades against the old one. It uses the same
+ZigZag swings as EW5, so degrees and timeframes mean the same thing in both tabs.
+
+### What counts as a setup
+
+- Wave 2 must retrace wave 1 by **38.2% to 78.6%** (adjustable on the Run tab) and must never
+  pass the start of wave 1.
+- Price must not have gone beyond the wave-2 end since that pivot formed.
+- The setup ends by itself when the next swing in the trend direction is confirmed (wave 3 has
+  printed) or when the wave-2 end is broken.
+
+### Context: where the 0-1-2 sits
+
+| Context | Meaning | Reading |
+|---|---|---|
+| **AFTER_WAVE5** | Wave 1 starts exactly where a completed wave 5 ended | The reversal that EW5 flagged, one step later: first leg done, pullback done |
+| **AFTER_ABC** | Wave 1 starts where an a-b-c correction ended | The old trend resuming after its correction |
+| **OTHER** | Any other three swings | No structure behind it; about ten times as many signals |
+
+The first two are switched on by default. Add OTHER on the Run tab only if you want the wide net.
+
+### Stage
+
+- **WAVE2_COMPLETED** – the wave-2 pivot is confirmed but price has not closed beyond the
+  wave-1 end. Early: better entry distance, less proof.
+- **WAVE3_CONFIRMED** – price has closed beyond the wave-1 end. Later: wave 3 is visibly under
+  way, but part of the move is gone and the stop is further away.
+
+### The levels
+
+| Level | Meaning | How it is read |
+|---|---|---|
+| **W0_START** | Start of wave 1 | Hard invalidation. If price passes it, this was not a wave 2. |
+| **W1_END** | End of wave 1 | First objective, and the level whose break confirms wave 3. |
+| **W2_END / STOP** | End of wave 2 | If price goes back beyond it, wave 2 was not finished. The backtest uses it as the stop. |
+| **TRIGGER** | High (LONG) or low (SHORT) of the wave-2 bar | A **close** beyond it is the first evidence that wave 2 is over. The backtest enters on that close. |
+| **W2_RET 0.382 / 0.500 / 0.618 / 0.786** | Retracement levels of wave 1 | Show how deep wave 2 went. Deeper pullbacks give a closer stop relative to the targets. |
+| **W3_TGT 1.000 / 1.618 / 2.618 × W1** | Wave 3 projected from the wave-2 end | 1.618 is the classic wave-3 objective; 1.000 is the minimum normally expected. |
+
+Columns worth using: **w2_retrace** (depth of wave 2; filter with the range slider),
+**bars_since_w2** (freshness) and **context**.
+
+### Reading the EW3 stats
+
+| Number | Meaning |
+|---|---|
+| **Trigger rate** | Share of signals where price closed beyond TRIGGER before breaking the wave-2 end |
+| **Failed** | Share where price went beyond the wave-2 end first: wave 2 was not finished |
+| **W1 end hit / W3 1.618 hit** | Of the triggered signals, how many reached that level |
+| **Stop rate** | Of the triggered signals, how many later went back beyond the wave-2 end |
+
+A target that price has already passed when the trigger fires (common for WAVE3_CONFIRMED)
+counts as hit at entry.
+
+### Using EW5 and EW3 together
+
+- An **EW5** signal says a move may be ending. If it triggers and pulls back without breaking
+  the wave-5 end, the same stock can later appear in **EW3** with context AFTER_WAVE5. That is
+  the second, more confirmed entry into the same reversal.
+- **EW3 with AFTER_ABC** is a trend-continuation idea and has no EW5 counterpart.
+- On the 60m timeframe EW3 produces many signals. The degree and two-week guidance above
+  applies in the same way: pick the degree whose swings match your holding period.
+
+On this app's universe (six months to 11 Nov 2026, all three timeframes, default settings) EW3
+gave 1,566 signals: 54% triggered, 45% failed first, and of the triggered ones 52% reached the
+wave-1 end and 11% the 1.618 target, with 66% stopped at some point. Treat these as a
+description of one period, not a forecast.
 
 ---
 

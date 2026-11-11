@@ -16,9 +16,10 @@ C = dict(surface="#1a1a19", ink="#f0efec", ink2="#c3c2b7", muted="#898781", grid
          axis="#383835", blue="#3987e5", orange="#d95926", aqua="#199e70", yellow="#c98500",
          magenta="#d55181", violet="#9085e9", red="#e66767", critical="#d03b3b")
 
-STATUS_ORDER = ("TRIGGERED", "EXTENDED", "NOT_TRIGGERED", "NO_DATA")
-STATUS_COLOR = {"TRIGGERED": C["blue"], "EXTENDED": C["orange"], "NOT_TRIGGERED": C["aqua"],
-                "NO_DATA": C["muted"]}
+STATUS_ORDER = ("TRIGGERED", "EXTENDED", "FAILED", "NOT_TRIGGERED", "NO_DATA")
+STATUS_COLOR = {"TRIGGERED": C["blue"], "EXTENDED": C["orange"], "FAILED": C["orange"],
+                "NOT_TRIGGERED": C["aqua"], "NO_DATA": C["muted"]}
+EW5_TARGETS = ("W4_END", "FIB_0.500", "FIB_0.618", "FIB_0.764", "FIB_0.854")
 SIDE_COLOR = {"SHORT": C["blue"], "LONG": C["orange"]}
 
 # Level groups that can be switched on/off: name -> [(level, colour, dash)]
@@ -88,12 +89,18 @@ def wave_overlay(price: pd.DataFrame, signal_time: Any, length: int, pivot_tie: 
 def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], horizon_bars: int,
                  bars_before: int, groups: Sequence[str], height: int,
                  emas: Sequence[tuple[str, str]] = (), panes: Sequence[str] = (),
-                 pane_height: int = 170) -> go.Figure:
+                 pane_height: int = 170,
+                 level_groups: Optional[dict[str, list[tuple[str, str, str]]]] = None,
+                 level_labels: Optional[dict[str, str]] = None,
+                 targets: Sequence[str] = EW5_TARGETS, side_col: str = "reversal_side",
+                 wave_name: str = "Impulse 1-5", title: Optional[str] = None) -> go.Figure:
     """
     Candlestick for one signal. The x-axis is a category axis (one slot per bar), so
     nights, weekends and holidays leave no gaps. `panes` (keys of PANE_SERIES) are drawn
     together in ONE indicator pane below the price (0-100 scale, `pane_height` px high).
     """
+    level_groups = LEVEL_GROUPS if level_groups is None else level_groups
+    level_labels = _LEVEL_LABEL if level_labels is None else level_labels
     p = price.sort_values("time").reset_index(drop=True)
     t_sig = pd.Timestamp(row["signal_time"])
     i_sig = max(int(p["time"].searchsorted(t_sig, side="right")) - 1, 0)
@@ -136,7 +143,7 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
         pts = [(t, y, k) for k, (t, y) in enumerate(overlay["pts"]) if t in visible]
         fig.add_trace(go.Scatter(
             x=[lab(t) for t, _, _ in pts], y=[y for _, y, _ in pts], mode="lines+markers+text",
-            name="Impulse 1-5", line=dict(color=C["blue"], width=2), marker=dict(size=8),
+            name=wave_name, line=dict(color=C["blue"], width=2), marker=dict(size=8),
             text=["0" if k == 0 else f"({k})" for _, _, k in pts],
             textposition=["top center" if (k % 2 == 1) == bull else "bottom center" for _, _, k in pts],
             textfont=dict(color=C["ink"], size=13)))
@@ -154,14 +161,14 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
 
     # ---- horizontal levels (labels are added after the y-range is known)
     y_values = [win["Low"].min(), win["High"].max()]
-    level_labels: list[tuple[float, str]] = []
+    level_notes: list[tuple[float, str]] = []
     for group in groups:
-        for name, colour, dash in LEVEL_GROUPS[group]:
+        for name, colour, dash in level_groups[group]:
             value = row.get(name)
             if pd.isna(value):
                 continue
             y_values.append(float(value))
-            level_labels.append((float(value), f"{_LEVEL_LABEL.get(name, name)}  {value:,.2f}"))
+            level_notes.append((float(value), f"{level_labels.get(name, name)}  {value:,.2f}"))
             fig.add_hline(y=float(value), line=dict(color=colour, width=1.2, dash=dash), row=1, col=1)
 
     # ---- signal bar and evaluation window (category axis: positions are bar numbers)
@@ -175,14 +182,14 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
                        text="signal", font=dict(size=11, color=C["ink2"]))
 
     # ---- outcome markers
-    short = row.get("reversal_side") == "SHORT"
+    short = row.get(side_col) == "SHORT"
     events: list[tuple[Any, Any, str, str, str]] = [
         (row.get("trigger_time"), row.get("entry_price"), "Trigger (entry)",
          "triangle-down" if short else "triangle-up", C["orange"]),
         (row.get("stop_time"), row.get("STOP"), "Stopped", "x", C["critical"]),
     ]
     events += [(row.get(f"hit_{tg}_time"), row.get(tg), f"Hit {tg}", "star", C["yellow"])
-               for tg in ("W4_END", "FIB_0.500", "FIB_0.618", "FIB_0.764", "FIB_0.854")]
+               for tg in targets]
     for when, level, name, symbol, colour in events:
         if when is None or pd.isna(when) or pd.isna(level) or pd.Timestamp(when) not in visible:
             continue
@@ -228,8 +235,9 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
                            yanchor="top", showarrow=False, text="  ·  ".join(readings),
                            font=dict(size=11, color=C["ink2"]), bgcolor="rgba(26,26,25,0.75)")
 
-    title = (f"{row['Ticker']} · {row['time_frame']} · {row.get('degree', '')} · "
-             f"{row.get('impulse', '')} impulse → {row.get('reversal_side', '')} reversal")
+    if title is None:
+        title = (f"{row['Ticker']} · {row['time_frame']} · {row.get('degree', '')} · "
+                 f"{row.get('impulse', '')} impulse → {row.get(side_col, '')} reversal")
     _base_layout(fig, total_height, title)
     lo, hi = min(y_values), max(y_values)
     pad = (hi - lo) * 0.04 or 1.0
@@ -249,7 +257,7 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
     domain = fig.layout.yaxis.domain                                  # share of the plot area used by price
     px_per_unit = (total_height - margin_top - margin_bottom) * (domain[1] - domain[0]) / (hi - lo)
     placed = -1e9
-    for value, text in sorted(level_labels):
+    for value, text in sorted(level_notes):
         pixel = (value - lo) * px_per_unit
         placed = max(pixel, placed + _LABEL_GAP_PX)
         fig.add_annotation(xref="paper", x=1, xanchor="left", yref="y", y=value, yshift=placed - pixel,
@@ -286,9 +294,9 @@ def outcome_breakdown(res: pd.DataFrame, height: int = 360) -> go.Figure:
                            "Outcome by timeframe × degree")
 
 
-def side_breakdown(res: pd.DataFrame, height: int = 360) -> go.Figure:
-    """Stacked bar for live screens: signals by time_frame × degree, split by reversal side."""
-    return _stacked_counts(res, "reversal_side", ("SHORT", "LONG"), SIDE_COLOR, height,
+def side_breakdown(res: pd.DataFrame, height: int = 360, by: str = "reversal_side") -> go.Figure:
+    """Stacked bar for live screens: signals by time_frame × degree, split by side."""
+    return _stacked_counts(res, by, ("SHORT", "LONG"), SIDE_COLOR, height,
                            "Signals by timeframe × degree")
 
 
