@@ -8,7 +8,10 @@ value is read from the same figure the desktop draws, so both charts show the sa
 
     price pane   candles, EMA 13 / 55, wave 0-5 (+ a-b-c), level lines, entry / stop / target
                  markers, the signal bar and the shaded evaluation window
-    lower pane   RSI, DTosc K / D on 0-100 (bands 30 / 50 / 70), histogram bars beyond +/-20
+    lower panes  (phone only: the desktop draws these in one pane)
+                 1. RSI with the histogram bars beyond +/-20
+                 2. DTosc K / D
+                 both on 0-100 with the 30 / 50 / 70 guide lines
 """
 
 from __future__ import annotations
@@ -117,4 +120,17 @@ def convert(fig, price: pd.DataFrame, time_frame: str) -> dict:
     readings = [a.text for a in fig.layout.annotations if str(a.yref).endswith("domain") and a.text]
     out["readings"] = readings[0] if readings else ""
     out["markers"].sort(key=lambda m: m["time"])
+
+    # phone: RSI + histogram in one pane, DTosc K / D in the next (numbered from 1, no gaps)
+    groups = []
+    if any(ln["pane"] == 1 and not ln["name"].startswith("DTosc") for ln in out["lines"]) or out["hist"]:
+        groups.append("rsi")
+    if any(ln["pane"] == 1 and ln["name"].startswith("DTosc") for ln in out["lines"]):
+        groups.append("dtosc")
+    index = {g: i + 1 for i, g in enumerate(groups)}
+    for ln in out["lines"]:
+        if ln["pane"] == 1:
+            ln["pane"] = index["dtosc" if ln["name"].startswith("DTosc") else "rsi"]
+    out["hist_pane"] = index.get("rsi", 1)
+    out["panes"] = len(groups)
     return out

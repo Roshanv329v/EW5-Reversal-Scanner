@@ -122,7 +122,10 @@ function tvChart(spec) {
   const wrap = h("div", { class: "tv" });
   const title = h("div", { class: "tv-title" }, spec.title.replace(/<br>/g, " "));
   const readout = h("div", { class: "tv-readout" });
-  const el = h("div", { class: "tv-chart", style: `height:${spec.height + (spec.pane ? spec.pane_height : 0)}px` });
+  // phone: RSI + histogram and DTosc K / D get a pane each, a bit lower than the desktop's single pane
+  const nPanes = spec.pane ? (spec.panes || 1) : 0;
+  const paneH = nPanes > 1 ? Math.round(spec.pane_height * 0.8) : spec.pane_height;
+  const el = h("div", { class: "tv-chart", style: `height:${spec.height + nPanes * paneH}px` });
   wrap.append(title, readout, el);
 
   const chart = LW.createChart(el, {
@@ -182,20 +185,23 @@ function tvChart(spec) {
   let hist = null;
   if (spec.pane) {
     const fixed = (lo, hi) => () => ({ priceRange: { minValue: lo, maxValue: hi } });
-    Object.entries(lineSeries).forEach(([, s]) => { if (s.getPane().paneIndex() === 1) s.applyOptions({ autoscaleInfoProvider: fixed(0, 100) }); });
-    const anchor = Object.values(lineSeries).find((s) => s.getPane().paneIndex() === 1);
+    Object.values(lineSeries).forEach((s) => { if (s.getPane().paneIndex() >= 1) s.applyOptions({ autoscaleInfoProvider: fixed(0, 100) }); });
     if (spec.hist.length) {
-      hist = chart.addSeries(LW.HistogramSeries, Object.assign({ priceScaleId: "hist", autoscaleInfoProvider: fixed(-50, 50) }, quiet), 1);
-      chart.priceScale("hist", 1).applyOptions({ visible: false, scaleMargins: { top: 0.06, bottom: 0.06 } });
+      const hp = spec.hist_pane || 1;
+      hist = chart.addSeries(LW.HistogramSeries, Object.assign({ priceScaleId: "hist", autoscaleInfoProvider: fixed(-50, 50) }, quiet), hp);
+      chart.priceScale("hist", hp).applyOptions({ visible: false, scaleMargins: { top: 0.06, bottom: 0.06 } });
       hist.setData(spec.hist);
       named.push(["Histogram", "#2fbf71", [hist]]);
     }
-    chart.priceScale("right", 1).applyOptions({ scaleMargins: { top: 0.06, bottom: 0.06 } });
-    if (anchor) spec.bands.forEach((b) => anchor.createPriceLine({ price: b.price, color: "#6b6a64", lineWidth: 1,
-      lineStyle: b.style, axisLabelVisible: false }));
-    const size = () => {                          // price : indicator = height : pane_height, as on the desktop
+    for (let p = 1; p <= nPanes; p++) {           // each indicator pane: 0-100 with the 30 / 50 / 70 lines
+      chart.priceScale("right", p).applyOptions({ scaleMargins: { top: 0.06, bottom: 0.06 } });
+      const anchor = Object.values(lineSeries).find((s) => s.getPane().paneIndex() === p);
+      if (anchor) spec.bands.forEach((b) => anchor.createPriceLine({ price: b.price, color: "#6b6a64", lineWidth: 1,
+        lineStyle: b.style, axisLabelVisible: false }));
+    }
+    const size = () => {                          // price : each indicator pane = height : paneH
       const panes = chart.panes();
-      if (panes[1]) { panes[0].setStretchFactor(spec.height); panes[1].setStretchFactor(spec.pane_height); }
+      panes.forEach((pane, i) => pane.setStretchFactor(i === 0 ? spec.height : paneH));
     };
     size();
     requestAnimationFrame(size);

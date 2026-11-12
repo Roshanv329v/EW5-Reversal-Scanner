@@ -103,6 +103,9 @@ def test_api_dashboard_and_chart_match_the_desktop_numbers(tmp_path, df):
     assert tv["candles"] and tv["signal_time"] in {c["time"] for c in tv["candles"]}
     assert [c["time"] for c in tv["candles"]] == sorted({c["time"] for c in tv["candles"]})
     assert {line["name"] for line in tv["lines"]} >= {"EMA 13", "EMA 55", "RSI 14", "DTosc K", "DTosc D"}
+    panes = {line["name"]: line["pane"] for line in tv["lines"]}
+    assert panes["EMA 13"] == 0 and panes["RSI 14"] == tv["hist_pane"] == 1           # RSI + histogram
+    assert panes["DTosc K"] == panes["DTosc D"] == 2 and tv["panes"] == 2             # DTosc K / D below
     assert tv["waves"] and [x["text"] for x in tv["waves"][0]["labels"]][:2] == ["0", "(1)"]
     assert "TRIG" in {lv["title"] for lv in tv["levels"]} and {b["price"] for b in tv["bands"]} == {30.0, 50.0, 70.0}
 

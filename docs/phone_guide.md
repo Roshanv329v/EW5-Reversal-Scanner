@@ -49,8 +49,10 @@ Same as the desktop:
   - **Chart timeframe** buttons (60m · 4hr · 1D) above the chart show the same signal on
     another timeframe; the signal's own one is marked *signal* and is where every newly opened
     signal starts. The overlay and the chart under the table switch separately.
+  - under the price: **RSI with the histogram** bars (beyond ±20) in one pane and **DTosc K / D**
+    in the next, each on 0-100 with the 30 / 50 / 70 lines (the desktop shows all four in one pane).
   The content is the desktop chart's: same candles, EMAs, wave count, levels, markers and
-  indicator pane.
+  indicator values.
 - **Back button** closes an open overlay or list first.
 - **Share results CSV** (Run tab) sends a results file to any app.
 
@@ -58,7 +60,7 @@ Same as the desktop:
 
 | | Desktop | Phone |
 |---|---|---|
-| Signal chart | Plotly | TradingView Lightweight Charts (pinch zoom, pan, axis scaling); same content |
+| Signal chart | Plotly | TradingView Lightweight Charts (pinch zoom, pan, axis scaling); same content; RSI + histogram and DTosc K / D in two panes |
 | Price download | yfinance | Yahoo's chart API directly (same data; yfinance cannot run on Android) |
 | Indicators | TA-Lib | `core/ta_lite.py`: the same formulas in numpy, checked against TA-Lib on all stored series |
 | stock.csv | one file | 16 part files of the same format, so the phone never holds every ticker in memory |
