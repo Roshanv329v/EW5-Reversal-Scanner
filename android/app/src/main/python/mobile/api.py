@@ -29,7 +29,7 @@ import stock_data
 from core import charts, data_store as ds, htf, prefs, runner, strategies
 from core.config import ROOT, load_config
 from core.strategies import Strategy
-from mobile import jobs, resources, scan
+from mobile import jobs, lwchart, resources, scan
 from mobile.fetch import yahoo_fetch
 from mobile.store import N_PARTS, Store
 
@@ -356,42 +356,6 @@ def _htf_note(row: pd.Series) -> str:
     return " · ".join([str(row["alignment"]), *trends])
 
 
-_SHORT = [(r"^STOP / W\d_END", "STOP"), (r"^W0_START.*", "W0"), (r"^TRIGGER", "TRIG"),
-          (r"^W(\d)_END", r"W\1"), (r"^FIB_0(\.\d+)", r"F\1"), (r"^W\d_TGT_(\d\.\d+)xW1", r"T\1"),
-          (r"^W2_RET_0(\.\d+)", r"R\1")]
-
-
-def _narrow(fig) -> None:
-    """
-    Phone portrait (~360 px): the same chart, laid out for the width. Legend drawn by the
-    page under the chart, title on two lines, short level labels (TRIG, STOP, W4, F.500, T1.618, R.382)
-    so the right margin is small and the candles keep the room.
-    """
-    title = fig.layout.title.text or ""
-    parts = title.split(" · ")
-    if len(parts) > 3:
-        title = " · ".join(parts[:3]) + "<br>" + " · ".join(parts[3:])
-    fig.update_layout(title=dict(text=title, font_size=12), font_size=10, showlegend=False,
-                      margin=dict(l=46, r=84, t=78, b=40))       # the page draws the legend under the chart
-    for name in [k for k in fig.layout.to_plotly_json() if k.startswith("xaxis")]:
-        axis = fig.layout[name]
-        if axis.tickvals:                                   # every third date, so they do not overlap
-            fig.layout[name].update(tickvals=list(axis.tickvals)[::3], ticktext=list(axis.ticktext)[::3], tickfont_size=9)
-    for ann in fig.layout.annotations:
-        if ann.yref and str(ann.yref).endswith("domain"):   # the indicator readings line
-            ann.update(font_size=8)
-        if ann.xref == "paper" and ann.x == 1 and ann.text:
-            name, _, value = ann.text.partition("  ")
-            for pattern, repl in _SHORT:
-                name = re.sub(pattern, repl, name)
-            try:
-                number = float(value.replace(",", ""))
-                value = f"{number:,.0f}" if abs(number) >= 1000 else f"{number:,.2f}"
-            except ValueError:
-                pass
-            ann.update(text=f"{name} {value}", font_size=8, xshift=2)
-
-
 def chart(req: dict) -> dict:
     a = _app()
     S = strategies.get(req.get("key"))
@@ -427,18 +391,19 @@ def chart(req: dict) -> dict:
             overlay = _overlay(row["Ticker"], row["time_frame"], str(row["signal_time"]), int(row["zigzag_length"]),
                                params.get("pivot_tie", engine["pivot_tie"]), params.get("hi_source", engine["hi_source"]),
                                params.get("lo_source", engine["lo_source"]), a.store.mtime())
-        narrow = bool(req.get("narrow"))
+        small = compact or bool(req.get("narrow"))
         fig = charts.signal_chart(
             price, row, overlay, horizon_bars=int(params.get("horizon_bars", engine["horizon_bars"])),
             bars_before=int(chart_cfg["bars_before"]), groups=groups,
-            height=int(chart_cfg["overlay_height" if (compact or narrow) else "height"]), emas=emas,
+            height=int(chart_cfg["overlay_height" if small else "height"]), emas=emas,
             panes=chart_cfg["indicator_panes"] if req.get("ind", True) else (),
-            pane_height=int(chart_cfg["overlay_pane_height" if (compact or narrow) else "pane_height"]),
+            pane_height=int(chart_cfg["overlay_pane_height" if small else "pane_height"]),
             level_groups=S.level_groups, level_labels=S.level_labels, targets=S.targets,
             side_col=S.side_col, wave_name=S.wave_name, title=S.chart_title(row))
-        if narrow:
-            _narrow(fig)
-        out["figure"] = fig_json(fig)
+        # Same figure as the desktop, drawn on the phone with TradingView Lightweight Charts
+        out["tv"] = lwchart.convert(fig, price, row["time_frame"])
+        out["tv"].update(height=int(chart_cfg["overlay_height" if small else "height"]),
+                         pane_height=int(chart_cfg["overlay_pane_height" if small else "pane_height"]))
         if overlay is None:
             out["note"] = "The engine has no wave count at this bar, so only price and levels are shown."
 

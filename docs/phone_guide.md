@@ -34,11 +34,20 @@ Same as the desktop:
   them; *Clear chart filter* resets.
 - **Signal table**: swipe sideways for more columns; tap a row for the chart overlay. The
   same chart and the signal details stay below the table.
-- **Charts** in portrait use short level labels to give the candles room:
-  `TRIG` trigger, `STOP`, `W4` wave-4 end, `F.500` … `F.854` Fibonacci levels,
-  `T0.618` … `T2.618` wave-5 (EW5) or wave-3 (EW3) targets, `R.382` … `R.786` wave-2
-  retracements, `W0` / `W1` wave starts and ends. The legend is under the chart; tap an entry
-  to hide or show it. Turn the phone sideways for the full desktop labels.
+- **Signal chart** works like TradingView (it is drawn with TradingView's Lightweight Charts):
+  - **pinch** (or the mouse wheel) to zoom, **drag** sideways to move through time;
+  - **drag the price axis** up or down to stretch or squeeze prices; **double-tap an axis** to
+    reset that axis;
+  - buttons under the chart: **－ / ＋** zoom, **⟲ Reset** shows everything again with automatic
+    price scaling, **◎ Signal** jumps to the signal bar;
+  - the line above the chart shows date, open / high / low / close, EMAs and the indicator
+    values of the bar under your finger (the signal bar otherwise);
+  - level labels sit on the price axis: `TRIG` trigger, `STOP`, `W4` wave-4 end,
+    `F.500` … `F.854` Fibonacci levels, `T0.618` … `T2.618` wave-5 (EW5) or wave-3 (EW3)
+    targets, `R.382` … `R.786` wave-2 retracements, `W0` / `W1` wave starts and ends;
+  - the legend under the chart hides or shows a series when tapped.
+  The content is the desktop chart's: same candles, EMAs, wave count, levels, markers and
+  indicator pane.
 - **Back button** closes an open overlay or list first.
 - **Share results CSV** (Run tab) sends a results file to any app.
 
@@ -46,6 +55,7 @@ Same as the desktop:
 
 | | Desktop | Phone |
 |---|---|---|
+| Signal chart | Plotly | TradingView Lightweight Charts (pinch zoom, pan, axis scaling); same content |
 | Price download | yfinance | Yahoo's chart API directly (same data; yfinance cannot run on Android) |
 | Indicators | TA-Lib | `core/ta_lite.py`: the same formulas in numpy, checked against TA-Lib on all stored series |
 | stock.csv | one file | 16 part files of the same format, so the phone never holds every ticker in memory |

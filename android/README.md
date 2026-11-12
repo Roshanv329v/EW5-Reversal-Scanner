@@ -28,9 +28,15 @@ app/src/main/java/app/ewscanner/
   ResultsProvider.java shares results/*.csv with other apps
 ```
 
-The charts are `core/charts.py` figures sent as Plotly JSON, so they are the desktop charts.
-On a phone held upright the signal chart moves its legend under the chart and shortens the
-level labels; turned sideways it is the desktop layout.
+The breakdown charts are `core/charts.py` figures sent as Plotly JSON. The signal chart is the
+same `core/charts.signal_chart` figure converted by `mobile/lwchart.py` and drawn with
+TradingView Lightweight Charts 5.2.1 (`web/lightweight-charts.standalone.production.js`,
+Apache-2.0, licence in `web/lightweight-charts-LICENSE.txt`), for TradingView-style pinch
+zoom, panning and price-axis scaling.
+
+**Updates.** A new build installs over the existing app, keeping its data, as long as it
+keeps `applicationId = "app.ewscanner"`, is signed with the same key (`keystore/`), and has a
+higher `versionCode` in `app/build.gradle.kts` (raise it by one for every release).
 
 | Desktop | Phone | Why |
 |---|---|---|

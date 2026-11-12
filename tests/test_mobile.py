@@ -98,7 +98,13 @@ def test_api_dashboard_and_chart_match_the_desktop_numbers(tmp_path, df):
 
     chart = api.chart({"key": "ew5", "file": out["file"], "id": out["table"]["ids"][0],
                        "groups": out["level_groups"], "narrow": True})
-    assert chart["figure"]["data"] and chart["levels"] and chart["facts"][0][0] == "Signal"
+    tv = chart["tv"]                                     # TradingView chart: everything from the desktop figure
+    assert chart["levels"] and chart["facts"][0][0] == "Signal"
+    assert tv["candles"] and tv["signal_time"] in {c["time"] for c in tv["candles"]}
+    assert [c["time"] for c in tv["candles"]] == sorted({c["time"] for c in tv["candles"]})
+    assert {line["name"] for line in tv["lines"]} >= {"EMA 13", "EMA 55", "RSI 14", "DTosc K", "DTosc D"}
+    assert tv["waves"] and [x["text"] for x in tv["waves"][0]["labels"]][:2] == ["0", "(1)"]
+    assert "TRIG" in {lv["title"] for lv in tv["levels"]} and {b["price"] for b in tv["bands"]} == {30.0, 50.0, 70.0}
 
     saved = api.save_prefs("ew5", {**api.get_prefs("ew5")["default"], "alignment": ["ALIGNED"]})
     assert saved["ok"] and api.get_prefs("ew5")["prefs"]["alignment"] == ["ALIGNED"]

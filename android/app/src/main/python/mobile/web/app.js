@@ -103,6 +103,156 @@ function plot(div, fig, onClick) {
   }
 }
 
+// ---------------------------------------------------------------- signal chart (TradingView Lightweight Charts)
+/* Same content as the desktop Plotly chart (converted in mobile/lwchart.py), with TradingView
+   handling: pinch or wheel to zoom, drag to move, drag the price axis to stretch it,
+   double-tap an axis to reset it, and the buttons below. */
+const TV_LIVE = new Set();
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function tvTime(t, intraday) {                 // times are IST wall clock stored "as UTC"
+  const d = new Date(t * 1000), p = (n) => String(n).padStart(2, "0");
+  const day = `${p(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return intraday ? `${day} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}` : day;
+}
+
+function tvChart(spec) {
+  TV_LIVE.forEach((c) => { if (!document.body.contains(c.el)) { c.chart.remove(); TV_LIVE.delete(c); } });
+  const LW = window.LightweightCharts;
+  const fmt = (v) => (v === undefined || v === null ? "–" : Number(v).toFixed(2));
+  const wrap = h("div", { class: "tv" });
+  const title = h("div", { class: "tv-title" }, spec.title.replace(/<br>/g, " "));
+  const readout = h("div", { class: "tv-readout" });
+  const el = h("div", { class: "tv-chart", style: `height:${spec.height + (spec.pane ? spec.pane_height : 0)}px` });
+  wrap.append(title, readout, el);
+
+  const chart = LW.createChart(el, {
+    autoSize: true,
+    layout: { background: { type: "solid", color: "#1a1a19" }, textColor: "#c3c2b7", fontSize: 11,
+      attributionLogo: true, panes: { separatorColor: "#383835", enableResize: true } },
+    grid: { vertLines: { color: "#262624" }, horzLines: { color: "#262624" } },
+    rightPriceScale: { borderColor: "#383835" },
+    timeScale: { borderColor: "#383835", timeVisible: spec.intraday, secondsVisible: false, rightOffset: 3 },
+    crosshair: { mode: LW.CrosshairMode.Normal },
+    localization: { priceFormatter: fmt, timeFormatter: (t) => tvTime(t, spec.intraday) },
+    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+    handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true },
+    kineticScroll: { touch: true, mouse: false },
+  });
+  TV_LIVE.add({ chart, el });
+  const quiet = { priceLineVisible: false, lastValueVisible: false };
+
+  // evaluation window after the signal: a faint full-height band behind the candles
+  if (spec.signal_time) {
+    const shade = chart.addSeries(LW.HistogramSeries, Object.assign({ priceScaleId: "shade", base: 0 }, quiet));
+    chart.priceScale("shade").applyOptions({ visible: false, scaleMargins: { top: 0, bottom: 0 } });
+    shade.setData(spec.candles.filter((c) => c.time >= spec.signal_time).map((c) => ({ time: c.time, value: 1,
+      color: c.time === spec.signal_time ? "rgba(195,194,183,0.22)" : "rgba(57,135,229,0.08)" })));
+  }
+  const candles = chart.addSeries(LW.CandlestickSeries, { upColor: spec.up, downColor: spec.down, borderVisible: false,
+    wickUpColor: spec.up, wickDownColor: spec.down, priceLineVisible: false });
+  candles.setData(spec.candles);
+  const named = [];                               // [name, colour, series[]] for the legend
+  spec.levels.forEach((l) => candles.createPriceLine({ price: l.price, color: l.color, lineWidth: 1, lineStyle: l.style,
+    axisLabelVisible: true, title: l.title }));
+  const marks = spec.markers.map((m) => ({ time: m.time, position: "atPriceMiddle", price: m.price, shape: m.shape,
+    color: m.color, text: m.text, size: 1.2 }));
+  if (spec.signal_time) marks.push({ time: spec.signal_time, position: "aboveBar", shape: "arrowDown", color: "#c3c2b7", text: "signal", size: 0.8 });
+  marks.sort((a, b) => a.time - b.time);
+  LW.createSeriesMarkers(candles, marks);
+  named.push(["Price", spec.up, [candles]]);
+
+  const lineSeries = {};
+  spec.lines.forEach((l) => {
+    const s = chart.addSeries(LW.LineSeries, Object.assign({ color: l.color, lineWidth: Math.max(1, Math.round(l.width)),
+      crosshairMarkerVisible: false }, quiet), l.pane);
+    s.setData(l.data);
+    lineSeries[l.name] = s;
+    named.push([l.name, l.color, [s]]);
+  });
+  spec.waves.forEach((w) => {
+    const s = chart.addSeries(LW.LineSeries, Object.assign({ color: w.color, lineWidth: 2, lineStyle: w.style,
+      pointMarkersVisible: true, pointMarkersRadius: 3, crosshairMarkerVisible: false }, quiet), 0);
+    s.setData(w.data);
+    LW.createSeriesMarkers(s, w.labels.map((x) => ({ time: x.time, position: x.position, price: x.price,
+      shape: "circle", color: "#f0efec", text: x.text, size: 0.1 })));
+    named.push([w.name, w.color, [s]]);
+  });
+
+  // indicator pane: 0-100 for RSI / DTosc, histogram (RSI - 50) on its own -50..50 scale so 0 sits on 50
+  let hist = null;
+  if (spec.pane) {
+    const fixed = (lo, hi) => () => ({ priceRange: { minValue: lo, maxValue: hi } });
+    Object.entries(lineSeries).forEach(([, s]) => { if (s.getPane().paneIndex() === 1) s.applyOptions({ autoscaleInfoProvider: fixed(0, 100) }); });
+    const anchor = Object.values(lineSeries).find((s) => s.getPane().paneIndex() === 1);
+    if (spec.hist.length) {
+      hist = chart.addSeries(LW.HistogramSeries, Object.assign({ priceScaleId: "hist", autoscaleInfoProvider: fixed(-50, 50) }, quiet), 1);
+      chart.priceScale("hist", 1).applyOptions({ visible: false, scaleMargins: { top: 0.06, bottom: 0.06 } });
+      hist.setData(spec.hist);
+      named.push(["Histogram", "#2fbf71", [hist]]);
+    }
+    chart.priceScale("right", 1).applyOptions({ scaleMargins: { top: 0.06, bottom: 0.06 } });
+    if (anchor) spec.bands.forEach((b) => anchor.createPriceLine({ price: b.price, color: "#6b6a64", lineWidth: 1,
+      lineStyle: b.style, axisLabelVisible: false }));
+    const size = () => {                          // price : indicator = height : pane_height, as on the desktop
+      const panes = chart.panes();
+      if (panes[1]) { panes[0].setStretchFactor(spec.height); panes[1].setStretchFactor(spec.pane_height); }
+    };
+    size();
+    requestAnimationFrame(size);
+  }
+
+  // readout like TradingView's legend: values under the crosshair (signal bar when idle)
+  const byTime = new Map(spec.candles.map((c) => [c.time, c]));
+  const show = (t) => {
+    const c = byTime.get(t);
+    if (!c) { readout.textContent = spec.readings || ""; return; }
+    const parts = [`${tvTime(t, spec.intraday)}`, `O ${fmt(c.open)} H ${fmt(c.high)} L ${fmt(c.low)} C ${fmt(c.close)}`];
+    spec.lines.forEach((l) => { const p = l.data.find((d) => d.time === t); if (p) parts.push(`${l.name} ${fmt(p.value)}`); });
+    const hb = spec.hist.find((d) => d.time === t);
+    if (hb) parts.push(`Hist ${fmt(hb.value)}`);
+    readout.textContent = parts.join("  ·  ");
+  };
+  chart.subscribeCrosshairMove((p) => show(p && p.time ? p.time : spec.signal_time));
+  show(spec.signal_time);
+
+  // buttons: zoom out / in around the middle, reset everything, jump to the signal
+  const ts = chart.timeScale();
+  const zoom = (factor) => {
+    const r = ts.getVisibleLogicalRange();
+    if (!r) return;
+    const mid = (r.from + r.to) / 2, half = Math.max(5, ((r.to - r.from) / 2) * factor);
+    ts.setVisibleLogicalRange({ from: mid - half, to: mid + half });
+  };
+  const reset = () => {
+    ts.resetTimeScale(); ts.fitContent();
+    chart.panes().forEach((_, i) => chart.priceScale("right", i).applyOptions({ autoScale: true }));
+  };
+  const toSignal = () => {
+    const i = spec.candles.findIndex((c) => c.time === spec.signal_time);
+    if (i >= 0) ts.setVisibleLogicalRange({ from: i - 40, to: i + 35 });
+    chart.panes().forEach((_, k) => chart.priceScale("right", k).applyOptions({ autoScale: true }));
+  };
+  const bar = h("div", { class: "tv-tools" },
+    h("button", { class: "btn small", title: "Zoom out", onclick: () => zoom(1.35) }, "－"),
+    h("button", { class: "btn small", title: "Zoom in", onclick: () => zoom(0.7) }, "＋"),
+    h("button", { class: "btn small", onclick: reset }, "⟲ Reset"),
+    spec.signal_time ? h("button", { class: "btn small", onclick: toSignal }, "◎ Signal") : null,
+    h("span", { class: "tv-hint" }, "Pinch or scroll to zoom · drag to move · drag the price axis to stretch"));
+  wrap.append(bar);
+
+  const legend = h("div", { class: "legend" });
+  named.forEach(([name, colour, series]) => {
+    const item = h("button", { class: "lg", onclick: () => {
+      const off = item.classList.toggle("off");
+      series.forEach((s) => s.applyOptions({ visible: !off }));
+    } }, h("i", { style: `background:${colour}` }), name);
+    legend.append(item);
+  });
+  wrap.append(legend);
+  requestAnimationFrame(() => ts.fitContent());
+  return wrap;
+}
+
 // ---------------------------------------------------------------- widgets
 function multiselect(labelText, options, selected, onChange, disabled) {
   const box = h("div", { class: "box-input" + (disabled ? " disabled" : "") });
@@ -520,7 +670,7 @@ class Dash {
     if (c.htf) box.append(h("div", { html: `<b>Higher timeframes:</b> <span class="a-${esc(c.alignment)}">${esc(c.htf)}</span>` }));
     box.append(this.chartToggles(s.groups, () => this.drawChart()));
     if (c.warning) box.append(note("warn", c.warning));
-    if (c.figure) { const div = h("div", { class: "plot" }); box.append(div); requestAnimationFrame(() => plot(div, c.figure)); }
+    if (c.tv) box.append(tvChart(c.tv));
     if (c.note) box.append(h("div", { class: "caption" }, c.note));
 
     box.append(h("h3", {}, "ℹ️ Signal details"));
@@ -546,7 +696,7 @@ class Dash {
       panel.append(h("div", { class: "facts", html: c.facts.map(([k, v]) => `<b>${esc(k)}</b> ${esc(v)}`).join("  |  ") }));
       panel.append(this.chartToggles(s.dlg, draw));
       if (c.warning) panel.append(note("warn", c.warning));
-      if (c.figure) { const div = h("div", { class: "plot" }); panel.append(div); requestAnimationFrame(() => plot(div, c.figure)); }
+      if (c.tv) panel.append(tvChart(c.tv));
       if (c.note) panel.append(h("div", { class: "caption" }, c.note));
     };
     draw();
@@ -783,7 +933,7 @@ function boot() {
   window.addEventListener("resize", () => {
     if (Math.abs(window.innerWidth - w) < 80) return;          // keyboard / toolbar changes
     w = window.innerWidth;
-    if (activeTab === "ew5" || activeTab === "ew3") Dash.get(activeTab).drawChart();
+    if (activeTab === "ew5" || activeTab === "ew3") Dash.get(activeTab).load();   // breakdown charts re-laid out
   });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { refreshHeader(); Jobs.watch(); } });
 }

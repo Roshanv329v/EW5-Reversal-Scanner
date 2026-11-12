@@ -180,3 +180,12 @@ td.t-BEARISH { color: var(--down); }
 .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #2a3142; color: var(--ink);
   padding: 10px 16px; border-radius: 10px; z-index: 80; box-shadow: 0 6px 24px rgba(0,0,0,0.4); max-width: 92vw; font-size: 0.9rem; }
 .spin { color: var(--muted); padding: 18px 0; }
+
+/* ---- signal chart (TradingView Lightweight Charts) */
+.tv { border-radius: 10px; background: #1a1a19; padding: 8px 6px 6px; margin: 6px 0; }
+.tv-title { color: var(--ink); font-size: 0.9rem; font-weight: 600; padding: 0 4px; }
+.tv-readout { color: var(--ink2); font-size: 0.74rem; padding: 2px 4px 6px; min-height: 1.2em; font-variant-numeric: tabular-nums; }
+.tv-chart { width: 100%; position: relative; touch-action: pan-y; }
+.tv-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 2px 2px; }
+.tv-tools .btn { min-width: 40px; }
+.tv-hint { color: var(--muted); font-size: 0.72rem; }
