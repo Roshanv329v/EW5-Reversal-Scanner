@@ -60,10 +60,33 @@ def one(symbol: str, interval: str, period: Optional[str], start: Optional[str])
     index = pd.to_datetime(r["timestamp"], unit="s", utc=True)
     frame = pd.DataFrame({"Open": q["open"], "High": q["high"], "Low": q["low"],
                           "Close": q["close"], "Volume": q["volume"]}, index=index)
+    frame = frame.dropna(how="all")
     if interval == "1d":
         tz = r.get("meta", {}).get("exchangeTimezoneName") or "UTC"
         frame.index = frame.index.tz_convert(tz).tz_localize(None).normalize()
-    return frame.dropna(how="all")
+    return merge_live_row(frame, pd.Timedelta(days=1) if interval == "1d" else pd.Timedelta(interval))
+
+
+def merge_live_row(frame: pd.DataFrame, step: pd.Timedelta) -> pd.DataFrame:
+    """
+    During market hours Yahoo sends the unfinished bar (e.g. 12:15) and then a separate
+    "live" row stamped with the current time (e.g. 12:50:36). yfinance folds that row into
+    the bar it belongs to; so does this: high / low widen, close becomes the live price,
+    volumes add up. Without it the phone would store an extra bar at an odd time, and the
+    4hr bars (built from the 60m ones by position in the day) would shift.
+    """
+    while len(frame) >= 2 and frame.index[-1] - frame.index[-2] < step:
+        bar, live = frame.iloc[-2].copy(), frame.iloc[-1]
+        if pd.notna(live["High"]):
+            bar["High"] = max(bar["High"], live["High"]) if pd.notna(bar["High"]) else live["High"]
+        if pd.notna(live["Low"]):
+            bar["Low"] = min(bar["Low"], live["Low"]) if pd.notna(bar["Low"]) else live["Low"]
+        if pd.notna(live["Close"]):
+            bar["Close"] = live["Close"]
+        bar["Volume"] = (bar["Volume"] if pd.notna(bar["Volume"]) else 0) + (live["Volume"] if pd.notna(live["Volume"]) else 0)
+        frame = frame.iloc[:-1].copy()
+        frame.iloc[-1] = bar
+    return frame
 
 
 def yahoo_fetch(tickers, interval, period, start) -> dict[str, pd.DataFrame]:

@@ -79,6 +79,7 @@ class Store:
         items = sorted(groups.items())
         for n, (i, group) in enumerate(items):
             cfg = dict(self.cfg, stock_csv=self.part_path(i), backups_dir=self.dir / "backups" / f"{i:02d}")
+            self.drop_live_rows(i)
 
             def step(done: int, total: int, msg: str, n: int = n) -> None:
                 if progress:
@@ -88,6 +89,24 @@ class Store:
                                           progress=step, fetch=fetch))
             _load.cache_clear()
         return _combine(reports)
+
+    def drop_live_rows(self, i: int) -> int:
+        """
+        Remove intraday rows left by Yahoo's separate "live" row (app 1.0-1.3 stored it as a
+        bar stamped with the download time, e.g. 12:46:47). Real bars never carry seconds.
+        The update that follows downloads those days again and rebuilds the 4hr bars.
+        """
+        path = self.part_path(i)
+        if not path.exists():
+            return 0
+        df = ds.load_stock_csv(path)
+        bad = df["time_frame"].isin(["60m", "4hr"]) & (df["time"].dt.second != 0)
+        if not bad.any():
+            return 0
+        ds.save_stock_csv(ds.add_indicators(df.loc[~bad, ds.BASE_SCHEMA], int(self.cfg["indicator_decimals"])),
+                          path, self.dir / "backups" / f"{i:02d}", 1)
+        _load.cache_clear()
+        return int(bad.sum())
 
     # ---------------------------------------------------------------- import / summaries
     def import_csv(self, path: Path, progress: Optional[ProgressFn] = None) -> int:

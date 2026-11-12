@@ -128,3 +128,27 @@ def test_one_job_at_a_time():
     with pytest.raises(RuntimeError):
         jobs.start("run", "second", lambda job: None)
     gate.set()
+
+
+def test_yahoo_live_row_is_folded_into_its_bar():
+    """Yahoo's separate live row (current time, zero volume) must not become a bar."""
+    from mobile.fetch import merge_live_row
+    idx = pd.DatetimeIndex(["2026-11-12 04:45", "2026-11-12 05:45", "2026-11-12 06:45", "2026-11-12 07:20:36"], tz="UTC")
+    frame = pd.DataFrame({"Open": [10, 11, 12, 12.5], "High": [11, 12, 13, 13.6], "Low": [9, 10, 11, 12.4],
+                          "Close": [11, 12, 12.5, 12.6], "Volume": [100, 100, 100, 0]}, index=idx)
+    out = merge_live_row(frame, pd.Timedelta("60m"))
+    assert list(out.index) == list(idx[:3])
+    assert out.iloc[-1].to_dict() == {"Open": 12, "High": 13.6, "Low": 11, "Close": 12.6, "Volume": 100}
+    assert merge_live_row(frame.iloc[:3], pd.Timedelta("60m")).equals(frame.iloc[:3])      # nothing to merge
+
+
+def test_update_removes_live_rows_stored_by_older_versions(cfg, tmp_path):
+    store = Store(dict(cfg, stock_csv=tmp_path / "phone" / "stock.csv"))
+    store.update(TICKERS[:3], ["1D", "4hr", "60m"], 30, False, FakeFetch(days=40))
+    part = store.part_paths()[0]
+    df = ds.load_stock_csv(part)
+    hour = df[df["time_frame"] == "60m"].iloc[-1].copy()
+    hour["time"] = hour["time"] + pd.Timedelta(minutes=35, seconds=36)               # e.g. 13:50:36
+    ds.save_stock_csv(pd.concat([df, hour.to_frame().T], ignore_index=True), part, tmp_path / "b", 1)
+    assert store.drop_live_rows(int(part.stem[-2:])) == 1
+    assert (ds.load_stock_csv(part)["time"].dt.second == 0).all()

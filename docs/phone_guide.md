@@ -67,7 +67,10 @@ Same as the desktop:
 | pandas / numpy | 3.x / 2.x | 2.1.3 / 1.26.2 (the versions built for Android); results checked identical |
 
 Signals, levels, outcomes, alignment and every stat are identical to the desktop on the same
-data. The only known difference is DTosc K / D on a perfectly flat price stretch, where both
+data and the same run settings: a backtest of 11 May to 11 Nov 2026 gives 3,100 EW5 and 1,574
+EW3 signals on both, signal for signal. Compare runs with the same dates: the Run / Backtest
+tab's default window is the last 365 days, and each dashboard shows the dates of the file it
+displays under the file name. The only known difference is DTosc K / D on a perfectly flat price stretch, where both
 versions divide zero by zero.
 
 ### Storage and battery
