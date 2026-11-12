@@ -6,6 +6,8 @@ Synthetic data only lives here (tests/conftest.py).
 
 from __future__ import annotations
 
+import json
+
 import sys
 from pathlib import Path
 
@@ -152,3 +154,81 @@ def test_update_removes_live_rows_stored_by_older_versions(cfg, tmp_path):
     ds.save_stock_csv(pd.concat([df, hour.to_frame().T], ignore_index=True), part, tmp_path / "b", 1)
     assert store.drop_live_rows(int(part.stem[-2:])) == 1
     assert (ds.load_stock_csv(part)["time"].dt.second == 0).all()
+
+
+def test_alert_schedule_and_settings():
+    from datetime import datetime
+    from mobile import alerts
+    s = {**alerts.DEFAULTS}
+    assert alerts.next_runs(s, datetime(2026, 11, 13, 16, 0)) == [          # Friday after the last scan
+        "Mon 16 Nov 12:30", "Mon 16 Nov 15:45", "Tue 17 Nov 12:30"]
+    assert alerts.next_runs({**s, "enabled": False}) == []
+    clean = alerts.clean_settings({**s, "times": ["9:5", "15:45", "25:00", "15:45"], "days": [5, 1, 9]})
+    assert clean["times"] == ["09:05", "15:45"] and clean["days"] == [1, 5]
+    with pytest.raises(ValueError):
+        alerts.clean_settings({**s, "times": []})
+
+
+def test_alerts_find_todays_events_and_notify_each_once(tmp_path, df):
+    import time as _time
+    from mobile import alerts
+    api.init(str(tmp_path / "phone"))
+    a = api._app()
+    src = tmp_path / "stock.csv"
+    ds.save_stock_csv(df, src, tmp_path / "b", 1)
+    a.store.import_csv(src)
+    p = runner.RunParams(mode="backtest", timeframes=("1D",), lengths=(4, 8, 16), stages=STAGES, horizon_bars=30)
+    res = runner.run_engine(df, p, CFG["signal_indicators"], CFG["htf"])
+    day = pd.Timestamp(res.loc[res["status"].eq("TRIGGERED"), "trigger_time"].max()).date()   # a day with a trigger
+    alerts.save_settings(a, {**alerts.DEFAULTS, "update_data": False, "strategies": ["ew5"], "timeframes": ["1D"]})
+
+    def scan_once() -> dict:
+        alerts.run(a, "manual", today=day, notify=False)
+        while jobs.current()["running"]:
+            _time.sleep(0.05)
+        assert jobs.current()["error"] is None, jobs.current()["log"]
+        return jobs.current()["result"]
+
+    first = scan_once()
+    expected_trig = int((res["status"].eq("TRIGGERED") & (pd.to_datetime(res["trigger_time"]).dt.date == day)).sum())
+    expected_new = int((pd.to_datetime(res["signal_time"]).dt.date == day).sum())
+    assert first["triggered"] == expected_trig > 0 and first["new_setups"] == expected_new
+    assert first["new_events"] == expected_trig + expected_new
+    assert scan_once()["new_events"] == 0                                 # second scan: nothing new to notify
+    files = runner.list_results(a.cfg["results_dir"], "ew5")
+    assert files and all("auto" in f.name for f in files)
+
+
+def test_telegram_is_off_by_default_and_keeps_the_token_private(tmp_path, monkeypatch):
+    from mobile import alerts
+    assert alerts.DEFAULTS["telegram"] is False
+    with pytest.raises(ValueError):
+        alerts.clean_settings({**alerts.DEFAULTS, "telegram": True})                     # no token / chat
+    api.init(str(tmp_path / "phone"))
+    a = api._app()
+    saved = alerts.save_settings(a, {**alerts.DEFAULTS, "telegram": True, "telegram_token": "123:SECRET",
+                                     "telegram_chat_id": "42"})
+    assert "telegram_token" not in saved["settings"] and saved["settings"]["telegram_token_set"]
+    assert "SECRET" not in json.dumps(api.alerts_overview())
+    again = alerts.save_settings(a, {**api.alerts_overview()["settings"], "telegram_token": ""})   # page sends no token
+    assert again["settings"]["telegram_token_set"] and alerts.load_settings(a)["telegram_token"] == "123:SECRET"
+
+    sent = []
+    monkeypatch.setattr(alerts, "_telegram", lambda token, method, payload: sent.append((token, method, payload)) or {"ok": True})
+    assert alerts.telegram_test(a, {})["ok"]
+    token, method, payload = sent[-1]
+    assert (token, method, payload["chat_id"], payload["parse_mode"]) == ("123:SECRET", "sendMessage", "42", "HTML")
+    assert "EXAMPLE.NS" in payload["text"] and "Triggered today (1)" in payload["text"]
+
+    monkeypatch.setattr(alerts, "_telegram", lambda *a: {"ok": False, "description": "Unauthorized"})
+    with pytest.raises(ValueError, match="Unauthorized"):
+        alerts.telegram_test(a, {})
+
+
+def test_telegram_messages_are_split_under_the_limit():
+    from mobile import alerts
+    many = [{"event": "NEW", "strategy": "ew3", "ticker": f"T{i}.NS", "tf": "60m", "degree": "minor", "side": "LONG",
+             "at": "2026-01-01 10:15", "alignment": "MIXED", "trigger": 1.0, "stop": 0.9} for i in range(200)]
+    parts = alerts.telegram_text("EW alerts <today>", many)
+    assert len(parts) > 1 and all(len(p) <= 4096 for p in parts)
+    assert "&lt;today&gt;" in parts[0] and sum(p.count("•") for p in parts) == 200

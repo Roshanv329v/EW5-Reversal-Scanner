@@ -29,7 +29,7 @@ import stock_data
 from core import charts, data_store as ds, htf, prefs, runner, strategies
 from core.config import ROOT, load_config
 from core.strategies import Strategy
-from mobile import jobs, lwchart, resources, scan
+from mobile import alerts, jobs, lwchart, resources, scan
 from mobile.fetch import yahoo_fetch
 from mobile.store import N_PARTS, Store
 
@@ -70,6 +70,7 @@ APP: Optional[App] = None
 def init(root: str) -> None:
     global APP
     APP = App(Path(root))
+    alerts.load_settings(APP)                 # writes the default schedule for the Android scheduler
 
 
 def _app() -> App:
@@ -689,6 +690,32 @@ def result_path(name: str) -> Optional[Path]:
     a = _app()
     path = (a.cfg["results_dir"] / Path(name).name)
     return path if path.exists() and path.suffix == ".csv" else None
+
+
+# ----------------------------------------------------------------------------------
+# Alerts tab
+# ----------------------------------------------------------------------------------
+def alerts_overview() -> dict:
+    return clean(alerts.overview(_app()))
+
+
+def alerts_save(values: dict) -> dict:
+    return clean(alerts.save_settings(_app(), values))
+
+
+def alerts_telegram_test(values: dict) -> dict:
+    return alerts.telegram_test(_app(), values)
+
+
+def alerts_telegram_chat(values: dict) -> dict:
+    return alerts.telegram_find_chat(_app(), values)
+
+
+def alerts_run() -> dict:
+    out = alerts.run(_app(), source="manual")
+    if "busy" in out:
+        raise RuntimeError(out["busy"])
+    return out
 
 
 # ----------------------------------------------------------------------------------

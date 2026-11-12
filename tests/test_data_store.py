@@ -211,3 +211,21 @@ def test_adding_60m_later_downloads_full_intraday_history_once(cfg):
     assert fetch.calls[-1][3] == "2026-02-11"                            # now incremental
     pd.testing.assert_frame_equal(first, ds.load_stock_csv(cfg["stock_csv"]))
     assert not first.duplicated(ds.KEYS).any()
+
+
+def test_save_never_fails_because_of_the_backup(cfg, monkeypatch):
+    """Android refuses to copy a file's SELinux label (EACCES); backups copy contents only."""
+    import errno
+    import shutil
+    df = _bars(["2026-01-01"], [10.0])
+    ds.save_stock_csv(df, cfg["stock_csv"], cfg["backups_dir"], keep=2)
+
+    def no_metadata(*a, **k):
+        raise PermissionError(errno.EACCES, "Permission denied")
+    monkeypatch.setattr(shutil, "copystat", no_metadata)               # what copy2 does on Android
+    ds.save_stock_csv(_bars(["2026-01-02"], [11.0]), cfg["stock_csv"], cfg["backups_dir"], keep=2, stamp="a")
+    assert (cfg["backups_dir"] / "stock_a.csv").exists()
+
+    monkeypatch.setattr(shutil, "copyfile", no_metadata)               # even a failing backup is not fatal
+    ds.save_stock_csv(_bars(["2026-01-03"], [12.0]), cfg["stock_csv"], cfg["backups_dir"], keep=2, stamp="b")
+    assert ds.load_stock_csv(cfg["stock_csv"])["Close"].tolist() == [12.0]

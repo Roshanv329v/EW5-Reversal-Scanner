@@ -18,9 +18,11 @@ import android.os.PowerManager;
  * update(true, text) when a job starts or makes progress and update(false, "") at the end.
  */
 public class JobService extends Service {
+    static final String ACTION_SCHEDULED = "app.ewscanner.SCHEDULED_SCAN";
     private static final String CHANNEL = "jobs";
     private static final int ID = 1;
     private static volatile String text = "Working…";
+    private static volatile JobService running;
     private PowerManager.WakeLock lock;
 
     /** Called from Python (mobile/jobs.py) on its own thread. */
@@ -28,25 +30,55 @@ public class JobService extends Service {
         Context c = App.get();
         if (c == null) return;
         Intent i = new Intent(c, JobService.class);
-        if (running) {
-            text = message == null || message.isEmpty() ? "Working…" : message;
-            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i); else c.startService(i);
-        } else {
-            c.stopService(i);
+        try {
+            if (running) {
+                text = message == null || message.isEmpty() ? "Working…" : message;
+                JobService live = JobService.running;
+                if (live != null) {                                   // already in the foreground: new text only
+                    ((NotificationManager) c.getSystemService(NOTIFICATION_SERVICE)).notify(ID, live.build());
+                } else if (Build.VERSION.SDK_INT >= 26) {
+                    c.startForegroundService(i);
+                } else {
+                    c.startService(i);
+                }
+            } else {
+                c.stopService(i);
+            }
+        } catch (RuntimeException ignored) {                          // e.g. not allowed from the background
         }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        App.init(this);
+        boolean scheduled = intent != null && ACTION_SCHEDULED.equals(intent.getAction());
+        if (scheduled) text = "Scheduled scan: starting…";
         Notification n = build();
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
         else startForeground(ID, n);
+        running = this;
         if (lock == null) {
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
             lock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ewscanner:job");
             lock.acquire(6 * 60 * 60 * 1000L);                    // safety cap: 6 hours
         }
+        if (scheduled) runScheduled();
         return START_NOT_STICKY;
+    }
+
+    /** Start Python if the app was closed, then mobile.server.scheduled(); the job stops this service. */
+    private void runScheduled() {
+        new Thread(() -> {
+            try {
+                if (!com.chaquo.python.Python.isStarted()) {
+                    com.chaquo.python.Python.start(new com.chaquo.python.android.AndroidPlatform(getApplicationContext()));
+                }
+                com.chaquo.python.Python.getInstance().getModule("mobile.server")
+                        .callAttr("scheduled", getFilesDir().getAbsolutePath());
+            } catch (Throwable e) {
+                update(false, "");
+            }
+        }, "scheduled-scan").start();
     }
 
     private Notification build() {
@@ -68,6 +100,7 @@ public class JobService extends Service {
 
     @Override
     public void onDestroy() {
+        running = null;
         if (lock != null && lock.isHeld()) lock.release();
         lock = null;
         super.onDestroy();

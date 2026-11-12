@@ -234,15 +234,25 @@ def load_stock_csv(path: Path) -> pd.DataFrame:
 
 def save_stock_csv(df: pd.DataFrame, path: Path, backups_dir: Path, keep: int,
                    stamp: Optional[str] = None) -> None:
-    """Back up the previous file (keep the last `keep`), write to a temp file, then rename."""
+    """
+    Back up the previous file (keep the last `keep`), write to a temp file, then rename.
+
+    The backup copies the file's contents only (shutil.copyfile). shutil.copy2 also copies
+    extended attributes, and on Android these include the file's SELinux label, which an
+    app may not set: the copy failed with "Permission denied". A backup that fails is
+    logged and skipped; the new data is still written safely (temp file, then rename).
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
-        backups_dir.mkdir(parents=True, exist_ok=True)
-        stamp = stamp or datetime.now().strftime("%Y%m%d_%H%M%S")
-        shutil.copy2(path, backups_dir / f"stock_{stamp}.csv")
-        for old in sorted(backups_dir.glob("stock_*.csv"))[:-keep]:
-            old.unlink()
+        try:
+            backups_dir.mkdir(parents=True, exist_ok=True)
+            stamp = stamp or datetime.now().strftime("%Y%m%d_%H%M%S")
+            shutil.copyfile(path, backups_dir / f"stock_{stamp}.csv")
+            for old in sorted(backups_dir.glob("stock_*.csv"))[:-keep]:
+                old.unlink(missing_ok=True)
+        except OSError as exc:
+            log.warning("Backup of %s skipped: %s", path.name, exc)
     tmp = path.with_name(path.name + ".tmp")
     df.to_csv(tmp, index=False, date_format=TIME_FMT)
     os.replace(tmp, path)

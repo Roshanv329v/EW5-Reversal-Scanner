@@ -191,3 +191,5 @@ td.t-BEARISH { color: var(--down); }
 .tv-hint { color: var(--muted); font-size: 0.72rem; }
 .tv-tf { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 2px; }
 .tv-tf .lbl { font-size: 0.82rem; color: var(--ink2); font-weight: 600; }
+.time-item { display: inline-flex; align-items: center; gap: 4px; }
+.time-item input[type=time] { width: auto; }

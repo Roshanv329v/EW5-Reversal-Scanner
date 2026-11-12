@@ -5,7 +5,8 @@ const TOKEN = new URLSearchParams(location.search).get("t") || "";
 const NATIVE = window.Android || null;              // bridge from the Android app (absent on a desktop)
 const PLOT_CONFIG = { displaylogo: false, scrollZoom: false, responsive: true };
 const PAGE = 150;                                   // table rows drawn at a time
-const TABS = [["ew5", "📊 EW5"], ["ew3", "🚀 EW3"], ["data", "🗄️ Data"], ["run", "🔎 Run / Backtest"], ["guide", "📖 User Guide"]];
+const TABS = [["ew5", "📊 EW5"], ["ew3", "🚀 EW3"], ["data", "🗄️ Data"], ["run", "🔎 Run / Backtest"], ["alerts", "🔔 Alerts"],
+  ["guide", "📖 User Guide"]];
 const narrow = () => window.innerWidth < 760;
 
 // ---------------------------------------------------------------- small helpers
@@ -369,7 +370,8 @@ function showTab(key) {
   activeTab = key;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.key === key));
   document.querySelectorAll(".tab").forEach((s) => s.classList.toggle("hidden", s.id !== `tab-${key}`));
-  ({ ew5: () => Dash.get("ew5").open(), ew3: () => Dash.get("ew3").open(), data: DataTab.open, run: RunTab.open, guide: Guide.open })[key]();
+  ({ ew5: () => Dash.get("ew5").open(), ew3: () => Dash.get("ew3").open(), data: DataTab.open, run: RunTab.open,
+    alerts: () => AlertsTab.open(), guide: Guide.open })[key]();
   window.scrollTo(0, 0);
 }
 
@@ -399,7 +401,8 @@ const Jobs = {
         h("div", { class: "bar" }, h("i", { style: `width:${Math.round(job.done * 100)}%` })));
       this.lastId = job.id;
       this.timer = setTimeout(() => this.poll(), 1500);
-      if (activeTab === "data" && job.kind !== "run") DataTab.showJob(job);
+      if (activeTab === "data" && job.kind !== "run" && job.kind !== "alerts") DataTab.showJob(job);
+      if (activeTab === "alerts" && job.kind === "alerts") AlertsTab.showJob(job);
       if (activeTab === "run" && job.kind === "run") RunTab.showJob(job);
     } else {
       bar.classList.add("hidden");
@@ -413,6 +416,7 @@ const Jobs = {
     if (job.kind === "run" && job.result) Dash.get(job.result.strategy).state.file = job.result.file;   // its dashboard opens this run
     if (activeTab === "data") DataTab.open(job);
     if (activeTab === "run") RunTab.open(job);
+    if (activeTab === "alerts") AlertsTab.open();
     if (activeTab === "ew5" || activeTab === "ew3") Dash.get(activeTab).open();
   },
   async start(path, body) {
@@ -446,7 +450,7 @@ class Dash {
       catch (e) { console.error(e); }
       this.loaded = true;
     }
-    if (this.stale) this.load();
+    if (this.stale) await this.load();
   }
 
   applyPrefs(p) {
@@ -664,8 +668,8 @@ class Dash {
       chips(c.timeframes.map((tf) => [tf, tf === c.signal_tf ? `${tf} · signal` : tf]), c.view_tf, onPick, true));
   }
 
-  chartRequest(id, bag, compact, tf) {
-    return { key: this.key, file: this.state.file, id, compact, narrow: narrow(), tf,
+  chartRequest(id, bag, compact, tf, file) {
+    return { key: this.key, file: file || this.state.file, id, compact, narrow: narrow(), tf,
       groups: this.res.level_groups.filter((g) => bag[g] !== false), ema: bag.ema !== false, ind: bag.ind !== false };
   }
 
@@ -695,7 +699,7 @@ class Dash {
       h("div", {}, metric("Live count", c.live_count), h("div", { style: "height:8px" }), dataTable({ columns: ["Level", "Price"], rows: c.levels }, { tall: true }))));
   }
 
-  async openDialog(id) {
+  async openDialog(id, file) {
     const s = this.state;
     const panel = h("div", { class: "panel" });
     const back = h("div", { class: "dialog" }, panel);
@@ -706,7 +710,7 @@ class Dash {
     const draw = async () => {
       clear(panel).append(spinner());
       let c;
-      try { c = await api("/api/chart", this.chartRequest(id, s.dlg, true, tf)); }
+      try { c = await api("/api/chart", this.chartRequest(id, s.dlg, true, tf, file)); }
       catch (e) { clear(panel).append(note("error", e.message)); return; }
       clear(panel);
       panel.append(h("div", { class: "head" }, h("b", {}, c.dialog_title), h("button", { class: "btn small", onclick: close }, "✕")));
@@ -926,6 +930,140 @@ const RunTab = {
     box.append(h("div", { style: "margin-top:8px" }, NATIVE && NATIVE.shareResult
       ? h("button", { class: "btn", onclick: () => NATIVE.shareResult(r.file) }, "⇪ Share results CSV")
       : h("a", { class: "btn", href: url, download: r.file }, "⤓ Download results CSV")));
+  },
+};
+
+// ---------------------------------------------------------------- Alerts tab
+const AlertsTab = {
+  form: null,
+  async open() {
+    const root = clear($("tab-alerts"));
+    root.append(h("h2", {}, "🔔 Alerts"));
+    let o;
+    try { o = await api("/api/alerts"); } catch (e) { root.append(note("error", e.message)); return; }
+    if (!AlertsTab.form) AlertsTab.form = Object.assign(JSON.parse(JSON.stringify(o.settings)), { telegram_token: "" });
+    const f = AlertsTab.form;
+    root.append(h("div", { class: "caption" }, "At the times below the phone downloads the latest data, runs EW5 and EW3 and sends one notification with every stock triggered or set up today. It works with the app closed and the screen off."));
+
+    // ---- schedule status and phone permissions
+    const status = h("div", { class: "box" });
+    status.append(h("b", {}, o.settings.enabled ? "Scheduled" : "Alerts are off"));
+    if (o.next.length) status.append(h("div", { class: "caption" }, `Next scans: ${o.next.join(" · ")}`));
+    if (NATIVE && NATIVE.alertStatus) {
+      let st = {};
+      try { st = JSON.parse(NATIVE.alertStatus()); } catch (e) { /* older app */ }
+      const row = (ok, okText, badText, which) => h("div", { class: "row", style: "align-items:center;margin-top:6px" },
+        h("div", { style: "flex:3 1 200px" }, ok ? `✅ ${okText}` : `⚠️ ${badText}`),
+        ok ? null : h("button", { class: "btn small", style: "flex:0 0 auto", onclick: () => { NATIVE.openSetting(which); setTimeout(() => AlertsTab.open(), 1500); } }, "Allow"));
+      status.append(row(st.notifications, "Notifications allowed", "Notifications are off for this app", "notifications"));
+      status.append(row(st.exact, "Scans start on time", "Exact timing not allowed: scans may start a few minutes late", "exact"));
+      status.append(row(!st.battery, "Battery: not restricted", "Battery optimisation may delay or skip scans", "battery"));
+    } else {
+      status.append(h("div", { class: "caption" }, "Scheduling and notifications run in the phone app."));
+    }
+    root.append(status);
+
+    // ---- settings
+    const box = h("div", { class: "box" }, h("h3", { style: "margin-top:0" }, "Settings"));
+    box.append(check("Scheduled scans on", f.enabled, (v) => (f.enabled = v)));
+    box.append(field("Days", chips(o.days.map((d, i) => [i + 1, d]), f.days, (v) => (f.days = v))));
+    const times = h("div", { class: "radios" });
+    const drawTimes = () => {
+      clear(times);
+      f.times.forEach((t, i) => times.append(h("span", { class: "time-item" },
+        h("input", { type: "time", value: t, style: "width:auto", onchange: (e) => (f.times[i] = e.target.value) }),
+        h("button", { class: "btn small", onclick: () => { f.times.splice(i, 1); drawTimes(); } }, "✕"))));
+      times.append(h("button", { class: "btn small", onclick: () => { f.times.push("15:45"); drawTimes(); } }, "+ Add time"));
+    };
+    drawTimes();
+    box.append(field("Times (phone time)", times));
+    box.append(check("Download the latest data first", f.update_data, (v) => (f.update_data = v)));
+    box.append(field("Screeners", chips(o.strategies, f.strategies, (v) => (f.strategies = v))));
+    box.append(field("Timeframes", chips(o.timeframes.map((t) => [t, t]), f.timeframes, (v) => (f.timeframes = v))));
+    box.append(field("Notify about", chips([["TRIGGERED", "Triggered today (close beyond TRIGGER)"], ["NEW", "New setups today"]], f.events, (v) => (f.events = v))));
+    box.append(check("Only signals ALIGNED with the higher timeframes", f.aligned_only, (v) => (f.aligned_only = v)));
+    box.append(h("div", { class: "row" }, field("Setups from the last N days can trigger today",
+      h("input", { type: "number", min: 2, max: 60, value: f.lookback_days, onchange: (e) => (f.lookback_days = +e.target.value) }))));
+    // ---- Telegram (optional, off by default)
+    const tg = h("div", { class: "box", style: "margin-top:12px" });
+    const drawTelegram = () => {
+      clear(tg).append(h("b", {}, "Telegram"),
+        h("div", { class: "caption" }, "Also send the day's list to your Telegram bot. The phone notification stays on."),
+        chips([[false, "Off"], [true, "On"]], !!f.telegram, (v) => { f.telegram = v; drawTelegram(); }, true));
+      if (!f.telegram) return;
+      const tokenIn = h("input", { type: "password", autocomplete: "off", value: f.telegram_token || "",
+        placeholder: o.settings.telegram_token_set ? "saved (type to replace)" : "123456789:AA…",
+        oninput: (e) => (f.telegram_token = e.target.value.trim()) });
+      const chatIn = h("input", { type: "text", value: f.telegram_chat_id || "", placeholder: "e.g. 123456789",
+        oninput: (e) => (f.telegram_chat_id = e.target.value.trim()) });
+      const out = h("div");
+      tg.append(field("Bot token", tokenIn), field("Chat ID", chatIn), out,
+        h("div", { class: "row", style: "margin-top:8px" },
+          h("button", { class: "btn small", onclick: async () => {
+            try {
+              const r = await api("/api/alerts/telegram_chat", { telegram_token: f.telegram_token });
+              clear(out).append(h("div", { class: "caption" }, "Tap your chat:"),
+                h("div", { class: "radios" }, r.chats.map(([id, name]) => h("button", { class: "chip", onclick: () => {
+                  f.telegram_chat_id = id; chatIn.value = id; clear(out); } }, `${name || "chat"} · ${id}`))));
+            } catch (e) { clear(out).append(note("error", e.message)); } } }, "🔍 Find my chat ID"),
+          h("button", { class: "btn small", onclick: async () => {
+            try { const r = await api("/api/alerts/telegram_test", { telegram_token: f.telegram_token, telegram_chat_id: f.telegram_chat_id }); clear(out).append(note("ok", r.note)); }
+            catch (e) { clear(out).append(note("error", e.message)); } } }, "✈️ Send test to Telegram")),
+        h("details", {}, h("summary", {}, "How to set it up"), h("div", { html: md(
+          "1. In Telegram open **@BotFather**, send `/newbot` and follow the steps; it gives you the **bot token**.<br>" +
+          "2. Open your new bot and send it any message (e.g. *hi*).<br>" +
+          "3. Paste the token here and press **Find my chat ID**, tap your chat, then **Send test to Telegram**.<br>" +
+          "4. Press **Save**. For a group: add the bot to the group, write a message there, then find the group's chat ID.<br>" +
+          "The token stays in this app's private storage and is never shown again; leave the field empty to keep it.") })));
+    };
+    drawTelegram();
+    box.append(tg);
+
+    const msg = h("div");
+    box.append(msg);
+    box.append(h("div", { class: "row", style: "margin-top:8px" },
+      h("button", { class: "btn primary", onclick: async () => {
+        try { const r = await api("/api/alerts/settings", f); AlertsTab.form = Object.assign(r.settings, { telegram_token: "" }); toast(r.next.length ? `Saved. Next scan: ${r.next[0]}` : "Saved. Scheduled scans are off."); AlertsTab.open(); }
+        catch (e) { clear(msg).append(note("error", e.message)); } } }, "💾 Save"),
+      h("button", { class: "btn", onclick: async () => { if (await Jobs.start("/api/alerts/run", {})) toast("Scanning now… the notification comes when it finishes."); } }, "▶ Run now"),
+      h("button", { class: "btn", onclick: async () => { try { const r = await api("/api/alerts/test", {}); toast(r.note); } catch (e) { toast(e.message); } } }, "🔔 Test notification")));
+    root.append(box);
+    AlertsTab.jobBox = h("div");
+    root.append(AlertsTab.jobBox);
+
+    // ---- last run
+    const lr = o.last_run;
+    if (lr) {
+      const last = h("div", { class: "box" }, h("b", {}, "Last scan"), " · ", `${lr.started.replace("T", " ")} (${lr.source === "schedule" ? "scheduled" : "run now"})`);
+      if (lr.skipped) last.append(note("warn", `Skipped: ${lr.skipped}`));
+      else {
+        last.append(h("div", { class: "caption" }, `${lr.seconds}s · today: ${lr.triggered || 0} triggered, ${lr.new_setups || 0} new setups · ${lr.new_events} not notified before`
+          + (lr.telegram ? ` · Telegram: ${lr.telegram}` : "")));
+        Object.entries(lr.runs || {}).forEach(([k, r]) => last.append(h("div", { class: "caption" }, `${k.toUpperCase()}: ${r.setups} setups in the window, ${r.today} today · results/${r.file}`)));
+      }
+      root.append(last);
+    }
+
+    // ---- today's alerts and history (tap: chart)
+    const table = (rows) => ({ columns: ["Time", "Event", "Strategy", "Ticker", "TF", "Degree", "Side", "alignment", "Trigger", "Stop"],
+      rows: rows.map((e) => [e.at.slice(5), e.event === "TRIGGERED" ? "Triggered" : "New setup", e.strategy.toUpperCase(), e.ticker, e.tf, e.degree, e.side, e.alignment || "", e.trigger.toFixed(2), e.stop.toFixed(2)]) });
+    const open = (rows) => async (id, i) => {
+      const e = rows[i], d = Dash.get(e.strategy);
+      if (!d.res) await d.open();
+      d.openDialog(e.id, e.file);
+    };
+    root.append(h("h3", {}, `Today (${o.today.length})`));
+    if (o.today.length) root.append(h("div", { class: "caption" }, "Tap a row for its chart."), dataTable(table(o.today), { sideCol: "Side", onRow: open(o.today) }));
+    else root.append(h("div", { class: "caption" }, "No alerts today yet."));
+    if (o.history.length > o.today.length) {
+      root.append(h("details", {}, h("summary", {}, `Last 14 days (${o.history.length})`),
+        h("div", {}, dataTable(table(o.history), { sideCol: "Side", onRow: open(o.history), tall: true }))));
+    }
+  },
+  showJob(job) {
+    if (!AlertsTab.jobBox) return;
+    clear(AlertsTab.jobBox).append(h("div", { class: "box" }, h("b", {}, job.title), " · ",
+      job.running ? `${Math.round(job.done * 100)}% · ${job.text}` : (job.error ? `failed: ${job.error}` : `finished in ${job.seconds}s`)));
   },
 };
 

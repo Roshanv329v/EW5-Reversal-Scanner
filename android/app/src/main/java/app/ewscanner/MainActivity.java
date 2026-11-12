@@ -39,7 +39,10 @@ import java.io.OutputStream;
  * background notification while a long job runs (JobService).
  */
 public class MainActivity extends Activity {
+    static final String EXTRA_TAB = "open_tab";
     private static final int PICK_STOCK_CSV = 41;
+    private String pendingTab;
+    private boolean pageReady;
     private static final String BG = "#0e1117";
     private WebView web;
     private TextView splash;
@@ -49,6 +52,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         App.init(getApplicationContext());
+        pendingTab = getIntent().getStringExtra(EXTRA_TAB);
         getWindow().setStatusBarColor(Color.parseColor(BG));
         getWindow().setNavigationBarColor(Color.parseColor(BG));
 
@@ -77,6 +81,12 @@ public class MainActivity extends Activity {
         ws.setTextZoom(100);
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                pageReady = true;
+                openPendingTab();
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 Uri uri = req.getUrl();
@@ -107,6 +117,7 @@ public class MainActivity extends Activity {
                 if (!Python.isStarted()) Python.start(new AndroidPlatform(getApplicationContext()));
                 server = Python.getInstance().getModule("mobile.server");
                 String url = server.callAttr("start", getFilesDir().getAbsolutePath(), 0).toString();
+                Scheduler.reschedule(getApplicationContext());           // alerts schedule (settings written by Python)
                 runOnUiThread(() -> {
                     web.loadUrl(url);
                     splash.animate().alpha(0f).setDuration(250).withEndAction(() -> splash.setVisibility(View.GONE));
@@ -115,6 +126,20 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> splash.setText("Could not start Python:\n" + e));
             }
         }, "python-start").start();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        String tab = intent.getStringExtra(EXTRA_TAB);
+        if (tab != null) { pendingTab = tab; if (pageReady) openPendingTab(); }
+    }
+
+    private void openPendingTab() {
+        if (pendingTab == null || web == null) return;
+        String tab = pendingTab.replaceAll("[^a-z0-9]", "");
+        pendingTab = null;
+        web.evaluateJavascript("window.showTab && showTab('" + tab + "')", null);
     }
 
     @Override
@@ -157,6 +182,30 @@ public class MainActivity extends Activity {
             i.setType("*/*");
             i.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream"});
             runOnUiThread(() -> startActivityForResult(i, PICK_STOCK_CSV));
+        }
+
+        /** {"exact": alarms on time, "battery": app is battery-optimised, "notifications": allowed} */
+        @JavascriptInterface
+        public String alertStatus() {
+            android.app.AlarmManager am = (android.app.AlarmManager) getSystemService(ALARM_SERVICE);
+            android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+            android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            boolean exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms();
+            boolean battery = !pm.isIgnoringBatteryOptimizations(getPackageName());
+            boolean notes = Build.VERSION.SDK_INT < 24 || nm.areNotificationsEnabled();
+            return "{\"exact\":" + exact + ",\"battery\":" + battery + ",\"notifications\":" + notes + "}";
+        }
+
+        @JavascriptInterface
+        public void openSetting(String which) {
+            Intent i;
+            Uri pkg = Uri.parse("package:" + getPackageName());
+            if ("battery".equals(which)) i = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg);
+            else if ("exact".equals(which) && Build.VERSION.SDK_INT >= 31) i = new Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg);
+            else if (Build.VERSION.SDK_INT >= 26) i = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+            else i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg);
+            runOnUiThread(() -> { try { startActivity(i); } catch (Exception ignored) { } });
         }
 
         @JavascriptInterface

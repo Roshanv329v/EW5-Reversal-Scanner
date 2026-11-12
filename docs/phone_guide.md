@@ -56,6 +56,51 @@ Same as the desktop:
 - **Back button** closes an open overlay or list first.
 - **Share results CSV** (Run tab) sends a results file to any app.
 
+### Alerts (scheduled scans and notifications)
+
+The **Alerts** tab runs the scanner by itself and tells you what happened today, with the app
+closed and the screen off.
+
+At each time you set (default **12:30 and 15:45, Monday to Friday**):
+
+1. the latest data is downloaded (the same incremental update as the Data tab);
+2. EW5 and EW3 run over the last few days (default 10) with the normal settings and
+   higher-timeframe alignment;
+3. one notification lists every stock of the day:
+   - **Triggered**: the close crossed the TRIGGER level today;
+   - **New setup**: the setup appeared today.
+
+The second scan of the day only notifies stocks that are new since the first; the
+notification always lists the whole day, triggers first. Tap it to open the Alerts tab; tap
+a row there for the chart. The scans' results are also in the EW5 / EW3 tabs as
+`backtest_auto_…` files (the newest four of each are kept).
+
+Settings: days, times (add or remove), whether to download first, EW5 / EW3, timeframes,
+what to be notified about, *only ALIGNED* signals, and how many days back a setup may still
+trigger today. **Run now** starts a scan at once; **Test notification** shows what an alert
+looks like.
+
+**Telegram (optional, off by default).** Switch *Telegram* to **On** to also get the day's
+list in a Telegram chat, with trigger and stop for each stock:
+
+1. In Telegram open **@BotFather**, send `/newbot` and follow the steps: it gives you a
+   **bot token**.
+2. Open your new bot and send it any message.
+3. In the Alerts tab paste the token, press **Find my chat ID** and tap your chat, then
+   **Send test to Telegram**, then **Save**.
+
+The token is kept in the app's private storage and is never shown again (leave the field
+empty to keep it). For a group, add the bot to the group, write a message there and pick the
+group's chat ID. The phone notification is sent either way.
+
+For reliable timing, the tab checks three phone settings and offers an **Allow** button for
+each: notifications, exact alarms, and battery optimisation (some phones, Xiaomi, Oppo,
+Vivo and Samsung in particular, stop background apps unless battery optimisation is off for
+them). Scans are set again after a restart or an app update.
+
+A daily (1D) signal found at 12:30 is based on the day's unfinished bar; it can still change
+by the close. The 15:45 scan sees the finished day.
+
 ### What is different from the desktop
 
 | | Desktop | Phone |

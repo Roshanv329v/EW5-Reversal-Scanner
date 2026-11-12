@@ -1,0 +1,54 @@
+package app.ewscanner;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
+
+import org.json.JSONArray;
+
+/** The day's alert notification. Called from Python (mobile/alerts.py). */
+public final class Notifier {
+    static final String CHANNEL = "alerts";
+    private static final int ID = 2;                 // one notification, updated through the day
+    private static final int SHOWN = 7;
+
+    private Notifier() { }
+
+    public static void show(String title, String linesJson) {
+        Context c = App.get();
+        if (c == null) return;
+        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null) {
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "Signal alerts", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("Stocks triggered or set up today, found by the scheduled scans");
+            nm.createNotificationChannel(ch);
+        }
+        String[] lines;
+        try {
+            JSONArray a = new JSONArray(linesJson);
+            lines = new String[a.length()];
+            for (int i = 0; i < a.length(); i++) lines[i] = a.getString(i);
+        } catch (Exception e) {
+            lines = new String[]{linesJson};
+        }
+        Notification.InboxStyle inbox = new Notification.InboxStyle().setBigContentTitle(title);
+        for (int i = 0; i < Math.min(SHOWN, lines.length); i++) inbox.addLine(lines[i]);
+        if (lines.length > SHOWN) inbox.setSummaryText("+" + (lines.length - SHOWN) + " more in the Alerts tab");
+
+        Intent open = new Intent(c, MainActivity.class).putExtra(MainActivity.EXTRA_TAB, "alerts")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pi = PendingIntent.getActivity(c, 1, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(c, CHANNEL) : new Notification.Builder(c);
+        nm.notify(ID, b.setContentTitle(title)
+                .setContentText(lines.length > 0 ? lines[0] : "")
+                .setStyle(inbox)
+                .setSmallIcon(R.drawable.ic_stat)
+                .setAutoCancel(true)
+                .setContentIntent(pi)
+                .build());
+    }
+}

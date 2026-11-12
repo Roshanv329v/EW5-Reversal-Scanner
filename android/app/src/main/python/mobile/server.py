@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
-from mobile import api, jobs, resources
+from mobile import alerts, api, jobs, resources
 
 TOKEN = os.environ.get("EW_SERVER_TOKEN") or secrets.token_urlsafe(24)    # env: desktop testing only
 _server: Optional[ThreadingHTTPServer] = None
@@ -36,6 +36,7 @@ GET: dict[str, Callable[[dict], Any]] = {
     "/api/run/last": lambda q: api.last_run(),
     "/api/job": lambda q: {"job": jobs.current()},
     "/api/guide": lambda q: api.guide(),
+    "/api/alerts": lambda q: api.alerts_overview(),
 }
 POST: dict[str, Callable[[dict], Any]] = {
     "/api/prefs/save": lambda b: api.save_prefs(b["key"], b["prefs"]),
@@ -48,6 +49,11 @@ POST: dict[str, Callable[[dict], Any]] = {
     "/api/tickers": lambda b: api.save_tickers(b.get("text", "")),
     "/api/run/check": api.run_check,
     "/api/run": api.start_run,
+    "/api/alerts/settings": api.alerts_save,
+    "/api/alerts/run": lambda b: api.alerts_run(),
+    "/api/alerts/test": lambda b: alerts.test_notification(),
+    "/api/alerts/telegram_test": api.alerts_telegram_test,
+    "/api/alerts/telegram_chat": api.alerts_telegram_chat,
 }
 
 
@@ -151,6 +157,12 @@ def start(root: str, port: int = 0) -> str:
         _server.daemon_threads = True
         threading.Thread(target=_server.serve_forever, name="http", daemon=True).start()
     return f"http://127.0.0.1:{_server.server_address[1]}/?t={TOKEN}"
+
+
+def scheduled(root: str) -> str:
+    """Called by app.ewscanner.JobService when a scheduled time comes (app may have been closed)."""
+    start(root)
+    return json.dumps(alerts.run(api._app(), source="schedule"), default=str)
 
 
 def results_dir() -> str:
