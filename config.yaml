@@ -63,6 +63,7 @@ htf:
 # ---- dashboard chart ---------------------------------------------------------
 chart:
   bars_before: 150            # bars shown before the signal
+  timeframes: ["60m", "4hr", "1D"]   # chart timeframe switch (the signal's own timeframe is the default); add "1W" for weekly
   height: 680
   ema_fast: "13_ema"          # EMA columns drawn on the signal chart
   ema_slow: "55_ema"

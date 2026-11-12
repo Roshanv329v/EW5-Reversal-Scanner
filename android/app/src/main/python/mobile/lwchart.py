@@ -48,13 +48,14 @@ def _num(v: Any) -> Optional[float]:
 
 def convert(fig, price: pd.DataFrame, time_frame: str) -> dict:
     """Plotly signal chart -> Lightweight Charts spec (plain JSON)."""
-    fmt = "%d %b %Y" if time_frame == "1D" else "%d %b %Y %H:%M"
+    from core.charts import DAY_FRAMES
+    fmt = "%d %b %Y" if time_frame in DAY_FRAMES else "%d %b %Y %H:%M"     # same labels as signal_chart
     when = {t.strftime(fmt): _epoch(t) for t in pd.to_datetime(price["time"])}
 
     def times(xs) -> list[Optional[int]]:
         return [when.get(str(x)) for x in xs]
 
-    out: dict[str, Any] = {"title": fig.layout.title.text or "", "intraday": time_frame != "1D",
+    out: dict[str, Any] = {"title": fig.layout.title.text or "", "intraday": time_frame not in DAY_FRAMES,
                            "candles": [], "lines": [], "waves": [], "markers": [], "levels": [],
                            "bands": [], "hist": [], "pane": False}
     candle_times: list[int] = []

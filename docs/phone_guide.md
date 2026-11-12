@@ -45,7 +45,10 @@ Same as the desktop:
   - level labels sit on the price axis: `TRIG` trigger, `STOP`, `W4` wave-4 end,
     `F.500` … `F.854` Fibonacci levels, `T0.618` … `T2.618` wave-5 (EW5) or wave-3 (EW3)
     targets, `R.382` … `R.786` wave-2 retracements, `W0` / `W1` wave starts and ends;
-  - the legend under the chart hides or shows a series when tapped.
+  - the legend under the chart hides or shows a series when tapped;
+  - **Chart timeframe** buttons (60m · 4hr · 1D) above the chart show the same signal on
+    another timeframe; the signal's own one is marked *signal* and is where every newly opened
+    signal starts. The overlay and the chart under the table switch separately.
   The content is the desktop chart's: same candles, EMAs, wave count, levels, markers and
   indicator pane.
 - **Back button** closes an open overlay or list first.

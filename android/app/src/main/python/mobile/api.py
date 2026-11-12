@@ -381,7 +381,14 @@ def chart(req: dict) -> dict:
         facts.append(("Higher timeframes", out["htf"]))
     out["facts"] = facts
 
-    price = a.store.ticker_bars(row["Ticker"], row["time_frame"])
+    bars = a.store.ticker_bars(row["Ticker"])
+    price = bars[bars["time_frame"] == row["time_frame"]]
+    have = set(bars["time_frame"].unique())
+    options = [tf for tf in chart_cfg["timeframes"] if tf in have] or [row["time_frame"]]
+    if row["time_frame"] not in options:
+        options.append(row["time_frame"])
+    view_tf = req.get("tf") if req.get("tf") in options else row["time_frame"]
+    out.update(timeframes=options, signal_tf=row["time_frame"], view_tf=view_tf)
     if price.empty:
         out["warning"] = f"No {row['time_frame']} bars for {row['Ticker']} in the stored data - cannot draw the chart."
     else:
@@ -392,20 +399,30 @@ def chart(req: dict) -> dict:
                                params.get("pivot_tie", engine["pivot_tie"]), params.get("hi_source", engine["hi_source"]),
                                params.get("lo_source", engine["lo_source"]), a.store.mtime())
         small = compact or bool(req.get("narrow"))
+        horizon, title, had_waves, shown = (int(params.get("horizon_bars", engine["horizon_bars"])),
+                                            S.chart_title(row), overlay is not None, row)
+        if view_tf != row["time_frame"]:          # same signal on another timeframe (desktop: same helper)
+            view = bars[bars["time_frame"] == view_tf]
+            shown, overlay, horizon = charts.on_timeframe(row, overlay, price, view, view_tf, horizon, S.targets)
+            price, title = view, f"{title} · chart {view_tf}"
+            out["tf_note"] = (f"{row['time_frame']} signal shown on {view_tf} bars: levels unchanged; the signal bar, "
+                              f"wave points and entry / stop / target markers are on the {view_tf} bars that contain them.")
         fig = charts.signal_chart(
-            price, row, overlay, horizon_bars=int(params.get("horizon_bars", engine["horizon_bars"])),
+            price, shown, overlay, horizon_bars=horizon,
             bars_before=int(chart_cfg["bars_before"]), groups=groups,
             height=int(chart_cfg["overlay_height" if small else "height"]), emas=emas,
             panes=chart_cfg["indicator_panes"] if req.get("ind", True) else (),
             pane_height=int(chart_cfg["overlay_pane_height" if small else "pane_height"]),
             level_groups=S.level_groups, level_labels=S.level_labels, targets=S.targets,
-            side_col=S.side_col, wave_name=S.wave_name, title=S.chart_title(row))
+            side_col=S.side_col, wave_name=S.wave_name, title=title)
         # Same figure as the desktop, drawn on the phone with TradingView Lightweight Charts
-        out["tv"] = lwchart.convert(fig, price, row["time_frame"])
+        out["tv"] = lwchart.convert(fig, price, view_tf)
         out["tv"].update(height=int(chart_cfg["overlay_height" if small else "height"]),
                          pane_height=int(chart_cfg["overlay_pane_height" if small else "pane_height"]))
         if overlay is None:
-            out["note"] = "The engine has no wave count at this bar, so only price and levels are shown."
+            out["note"] = (f"Part of the wave count is outside the stored {view_tf} history, so only price and "
+                           "levels are shown." if had_waves else
+                           "The engine has no wave count at this bar, so only price and levels are shown.")
 
     level_names = list(S.level_names)
     fields = row.drop(labels=[c for c in [*level_names, S.levels_col] if c in row.index])

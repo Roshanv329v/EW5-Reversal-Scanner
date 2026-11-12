@@ -583,10 +583,22 @@ def _signal_chart(S: Strategy, row: pd.Series, params: dict[str, Any], prefix: s
     chart_cfg = cfg["chart"]
 
     stock = stock_df()
-    price = stock[(stock["Ticker"] == row["Ticker"]) & (stock["time_frame"] == row["time_frame"])]
+    bars = stock[stock["Ticker"] == row["Ticker"]]
+    price = bars[bars["time_frame"] == row["time_frame"]]
     if price.empty:
         st.warning(f"No {row['time_frame']} bars for {row['Ticker']} in stock.csv - cannot draw the chart.")
         return
+    # chart timeframe: the signal's own by default (a new signal starts there again)
+    have = set(bars["time_frame"].unique())
+    tf_options = [tf for tf in chart_cfg["timeframes"] if tf in have] or [row["time_frame"]]
+    if row["time_frame"] not in tf_options:
+        tf_options.append(row["time_frame"])
+    tf_key = _k(S, f"{prefix}_ctf_{row['Ticker']}_{row['time_frame']}_{row['signal_time']}")
+    view_tf = st.segmented_control(
+        "Chart timeframe", tf_options, default=row["time_frame"], key=tf_key,
+        format_func=lambda tf: f"{tf} (signal)" if tf == row["time_frame"] else tf,
+        help="Show the same signal on another timeframe. Levels stay; the signal bar, wave points and "
+             "entry / stop / target markers move to the bars that contain them.") or row["time_frame"]
     if S.overlay_from_row is not None:
         overlay = S.overlay_from_row(row)
     else:
@@ -595,18 +607,29 @@ def _signal_chart(S: Strategy, row: pd.Series, params: dict[str, Any], prefix: s
                            int(row["zigzag_length"]), params.get("pivot_tie", ENGINE["pivot_tie"]),
                            params.get("hi_source", ENGINE["hi_source"]),
                            params.get("lo_source", ENGINE["lo_source"]))
+    horizon = int(params.get("horizon_bars", ENGINE["horizon_bars"]))
+    title, signal_tf, had_waves = S.chart_title(row), row["time_frame"], overlay is not None
+    if view_tf != row["time_frame"]:
+        view = bars[bars["time_frame"] == view_tf]
+        row, overlay, horizon = charts.on_timeframe(row, overlay, price, view, view_tf, horizon, S.targets)
+        price, title = view, f"{title} · chart {view_tf}"
     fig = charts.signal_chart(
         price, row, overlay,
-        horizon_bars=int(params.get("horizon_bars", ENGINE["horizon_bars"])),
+        horizon_bars=horizon,
         bars_before=int(chart_cfg["bars_before"]), groups=groups,
         height=int(chart_cfg["overlay_height" if compact else "height"]), emas=emas,
         panes=chart_cfg["indicator_panes"] if show_panes else (),
         pane_height=int(chart_cfg["overlay_pane_height" if compact else "pane_height"]),
         level_groups=S.level_groups, level_labels=S.level_labels, targets=S.targets,
-        side_col=S.side_col, wave_name=S.wave_name, title=S.chart_title(row))
+        side_col=S.side_col, wave_name=S.wave_name, title=title)
     st.plotly_chart(fig, theme=None, config=PLOT_CONFIG, key=_k(S, f"{prefix}_fig"))
+    if view_tf != signal_tf:
+        st.caption(f"{signal_tf} signal shown on {view_tf} bars: levels unchanged; the signal bar, wave points and "
+                   f"entry / stop / target markers are on the {view_tf} bars that contain them.")
     if overlay is None:
-        st.caption("The engine has no wave count at this bar, so only price and levels are shown.")
+        st.caption(f"Part of the wave count is outside the stored {view_tf} history, so only price and levels "
+                   "are shown." if had_waves else
+                   "The engine has no wave count at this bar, so only price and levels are shown.")
 
 
 def _htf_note(row: pd.Series) -> str:

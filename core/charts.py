@@ -41,6 +41,7 @@ PANE_BANDS = (30, 70)                                # dashed guide lines; the m
 HIST_LIMIT = 20                                      # histogram bars are drawn only beyond +/- this
 GOOD, BAD = "#2fbf71", C["red"]                      # histogram below -20 / above +20
 _LABEL_GAP_PX = 12                      # minimum vertical distance between level labels
+DAY_FRAMES = ("1D", "1W")               # bars without a time of day
 
 
 def _base_layout(fig: go.Figure, height: int, title: str = "") -> go.Figure:
@@ -85,6 +86,80 @@ def wave_overlay(price: pd.DataFrame, signal_time: Any, length: int, pivot_tie: 
 
 
 # ----------------------------------------------------------------------------------
+# A signal shown on another timeframe (chart timeframe switch)
+# ----------------------------------------------------------------------------------
+def on_timeframe(row: pd.Series, overlay: Optional[dict], source_price: pd.DataFrame,
+                 view_price: pd.DataFrame, view_tf: str, horizon_bars: int,
+                 targets: Sequence[str] = EW5_TARGETS) -> tuple[pd.Series, Optional[dict], int]:
+    """
+    Re-time a signal found on its own timeframe onto the bars of `view_tf`, so the same
+    signal can be read on a higher (or lower) timeframe. Prices (levels, wave points,
+    entry / stop) stay as they are; only times move to the view's bars:
+
+    - a bar of the view inside the source bar is used when the view is finer: the bar
+      whose high / low / close is nearest the point's price (wave pivots, entry, stop,
+      target hits), or the last one for the signal bar (the signal is known at its close);
+    - the view bar that contains the time when the view is coarser.
+
+    Returns (row, overlay, horizon_bars) for signal_chart(view_price, ...): the
+    evaluation window covers the same span of time as `horizon_bars` source bars.
+    """
+    if view_tf == row["time_frame"]:
+        return row, overlay, horizon_bars
+    src = pd.to_datetime(source_price["time"]).sort_values().to_numpy()
+    view = view_price.sort_values("time").reset_index(drop=True)
+    vt = pd.to_datetime(view["time"]).to_numpy()
+    step = np.median(np.diff(src)) if len(src) > 1 else np.timedelta64(1, "D")
+    view_step = np.median(np.diff(vt)) if len(vt) > 1 else step
+    finer = view_step < step              # e.g. a 1D signal on 60m bars (else: on 4hr / 1D / 1W bars)
+
+    def source_bar(t: Any) -> tuple[np.datetime64, np.datetime64]:
+        t = np.datetime64(pd.Timestamp(t))
+        i = int(np.searchsorted(src, t, side="right")) - 1
+        start = src[i] if i >= 0 else t
+        nxt = src[i + 1] if 0 <= i + 1 < len(src) else start + step
+        return start, nxt
+
+    def snap(t: Any, y: Any = None, end: bool = False) -> Any:
+        if t is None or pd.isna(t):
+            return pd.NaT
+        start, nxt = source_bar(t)
+        lo, hi = np.searchsorted(vt, start, side="left"), np.searchsorted(vt, nxt, side="left")
+        if finer and hi > lo:                                # finer view: bars inside the source bar
+            if end:
+                return pd.Timestamp(vt[hi - 1])
+            if y is not None and pd.notna(y):
+                part = view.iloc[lo:hi]
+                dist = (part[["High", "Low", "Close"]] - float(y)).abs().min(axis=1)
+                return pd.Timestamp(part["time"].iloc[int(np.argmin(dist.to_numpy()))])
+            return pd.Timestamp(vt[lo])
+        k = int(np.searchsorted(vt, np.datetime64(pd.Timestamp(t)), side="right")) - 1
+        return pd.Timestamp(vt[k]) if k >= 0 else pd.NaT       # coarser view: the bar that contains it
+
+    out = row.copy()
+    out["time_frame"] = view_tf
+    out["signal_time"] = snap(row["signal_time"], end=True)
+    out["trigger_time"] = snap(row.get("trigger_time"), row.get("entry_price"))
+    out["stop_time"] = snap(row.get("stop_time"), row.get("STOP"))
+    for tg in targets:
+        if f"hit_{tg}_time" in out.index:
+            out[f"hit_{tg}_time"] = snap(row.get(f"hit_{tg}_time"), row.get(tg))
+
+    moved = None
+    if overlay:
+        pts = [(snap(t, y), y) for t, y in overlay["pts"]]
+        abc = [(label, snap(t, y), y) for label, t, y in overlay["abc"]]
+        if not any(pd.isna(t) for t, _ in pts):
+            moved = {"dir": overlay["dir"], "pts": pts, "abc": [x for x in abc if pd.notna(x[1])]}
+
+    i = int(np.searchsorted(src, np.datetime64(pd.Timestamp(row["signal_time"])), side="right")) - 1
+    _, end_time = source_bar(src[min(max(i, 0) + horizon_bars, len(src) - 1)]) if len(src) else (None, None)
+    sig = out["signal_time"]
+    horizon = int(((vt > np.datetime64(sig)) & (vt < end_time)).sum()) if end_time is not None and pd.notna(sig) else 0
+    return out, moved, horizon
+
+
+# ----------------------------------------------------------------------------------
 # Signal chart
 # ----------------------------------------------------------------------------------
 def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], horizon_bars: int,
@@ -112,7 +187,7 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
     i1 = min(len(p) - 1, i_sig + horizon_bars)
     win = p.iloc[i0:i1 + 1]
 
-    fmt = "%d %b %Y" if row["time_frame"] == "1D" else "%d %b %Y %H:%M"
+    fmt = "%d %b %Y" if row["time_frame"] in DAY_FRAMES else "%d %b %Y %H:%M"
     labels = win["time"].dt.strftime(fmt).tolist()
     visible = set(win["time"])
 

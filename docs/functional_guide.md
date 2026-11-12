@@ -176,6 +176,26 @@ wave engine.
 
 Compare EMA 55 with the W4_END and Fib levels: when they sit close together, that zone matters more.
 
+### Chart timeframe switch
+
+Above the signal chart, **Chart timeframe** (60m · 4hr · 1D) shows the same signal on another
+timeframe. The chart opens on the signal's own timeframe, marked *(signal)*. Switch to a higher
+one to see where the setup sits in the bigger move, for example a 60m wave-5 reversal against
+the daily trend and its EMA 55.
+
+On another timeframe:
+
+- the **levels** (trigger, stop, wave ends, Fibonacci levels, targets) are the same prices;
+- the **signal bar** is the bar that contains it (on a lower timeframe: the last bar before
+  the signal bar closed);
+- **wave points** and **entry / stop / target markers** move to the bar that contains them
+  (on a lower timeframe: the bar with the nearest high / low);
+- the shaded **evaluation window** covers the same span of time as on the signal's timeframe;
+- the **indicator pane** shows that timeframe's own RSI and DTosc.
+
+60m history is about two years, so a daily signal older than that has no 60m chart.
+Add `"1W"` to `chart.timeframes` in `config.yaml` for a weekly button.
+
 ### Indicator columns in the table
 
 `rsi`, `dtosck` / `dtoscd` (DT oscillator: stochastic of RSI, fast and slow lines),

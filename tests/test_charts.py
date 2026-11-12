@@ -86,3 +86,48 @@ def test_alignment_breakdown_bars_carry_their_alignment():
     assert [t.name for t in fig.data] == ["Stop rate", "T1", "T2"]
     assert charts.picked_bars(fig, [{"curve_number": 1, "point_index": 0}]) == [["ALIGNED"]]   # ALIGNED first
     assert list(fig.data[0].y) == [40.0, 60.0]
+
+
+def _hourly_and_daily(days: int = 30) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Synthetic 7-bar NSE sessions (09:15 ... 15:15) and the daily bars built from them."""
+    import numpy as np
+    dates = pd.bdate_range("2024-03-01", periods=days)
+    times = [d + pd.Timedelta(hours=9 + h, minutes=15) for d in dates for h in range(7)]
+    rng = np.random.default_rng(3)
+    close = 100 + np.cumsum(rng.normal(0, 1, len(times)))
+    hourly = pd.DataFrame({"time": times, "Open": close, "High": close + 0.5, "Low": close - 0.5, "Close": close})
+    daily = (hourly.assign(time=hourly["time"].dt.normalize()).groupby("time")
+             .agg(Open=("Open", "first"), High=("High", "max"), Low=("Low", "min"), Close=("Close", "last"))
+             .reset_index())
+    return hourly, daily
+
+
+def test_on_timeframe_moves_times_and_keeps_prices():
+    hourly, daily = _hourly_and_daily()
+    day = daily.iloc[10]
+    hi_bar = hourly[hourly["time"].dt.normalize() == day["time"]].sort_values("High").iloc[-1]
+    row = pd.Series({"time_frame": "1D", "signal_time": day["time"], "trigger_time": day["time"],
+                     "entry_price": day["Close"], "stop_time": pd.NaT, "STOP": 1.0, "W4_END": 99.0,
+                     "hit_W4_END_time": pd.NaT})
+    overlay = {"dir": 1, "pts": [(daily["time"].iloc[2], 1.0), (day["time"], float(day["High"]))], "abc": []}
+
+    same = charts.on_timeframe(row, overlay, daily, daily, "1D", 30)
+    assert same[0] is row and same[1] is overlay and same[2] == 30
+
+    r, o, horizon = charts.on_timeframe(row, overlay, daily, hourly, "60m", 5, ("W4_END",))
+    assert r["time_frame"] == "60m" and r["W4_END"] == 99.0                      # levels untouched
+    assert r["signal_time"] == day["time"] + pd.Timedelta(hours=15, minutes=15)   # known at the day's close
+    assert o["pts"][1] == (hi_bar["time"], float(day["High"]))                   # pivot on the bar with that high
+    assert horizon == 5 * 7                                                      # same span: 5 days of hours
+
+    friday_close = hourly[hourly["time"].dt.day_of_week == 4].iloc[-1]             # 15:15, next bar is Monday
+    row_fri = row.copy()
+    row_fri["time_frame"], row_fri["signal_time"] = "60m", friday_close["time"]
+    r, _, _ = charts.on_timeframe(row_fri, None, hourly, daily, "1D", 7)
+    assert r["signal_time"] == friday_close["time"].normalize()                  # Friday's bar, not Monday's
+
+    hour = hourly.iloc[7 * 10 + 3]                                               # 12:15 bar of the same day
+    row60 = row.copy()
+    row60["time_frame"], row60["signal_time"] = "60m", hour["time"]
+    r, _, horizon = charts.on_timeframe(row60, None, hourly, daily, "1D", 7)
+    assert r["signal_time"] == day["time"] and horizon == 1                      # the daily bar that contains it

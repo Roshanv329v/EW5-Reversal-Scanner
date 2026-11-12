@@ -106,6 +106,14 @@ def test_api_dashboard_and_chart_match_the_desktop_numbers(tmp_path, df):
     assert tv["waves"] and [x["text"] for x in tv["waves"][0]["labels"]][:2] == ["0", "(1)"]
     assert "TRIG" in {lv["title"] for lv in tv["levels"]} and {b["price"] for b in tv["bands"]} == {30.0, 50.0, 70.0}
 
+    assert chart["view_tf"] == chart["signal_tf"] == "1D" and "1W" not in chart["timeframes"]
+    weekly_cfg = dict(a.cfg["chart"], timeframes=["1D", "1W"])
+    a.cfg["chart"] = weekly_cfg                                    # the fixture only has 1D and 1W bars
+    on_week = api.chart({"key": "ew5", "file": out["file"], "id": out["table"]["ids"][0],
+                         "groups": out["level_groups"], "tf": "1W"})
+    assert on_week["view_tf"] == "1W" and on_week["tf_note"] and not on_week["tv"]["intraday"]
+    assert {lv["price"] for lv in on_week["tv"]["levels"]} == {lv["price"] for lv in tv["levels"]}
+
     saved = api.save_prefs("ew5", {**api.get_prefs("ew5")["default"], "alignment": ["ALIGNED"]})
     assert saved["ok"] and api.get_prefs("ew5")["prefs"]["alignment"] == ["ALIGNED"]
 

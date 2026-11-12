@@ -651,8 +651,15 @@ class Dash {
     return wrap;
   }
 
-  chartRequest(id, bag, compact) {
-    return { key: this.key, file: this.state.file, id, compact, narrow: narrow(),
+  /* Timeframe buttons for the signal chart: the signal's own is marked and is the default. */
+  tfButtons(c, onPick) {
+    if (!c.timeframes || c.timeframes.length < 2) return null;
+    return h("div", { class: "tv-tf" }, h("span", { class: "lbl" }, "Chart timeframe"),
+      chips(c.timeframes.map((tf) => [tf, tf === c.signal_tf ? `${tf} · signal` : tf]), c.view_tf, onPick, true));
+  }
+
+  chartRequest(id, bag, compact, tf) {
+    return { key: this.key, file: this.state.file, id, compact, narrow: narrow(), tf,
       groups: this.res.level_groups.filter((g) => bag[g] !== false), ema: bag.ema !== false, ind: bag.ind !== false };
   }
 
@@ -661,16 +668,19 @@ class Dash {
     if (!box) return;
     const seq = (this.chartSeq = (this.chartSeq || 0) + 1);
     let c;
-    try { c = await api("/api/chart", this.chartRequest(s.selected, s.groups, false)); }
+    if (!s.chartTf || s.chartTf.id !== s.selected) s.chartTf = { id: s.selected, tf: null };   // new signal: its own timeframe
+    try { c = await api("/api/chart", this.chartRequest(s.selected, s.groups, false, s.chartTf.tf)); }
     catch (e) { clear(box).append(note("error", e.message)); return; }
     if (seq !== this.chartSeq) return;
     clear(box);
     const [ticker, tf, degree, side] = c.heading;
     box.append(h("h3", { html: `🕯️ ${esc(ticker)} · ${esc(tf)} · ${esc(degree)} · <span class="${side === "SHORT" ? "short" : "long"}">${esc(side)}</span>` }));
     if (c.htf) box.append(h("div", { html: `<b>Higher timeframes:</b> <span class="a-${esc(c.alignment)}">${esc(c.htf)}</span>` }));
+    box.append(this.tfButtons(c, (tf) => { s.chartTf.tf = tf; this.drawChart(); }));
     box.append(this.chartToggles(s.groups, () => this.drawChart()));
     if (c.warning) box.append(note("warn", c.warning));
     if (c.tv) box.append(tvChart(c.tv));
+    if (c.tf_note) box.append(h("div", { class: "caption" }, c.tf_note));
     if (c.note) box.append(h("div", { class: "caption" }, c.note));
 
     box.append(h("h3", {}, "ℹ️ Signal details"));
@@ -686,17 +696,20 @@ class Dash {
     const close = () => { back.remove(); Back.pop(close); };
     Back.push(close);
     $("layer").append(back);
+    let tf = null;                                    // the overlay opens on the signal's own timeframe
     const draw = async () => {
       clear(panel).append(spinner());
       let c;
-      try { c = await api("/api/chart", this.chartRequest(id, s.dlg, true)); }
+      try { c = await api("/api/chart", this.chartRequest(id, s.dlg, true, tf)); }
       catch (e) { clear(panel).append(note("error", e.message)); return; }
       clear(panel);
       panel.append(h("div", { class: "head" }, h("b", {}, c.dialog_title), h("button", { class: "btn small", onclick: close }, "✕")));
       panel.append(h("div", { class: "facts", html: c.facts.map(([k, v]) => `<b>${esc(k)}</b> ${esc(v)}`).join("  |  ") }));
+      panel.append(this.tfButtons(c, (v) => { tf = v; draw(); }));
       panel.append(this.chartToggles(s.dlg, draw));
       if (c.warning) panel.append(note("warn", c.warning));
       if (c.tv) panel.append(tvChart(c.tv));
+      if (c.tf_note) panel.append(h("div", { class: "caption" }, c.tf_note));
       if (c.note) panel.append(h("div", { class: "caption" }, c.note));
     };
     draw();
