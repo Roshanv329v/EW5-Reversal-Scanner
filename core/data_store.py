@@ -435,12 +435,16 @@ def timeframe_summary(df: pd.DataFrame) -> pd.DataFrame:
               .reset_index())
 
 
-def bars_per_ticker(df: pd.DataFrame, short_threshold: int) -> pd.DataFrame:
-    """Bars per ticker and timeframe, with a `short_history` flag."""
+def bars_per_ticker(df: pd.DataFrame, short_threshold: int, skip: Sequence[str] = ()) -> pd.DataFrame:
+    """
+    Bars per ticker and timeframe, with a `short_history` flag. Timeframes in `skip` are
+    counted but not flagged (weekly bars: three years are only ~156 of them).
+    """
     if df.empty:
         return pd.DataFrame(columns=["Ticker", "short_history"])
     counts = df.pivot_table(index="Ticker", columns="time_frame", values="time",
                             aggfunc="size", fill_value=0)
-    counts.columns = [f"bars_{c}" for c in counts.columns]
-    counts["short_history"] = (counts < short_threshold).any(axis=1)
+    flagged = [c for c in counts.columns if c not in skip]
+    counts["short_history"] = (counts[flagged] < short_threshold).any(axis=1)
+    counts.columns = [f"bars_{c}" if c != "short_history" else c for c in counts.columns]
     return counts.reset_index()

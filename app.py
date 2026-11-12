@@ -208,10 +208,10 @@ with tab_data:
             st.markdown("**Coverage per timeframe**")
             st.dataframe(ds.timeframe_summary(data), hide_index=True)
         with right:
-            per_ticker = ds.bars_per_ticker(data, int(cfg["short_history_bars"]))
+            per_ticker = ds.bars_per_ticker(data, int(cfg["short_history_bars"]), skip=(WEEKLY,))
             n_short = int(per_ticker["short_history"].sum())
             st.markdown(f"**Bars per ticker** · {n_short} with short history "
-                        f"(< {cfg['short_history_bars']} bars in a timeframe)")
+                        f"(< {cfg['short_history_bars']} bars in a timeframe; {WEEKLY} not counted)")
             st.dataframe(per_ticker.sort_values("short_history", ascending=False), hide_index=True,
                          height=250)
 

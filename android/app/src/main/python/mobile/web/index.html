@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Elliott Wave Scanner</title>
+  <link rel="stylesheet" href="app.css">
+  <script src="plotly.min.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <b>🕯️ Elliott Wave Scanner</b>
+      <small>EW5 wave-5 reversals and EW3 wave-3 starts: screener, backtest and signal charts for stocks, indices and commodities</small>
+    </div>
+    <div class="badges" id="badges"></div>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  <div id="jobbar" class="jobbar hidden"></div>
+  <main>
+    <section id="tab-ew5" class="tab"></section>
+    <section id="tab-ew3" class="tab hidden"></section>
+    <section id="tab-data" class="tab hidden"></section>
+    <section id="tab-run" class="tab hidden"></section>
+    <section id="tab-guide" class="tab hidden"></section>
+  </main>
+  <div id="layer"></div>
+  <script src="app.js"></script>
+</body>
+</html>

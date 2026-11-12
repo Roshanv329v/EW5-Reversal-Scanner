@@ -14,6 +14,10 @@ Weekly bars are built from the stored daily bars.
 
 Everything stays in local files. No database, no Docker.
 
+**Android app.** The same scanner also runs on an Android phone with no computer involved:
+same engine, same dashboards, Data and Run / Backtest tabs. See [android/README.md](android/README.md)
+and the phone section of the User Guide (`docs/phone_guide.md`).
+
 ## Setup and start
 
 ```bash

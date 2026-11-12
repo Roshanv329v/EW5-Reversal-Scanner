@@ -23,7 +23,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import talib
+try:
+    import talib
+except ImportError:            # no TA-Lib C library (Android build): same algorithms in pure numpy
+    from core import ta_lite as talib
 
 # ----------------------------------------------------------------------------------
 # Ticker lists. Symbols are used exactly as written (yfinance format) - no renaming.

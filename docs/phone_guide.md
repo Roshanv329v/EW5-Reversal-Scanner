@@ -1,0 +1,63 @@
+## The phone app
+
+The Android app runs the same scanner as the desktop, entirely on the phone. No computer
+or server is involved; only the price download needs internet. The tabs match the desktop:
+**EW5**, **EW3**, **Data**, **Run / Backtest** and **User Guide**.
+
+### First start
+
+1. **Data tab → Update data.** The first run downloads the full history of every ticker:
+   3 years of daily bars and about 2 years of 60m bars (the 4hr and weekly bars are built
+   from those). For all tickers this takes a while; a notification shows progress and the
+   download carries on with the screen off or the app in the background.
+2. **Run / Backtest tab.** Pick EW5 or EW3, a mode, and press **Run**. A full walk-forward
+   backtest of every ticker on three timeframes takes several minutes on a phone.
+3. **EW5 / EW3 tabs.** The run you just made opens there.
+
+Have the desktop's `data/stock.csv` already? Copy it to the phone (cable, Google Drive …) and
+use **Data → Import stock.csv** instead of downloading. The import takes about a minute.
+
+### Daily routine
+
+Same as the desktop:
+
+1. **Data → Update data** after the close (only the last 30 days are downloaded).
+2. **Run / Backtest → Live screen → Run**, for EW5 and for EW3.
+3. Open the EW5 and EW3 tabs, set the **HTF alignment** filter, tap a signal for its chart.
+
+### Using the screens
+
+- **Filters** open a list to tick. **Save filters** remembers them, the selected stat card and
+  the chart toggles, exactly as on the desktop.
+- **Stat cards**: tap *Show N* to narrow the signal table; tap again to clear.
+- **Breakdown charts**: tap a bar to narrow the table to its signals; tap more bars to add
+  them; *Clear chart filter* resets.
+- **Signal table**: swipe sideways for more columns; tap a row for the chart overlay. The
+  same chart and the signal details stay below the table.
+- **Charts** in portrait use short level labels to give the candles room:
+  `TRIG` trigger, `STOP`, `W4` wave-4 end, `F.500` … `F.854` Fibonacci levels,
+  `T0.618` … `T2.618` wave-5 (EW5) or wave-3 (EW3) targets, `R.382` … `R.786` wave-2
+  retracements, `W0` / `W1` wave starts and ends. The legend is under the chart; tap an entry
+  to hide or show it. Turn the phone sideways for the full desktop labels.
+- **Back button** closes an open overlay or list first.
+- **Share results CSV** (Run tab) sends a results file to any app.
+
+### What is different from the desktop
+
+| | Desktop | Phone |
+|---|---|---|
+| Price download | yfinance | Yahoo's chart API directly (same data; yfinance cannot run on Android) |
+| Indicators | TA-Lib | `core/ta_lite.py`: the same formulas in numpy, checked against TA-Lib on all stored series |
+| stock.csv | one file | 16 part files of the same format, so the phone never holds every ticker in memory |
+| pandas / numpy | 3.x / 2.x | 2.1.3 / 1.26.2 (the versions built for Android); results checked identical |
+
+Signals, levels, outcomes, alignment and every stat are identical to the desktop on the same
+data. The only known difference is DTosc K / D on a perfectly flat price stretch, where both
+versions divide zero by zero.
+
+### Storage and battery
+
+- About 250 MB of storage for all tickers, plus results files.
+- Memory stays around 0.6 GB during a run (one group of about 15 tickers at a time).
+- A long job keeps the phone awake through a notification. It ends by itself when the job
+  is finished.

@@ -1,0 +1,17 @@
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+dist/
+# release signing key and its passwords: keep a private backup, never commit
+keystore/
+keystore.properties
+# synced from the project root on every build (see syncEngine in app/build.gradle.kts)
+app/src/main/python/elliott_wave5_screener.py
+app/src/main/python/elliott_wave3_screener.py
+app/src/main/python/stock_data.py
+app/src/main/python/config.yaml
+app/src/main/python/core/
+app/src/main/python/mobile/docs/
+app/src/main/python/mobile/seed/

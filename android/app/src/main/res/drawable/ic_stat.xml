@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icon: three candlesticks (white, the system tints it). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M5,3h1v3h1.5v8H6v4H5v-4H3.5V6H5z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M11.5,6h1v4H14v6h-1.5v5h-1v-5H10v-6h1.5z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M18,2h1v5h1.5v7H19v3h-1v-3h-1.5V7H18z" />
+</vector>
