@@ -30,10 +30,13 @@ Same as the desktop:
 - **Filters** open a list to tick. **Save filters** remembers them, the selected stat card and
   the chart toggles, exactly as on the desktop.
 - **Stat cards**: tap *Show N* to narrow the signal table; tap again to clear.
+- **Light / dark**: the button under the title switches the whole app, charts included; the
+  choice is remembered.
 - **Breakdown charts**: tap a bar to narrow the table to its signals; tap more bars to add
-  them; *Clear chart filter* resets.
-- **Signal table**: swipe sideways for more columns; tap a row for the chart overlay. The
-  same chart and the signal details stay below the table.
+  them; *Clear chart filter* resets. These charts do not zoom, so they cannot get stuck in a
+  zoomed view; the signal chart below is the one to zoom.
+- **Signal table**: swipe sideways for more columns; tap a row to show its chart and details
+  below the table (scroll down). **Open chart overlay** shows the same chart full screen.
 - **Signal chart** works like TradingView (it is drawn with TradingView's Lightweight Charts):
   - **pinch** (or the mouse wheel) to zoom, **drag** sideways to move through time;
   - **drag the price axis** up or down to stretch or squeeze prices; **double-tap an axis** to
@@ -72,7 +75,7 @@ At each time you set (default **12:30 and 15:45, Monday to Friday**):
 
 The second scan of the day only notifies stocks that are new since the first; the
 notification always lists the whole day, triggers first. Tap it to open the Alerts tab; tap
-a row there for the chart. The scans' results are also in the EW5 / EW3 tabs as
+a row there to open that stock in its EW5 / EW3 tab, scrolled to its chart. The scans' results are also in the EW5 / EW3 tabs as
 `backtest_auto_…` files (the newest four of each are kept).
 
 Settings: days, times (add or remove), whether to download first, EW5 / EW3, timeframes,
@@ -93,10 +96,22 @@ The token is kept in the app's private storage and is never shown again (leave t
 empty to keep it). For a group, add the bot to the group, write a message there and pick the
 group's chat ID. The phone notification is sent either way.
 
-For reliable timing, the tab checks three phone settings and offers an **Allow** button for
-each: notifications, exact alarms, and battery optimisation (some phones, Xiaomi, Oppo,
-Vivo and Samsung in particular, stop background apps unless battery optimisation is off for
-them). Scans are set again after a restart or an app update.
+**Message layout** (under Telegram) sets what the message says: a header line and one line
+per stock, written with placeholders such as `{icon} {ticker} {side}`, `{trigger}`, `{stop}`,
+`{target1}`, `{risk_pct}`, `{alignment}` or `{tradingview}` (a chart link). Tap a placeholder
+to insert it, **Preview** to see the message with today's stocks (or two examples), and
+**Default layout** to start again. `<b>`, `<i>`, `<code>` and links work as in Telegram.
+
+**Scans while the phone is locked.** Scans are set as alarm-clock alarms (you will see the
+alarm icon in the status bar), which phones keep even in deep sleep. The tab checks the
+phone settings that can still stop them and offers an **Allow** button for each:
+notifications, exact alarms, battery optimisation, background data (Data Saver), and on
+Xiaomi, Oppo, Vivo, Huawei and similar phones the maker's **auto-start** switch. On those
+phones also set the app's battery use to *No restrictions* (Samsung: take it out of
+*Sleeping apps*), and don't swipe the app away from recent apps. **Test in 2 min** sets a
+one-off scan: lock the phone and the notification should arrive a few minutes later. The
+**Scheduler log** shows when alarms were set and when they fired. Scans are set again after
+a restart or an app update.
 
 A daily (1D) signal found at 12:30 is based on the day's unfinished bar; it can still change
 by the close. The 15:45 scan sees the finished day.

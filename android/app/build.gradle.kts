@@ -19,8 +19,8 @@ android {
         applicationId = "app.ewscanner"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7                    // raise on every release: the phone installs it as an update
-        versionName = "1.6"
+        versionCode = 8                    // raise on every release: the phone installs it as an update
+        versionName = "1.7"
         ndk { abiFilters += listOf("arm64-v8a") }     // current phones and Apple-silicon emulators
     }
     signingConfigs {

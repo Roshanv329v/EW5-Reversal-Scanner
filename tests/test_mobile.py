@@ -218,7 +218,7 @@ def test_telegram_is_off_by_default_and_keeps_the_token_private(tmp_path, monkey
     assert alerts.telegram_test(a, {})["ok"]
     token, method, payload = sent[-1]
     assert (token, method, payload["chat_id"], payload["parse_mode"]) == ("123:SECRET", "sendMessage", "42", "HTML")
-    assert "EXAMPLE.NS" in payload["text"] and "Triggered today (1)" in payload["text"]
+    assert "RELIANCE.NS" in payload["text"] and "Triggered today (1)" in payload["text"]
 
     monkeypatch.setattr(alerts, "_telegram", lambda *a: {"ok": False, "description": "Unauthorized"})
     with pytest.raises(ValueError, match="Unauthorized"):
@@ -231,4 +231,17 @@ def test_telegram_messages_are_split_under_the_limit():
              "at": "2026-01-01 10:15", "alignment": "MIXED", "trigger": 1.0, "stop": 0.9} for i in range(200)]
     parts = alerts.telegram_text("EW alerts <today>", many)
     assert len(parts) > 1 and all(len(p) <= 4096 for p in parts)
-    assert "&lt;today&gt;" in parts[0] and sum(p.count("•") for p in parts) == 200
+    assert "&lt;today&gt;" in parts[0] and sum(p.count("🟢") for p in parts) == 200
+
+
+def test_telegram_message_follows_the_template():
+    from mobile import alerts
+    custom = {"telegram_header": "{date}: {count} stocks ({triggered} triggered)",
+              "telegram_line": "{icon} {symbol} {side} @ {trigger} SL {stop} T1 {target1} ({risk_pct}) {nope}",
+              "telegram_group": False}
+    text = alerts.telegram_text("ignored", alerts.SAMPLE, custom)[0]
+    assert text.splitlines()[0] == "2026-01-02: 2 stocks (1 triggered)"
+    assert "🔴 RELIANCE SHORT @ 1,298.50 SL 1,312.00 T1 1,270.40 (1.04%) {nope}" in text   # unknown names stay as written
+    assert "Triggered today" not in text
+    evil = dict(alerts.SAMPLE[0], ticker="<script>.NS")
+    assert "&lt;script&gt;" in alerts.telegram_text("t", [evil])[0]                        # values are escaped

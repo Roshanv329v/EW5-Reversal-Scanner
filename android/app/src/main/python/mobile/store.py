@@ -14,6 +14,7 @@ for the whole universe at once).
 
 from __future__ import annotations
 
+import json
 import zlib
 from functools import lru_cache
 from pathlib import Path
@@ -174,7 +175,7 @@ class Store:
             frames = [self.ticker_bars(t) for t in tickers]
         elif newest_first:
             infos = self._infos()
-            frames = [i["newest"] for i in infos]
+            frames = [_newest(i["path"], i["mtime"]) for i in infos]
             total = sum(int(i["summary"].loc[i["summary"]["time_frame"].isin(timeframes) if timeframes
                                              else slice(None), "rows"].sum()) for i in infos)
             frames = [f[f["time_frame"].isin(timeframes)] if timeframes else f for f in frames]
@@ -200,17 +201,54 @@ PREVIEW_KEEP = 2000            # newest rows kept per part and timeframe for the
 
 @lru_cache(maxsize=64)
 def _info(path: str, mtime: float) -> dict:
+    """
+    Small summary of one part (coverage, bars per ticker, tickers, last bar). Kept next to the
+    part as stock_NN.info.json, so a fresh start does not have to read every part again.
+    The newest rows for the Data tab preview are read only when the preview asks for them.
+    """
+    side = Path(path).with_suffix(".info.json")
+    try:
+        saved = json.loads(side.read_text(encoding="utf-8"))
+        if saved.get("mtime") == mtime and saved.get("version") == INFO_VERSION:
+            return _info_from_json(saved, path, mtime)
+    except (OSError, ValueError, KeyError):
+        pass
     df = _load(path, mtime)
-    newest = (df.sort_values("time", ascending=False, kind="stable").groupby("time_frame", sort=False)
-                .head(PREVIEW_KEEP)) if not df.empty else df
-    return {
-        "summary": ds.timeframe_summary(df),
-        "counts": (df.pivot_table(index="Ticker", columns="time_frame", values="time", aggfunc="size", fill_value=0)
-                   if not df.empty else pd.DataFrame()),
-        "tickers": set(df["Ticker"].unique()),
-        "last": df["time"].max() if not df.empty else None,
-        "newest": newest,
-    }
+    summary = ds.timeframe_summary(df)
+    counts = (df.pivot_table(index="Ticker", columns="time_frame", values="time", aggfunc="size", fill_value=0)
+              if not df.empty else pd.DataFrame())
+    saved = {"version": INFO_VERSION, "mtime": mtime,
+             "summary": summary.assign(first_bar=summary["first_bar"].astype(str),
+                                       last_bar=summary["last_bar"].astype(str)).to_dict("records"),
+             "counts": {t: {tf: int(n) for tf, n in row.items()} for t, row in counts.iterrows()},
+             "last": str(df["time"].max()) if not df.empty else None}
+    try:
+        side.write_text(json.dumps(saved), encoding="utf-8")
+    except OSError:
+        pass
+    return _info_from_json(saved, path, mtime)
+
+
+INFO_VERSION = 1
+
+
+def _info_from_json(saved: dict, path: str, mtime: float) -> dict:
+    summary = pd.DataFrame(saved["summary"], columns=["time_frame", "rows", "tickers", "first_bar", "last_bar"])
+    for col in ("first_bar", "last_bar"):
+        summary[col] = pd.to_datetime(summary[col])
+    counts = pd.DataFrame.from_dict(saved["counts"], orient="index").fillna(0).astype(int)
+    counts.index.name = "Ticker"
+    counts.columns.name = "time_frame"
+    return {"summary": summary, "counts": counts, "tickers": set(saved["counts"]),
+            "last": pd.Timestamp(saved["last"]) if saved.get("last") else None, "path": path, "mtime": mtime}
+
+
+@lru_cache(maxsize=16)
+def _newest(path: str, mtime: float) -> pd.DataFrame:
+    """Newest PREVIEW_KEEP rows per timeframe of one part (Data tab preview)."""
+    df = _load(path, mtime)
+    return (df.sort_values("time", ascending=False, kind="stable").groupby("time_frame", sort=False)
+              .head(PREVIEW_KEEP)) if not df.empty else df
 
 
 @lru_cache(maxsize=2)

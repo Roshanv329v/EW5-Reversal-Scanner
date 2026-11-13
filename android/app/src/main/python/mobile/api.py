@@ -67,6 +67,19 @@ class App:
 APP: Optional[App] = None
 
 
+def warm_up() -> None:
+    """Right after start, in the background: part summaries and the newest results of each tab."""
+    try:
+        a = _app()
+        a.store.timeframe_summary()
+        for key in strategies.STRATEGIES:
+            files = runner.list_results(a.cfg["results_dir"], key)
+            if files:
+                load_results(files[0])
+    except Exception:                      # only a head start; the real calls do the same work
+        pass
+
+
 def init(root: str) -> None:
     global APP
     APP = App(Path(root))
@@ -707,6 +720,10 @@ def alerts_telegram_test(values: dict) -> dict:
     return alerts.telegram_test(_app(), values)
 
 
+def alerts_telegram_preview(values: dict) -> dict:
+    return alerts.telegram_preview(_app(), values)
+
+
 def alerts_telegram_chat(values: dict) -> dict:
     return alerts.telegram_find_chat(_app(), values)
 
@@ -725,8 +742,8 @@ def alerts_run() -> dict:
 def guide() -> dict:
     import markdown
     out = {}
-    for key, name in (("functional", "functional_guide.md"), ("technical", "technical_guide.md"),
-                      ("phone", "phone_guide.md")):
+    for key, name in (("pictures", "elliott_wave_pictures.md"), ("functional", "functional_guide.md"),
+                      ("technical", "technical_guide.md"), ("phone", "phone_guide.md")):
         raw = resources.read(f"docs/{name}")                    # copied in by the Android build
         if raw is None and (ROOT / "docs" / name).exists():     # desktop test run
             raw = (ROOT / "docs" / name).read_bytes()

@@ -1,13 +1,38 @@
-/* Dark theme modelled on the desktop app (Streamlit dark). */
+/* Two themes: dark (default, like the desktop app) and light (html[data-theme=light]). */
 :root {
-  --bg: #0e1117; --panel: #161a23; --widget: #262730; --border: rgba(250, 250, 250, 0.14);
-  --ink: #fafafa; --ink2: #c3c6cf; --muted: #8b90a0; --primary: #ff4b4b; --blue: #3987e5;
+  --bg: #0b0f17; --panel: rgba(22, 27, 38, 0.92); --widget: #232733; --border: rgba(250, 250, 250, 0.12);
+  --ink: #f5f6f8; --ink2: #c3c6cf; --muted: #8b90a0; --primary: #ff4b4b; --blue: #3987e5;
   --up: #2fbf71; --down: #e66767; --amber: #e0a526; --tabsel: rgba(57, 135, 229, 0.16);
-  --radius: 12px; --gutter: 14px;
+  --th: #1c2130; --stick: #161b26; --sel: #3a2026; --chart: #131720; --toast: #2a3142; --jobbar: #1a2131;
+  --info: #a9cbf3; --warn: #f0cd7a; --err: #f4a3a3; --okc: #93e0b5;
+  --b-blue: #8ab8f0; --b-green: #7fd9a8; --b-violet: #b9b1f4;
+  --glow1: rgba(57, 135, 229, 0.20); --glow2: rgba(47, 191, 113, 0.10); --glow3: rgba(144, 133, 233, 0.10);
+  --gridline: rgba(255, 255, 255, 0.025); --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 6px 20px rgba(0, 0, 0, 0.25);
+  --radius: 14px; --gutter: 14px;
   color-scheme: dark;
 }
+html[data-theme="light"] {
+  --bg: #eef2f8; --panel: rgba(255, 255, 255, 0.94); --widget: #e9edf4; --border: rgba(15, 23, 42, 0.11);
+  --ink: #111827; --ink2: #374151; --muted: #6b7280; --tabsel: rgba(57, 135, 229, 0.12);
+  --th: #eef2f7; --stick: #f8fafc; --sel: #fde4e4; --chart: #ffffff; --toast: #1f2937; --jobbar: #e4ecf8;
+  --info: #1d4f91; --warn: #8a5a00; --err: #a12626; --okc: #17663f;
+  --b-blue: #1d5fb0; --b-green: #17663f; --b-violet: #5a4bc9;
+  --glow1: rgba(57, 135, 229, 0.16); --glow2: rgba(47, 191, 113, 0.10); --glow3: rgba(255, 75, 75, 0.06);
+  --gridline: rgba(15, 23, 42, 0.035); --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.06);
+  color-scheme: light;
+}
+/* background: soft colour glows over a faint chart grid; pure CSS, drawn once (no image to load) */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(900px 520px at 0% -8%, var(--glow1), transparent 65%),
+    radial-gradient(760px 480px at 105% 12%, var(--glow2), transparent 62%),
+    radial-gradient(700px 600px at 50% 115%, var(--glow3), transparent 60%),
+    repeating-linear-gradient(0deg, var(--gridline) 0 1px, transparent 1px 44px),
+    repeating-linear-gradient(90deg, var(--gridline) 0 1px, transparent 1px 44px),
+    var(--bg); }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--ink);
+html { background: var(--bg); }
+html, body { margin: 0; color: var(--ink);
   font: 15px/1.45 -apple-system, "Segoe UI", Roboto, "Source Sans Pro", sans-serif;
   -webkit-text-size-adjust: 100%; overflow-x: hidden; }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -22,14 +47,19 @@ small, .caption { color: var(--muted); font-size: 0.85rem; }
 /* ---- header and tabs */
 .top { padding: 14px var(--gutter) 6px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
   justify-content: space-between; }
-.brand b { font-size: 1.3rem; display: block; }
+.brand b { font-size: 1.32rem; display: block; letter-spacing: -0.01em;
+  background: linear-gradient(90deg, var(--ink) 0%, var(--blue) 70%, var(--up) 100%); -webkit-background-clip: text;
+  background-clip: text; color: transparent; }
+.theme-btn { border: 1px solid var(--border); background: var(--panel); border-radius: 999px; padding: 4px 10px;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer; }
 .brand small { display: block; }
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge { font-size: 0.78rem; padding: 2px 9px; border-radius: 999px; font-weight: 600; }
-.badge.blue { background: rgba(57,135,229,0.18); color: #8ab8f0; }
-.badge.green { background: rgba(47,191,113,0.18); color: #7fd9a8; }
-.badge.violet { background: rgba(144,133,233,0.2); color: #b9b1f4; }
+.badge.blue { background: rgba(57,135,229,0.16); color: var(--b-blue); }
+.badge.green { background: rgba(47,191,113,0.16); color: var(--b-green); }
+.badge.violet { background: rgba(144,133,233,0.18); color: var(--b-violet); }
 .tabs { position: sticky; top: 0; z-index: 20; background: var(--bg); display: flex; gap: 4px;
+  box-shadow: 0 6px 14px -12px rgba(0,0,0,0.5);
   overflow-x: auto; padding: 4px var(--gutter) 0; border-bottom: 1px solid var(--border);
   scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
@@ -42,7 +72,7 @@ main { padding: 8px var(--gutter) 90px; max-width: 1400px; margin: 0 auto; }
 
 /* ---- job bar */
 .jobbar { position: sticky; top: 46px; z-index: 19; margin: 0 var(--gutter); padding: 8px 12px; border-radius: 10px;
-  background: #1d2433; border: 1px solid var(--border); font-size: 0.88rem; }
+  background: var(--jobbar); border: 1px solid var(--border); font-size: 0.88rem; }
 .jobbar .bar { height: 5px; background: var(--widget); border-radius: 3px; margin-top: 6px; overflow: hidden; }
 .jobbar .bar i { display: block; height: 100%; background: var(--blue); transition: width 0.4s; }
 
@@ -69,10 +99,10 @@ textarea { min-height: 80px; resize: vertical; }
   font-size: 0.86rem; cursor: pointer; }
 .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 .note { padding: 9px 12px; border-radius: 8px; margin: 8px 0; font-size: 0.92rem; }
-.note.info { background: rgba(57,135,229,0.14); color: #a9cbf3; }
-.note.warn { background: rgba(224,165,38,0.14); color: #f0cd7a; }
-.note.error { background: rgba(230,103,103,0.16); color: #f4a3a3; }
-.note.ok { background: rgba(47,191,113,0.14); color: #93e0b5; }
+.note.info { background: rgba(57,135,229,0.14); color: var(--info); }
+.note.warn { background: rgba(224,165,38,0.16); color: var(--warn); }
+.note.error { background: rgba(230,103,103,0.16); color: var(--err); }
+.note.ok { background: rgba(47,191,113,0.15); color: var(--okc); }
 details { border: 1px solid var(--border); border-radius: 8px; margin: 8px 0; background: var(--panel); }
 details > summary { padding: 9px 12px; cursor: pointer; font-weight: 600; }
 details > div { padding: 0 12px 12px; }
@@ -127,13 +157,13 @@ details > div { padding: 0 12px 12px; }
 .tablewrap.tall { max-height: 520px; }
 table.t { border-collapse: separate; border-spacing: 0; font-size: 0.82rem; min-width: 100%; }
 table.t th, table.t td { padding: 6px 9px; border-bottom: 1px solid rgba(250,250,250,0.07); white-space: nowrap; text-align: left; }
-table.t th { position: sticky; top: 0; background: #1f2330; color: var(--ink2); font-weight: 600; z-index: 2; }
-table.t th:first-child, table.t td:first-child { position: sticky; left: 0; background: #181c26; z-index: 1; }
-table.t th:first-child { z-index: 3; background: #1f2330; }
+table.t th { position: sticky; top: 0; background: var(--th); color: var(--ink2); font-weight: 600; z-index: 2; }
+table.t th:first-child, table.t td:first-child { position: sticky; left: 0; background: var(--stick); z-index: 1; }
+table.t th:first-child { z-index: 3; background: var(--th); }
 table.t td.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.t tbody tr.click { cursor: pointer; }
 table.t tbody tr.sel td { background: rgba(255,75,75,0.13); }
-table.t tbody tr.sel td:first-child { background: #3a2026; }
+table.t tbody tr.sel td:first-child { background: var(--sel); }
 td.long, .long { color: var(--up); font-weight: 700; }
 td.short, .short { color: var(--down); font-weight: 700; }
 td.h-good { color: var(--up); background: rgba(47,191,113,0.14); font-weight: 600; }
@@ -169,7 +199,7 @@ td.t-BEARISH { color: var(--down); }
 .guide { max-width: 900px; }
 .guide table { border-collapse: collapse; font-size: 0.85rem; display: block; overflow-x: auto; margin: 8px 0; }
 .guide th, .guide td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; vertical-align: top; }
-.guide th { background: #1f2330; }
+.guide th { background: var(--th); }
 .guide pre { background: var(--panel); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 0.8rem; }
 .guide code { background: var(--widget); padding: 1px 4px; border-radius: 4px; font-size: 0.85em; }
 .guide pre code { background: none; padding: 0; }
@@ -177,12 +207,12 @@ td.t-BEARISH { color: var(--down); }
 .subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
 
 /* ---- toast */
-.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #2a3142; color: var(--ink);
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--toast); color: #f5f6f8;
   padding: 10px 16px; border-radius: 10px; z-index: 80; box-shadow: 0 6px 24px rgba(0,0,0,0.4); max-width: 92vw; font-size: 0.9rem; }
 .spin { color: var(--muted); padding: 18px 0; }
 
 /* ---- signal chart (TradingView Lightweight Charts) */
-.tv { border-radius: 10px; background: #1a1a19; padding: 8px 6px 6px; margin: 6px 0; }
+.tv { border-radius: 12px; background: var(--chart); padding: 8px 6px 6px; margin: 6px 0; border: 1px solid var(--border); }
 .tv-title { color: var(--ink); font-size: 0.9rem; font-weight: 600; padding: 0 4px; }
 .tv-readout { color: var(--ink2); font-size: 0.74rem; padding: 2px 4px 6px; min-height: 1.2em; font-variant-numeric: tabular-nums; }
 .tv-chart { width: 100%; position: relative; touch-action: pan-y; }
@@ -193,3 +223,41 @@ td.t-BEARISH { color: var(--down); }
 .tv-tf .lbl { font-size: 0.82rem; color: var(--ink2); font-weight: 600; }
 .time-item { display: inline-flex; align-items: center; gap: 4px; }
 .time-item input[type=time] { width: auto; }
+
+/* ---- richer surfaces */
+.box, .card, .metric, details { box-shadow: var(--shadow); }
+.card { position: relative; overflow: hidden; }
+.card::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, var(--blue), var(--up)); opacity: 0.55; }
+.card .v { background: linear-gradient(180deg, var(--ink), var(--ink2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.plot.box { background: var(--chart); }
+.chart-head { display: flex; justify-content: flex-end; gap: 6px; margin: -2px 0 4px; }
+.spin::before { content: ""; display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px;
+  border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.skeleton { height: 220px; border-radius: 12px; background: linear-gradient(90deg, var(--panel), var(--widget), var(--panel));
+  background-size: 200% 100%; animation: shimmer 1.2s ease-in-out infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .spin::before, .skeleton { animation: none; } }
+/* Elliott Wave pictures in the guide */
+.ew-fig { background: var(--chart); border: 1px solid var(--border); border-radius: 12px; padding: 8px; margin: 10px 0; }
+.ew-fig svg { width: 100%; height: auto; display: block; }
+.ew-fig figcaption { color: var(--muted); font-size: 0.82rem; padding: 4px 4px 0; }
+.ew-fig .grid { stroke: var(--border); stroke-width: 1; }
+.ew-fig .wave { fill: none; stroke: var(--blue); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.ew-fig .corr { fill: none; stroke: #9085e9; stroke-width: 3; stroke-dasharray: 8 6; stroke-linejoin: round; }
+.ew-fig .next { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 3 6; }
+.ew-fig .lbl { fill: var(--ink); font: 700 24px -apple-system, Roboto, sans-serif; }
+.ew-fig .small { fill: var(--muted); font: 18px -apple-system, Roboto, sans-serif; }
+.ew-fig .lvl { stroke-width: 1.5; }
+.ew-fig .lvl.trig { stroke: #d95926; } .ew-fig .lvl.stop { stroke: #d03b3b; } .ew-fig .lvl.tgt { stroke: #c98500; stroke-dasharray: 6 5; }
+.ew-fig .lvl.fib { stroke: var(--muted); stroke-dasharray: 2 4; }
+.ew-fig .ltxt { font: 700 17px -apple-system, Roboto, sans-serif; }
+.ew-fig .ltxt.trig { fill: #d95926; } .ew-fig .ltxt.stop { fill: #d03b3b; } .ew-fig .ltxt.tgt { fill: #c98500; } .ew-fig .ltxt.fib { fill: var(--muted); }
+.ew-fig .dot { fill: var(--blue); }
+.ew-fig .zone { fill: rgba(57, 135, 229, 0.10); }
+.ew-fig .up { fill: var(--up); } .ew-fig .down { fill: var(--down); }
+.ew-fig .arrow { stroke: var(--ink2); stroke-width: 2; fill: none; marker-end: url(#ah); }
+.tg-msg { background: var(--widget); border-radius: 12px 12px 12px 4px; padding: 9px 12px; font-size: 0.86rem; line-height: 1.45;
+  margin-top: 6px; overflow-wrap: anywhere; border: 1px solid var(--border); }
+.tg-msg code { background: rgba(127,127,127,0.18); padding: 0 3px; border-radius: 3px; }

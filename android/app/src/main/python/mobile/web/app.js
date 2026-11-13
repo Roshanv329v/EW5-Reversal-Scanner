@@ -52,6 +52,46 @@ function toast(text, ms = 3200) {
 function note(kind, text) { return h("div", { class: `note ${kind}`, html: md(text) }); }
 function spinner(text = "Loading…") { return h("div", { class: "spin" }, text); }
 
+// ---------------------------------------------------------------- theme and chart libraries
+const theme = () => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
+const PAL = () => (theme() === "light"
+  ? { bg: "#ffffff", text: "#374151", grid: "#edf0f5", border: "#d5dae3", band: "#9ca3af", ink: "#111827", hover: "#ffffff" }
+  : { bg: "#131720", text: "#c3c2b7", grid: "#222631", border: "#383835", band: "#6b6a64", ink: "#f0efec", hover: "#0d0d0d" });
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("ew-theme", t); } catch (e) { /* private storage off */ }
+  const btn = document.querySelector(".theme-btn");
+  if (btn) btn.textContent = t === "light" ? "🌙 Dark" : "☀️ Light";
+  Dash.all.forEach((d) => (d.plots = {}));                 // charts are drawn again in the new colours
+  if (activeTab === "ew5" || activeTab === "ew3") Dash.get(activeTab).render();
+}
+/* plotly.min.js (4.8 MB) and the TradingView library load once, when the first chart needs them. */
+const LIBS = {};
+function need(src) {
+  return LIBS[src] || (LIBS[src] = new Promise((ok, fail) => {
+    const el = document.createElement("script");
+    el.src = src;
+    el.onload = ok;
+    el.onerror = () => { delete LIBS[src]; fail(new Error(`could not load ${src}`)); };
+    document.head.append(el);
+  }));
+}
+const PLOTLY = "plotly.min.js", TVLIB = "lightweight-charts.standalone.production.js";
+
+/* the figure in the current theme's colours (data unchanged) */
+function themed(fig, L) {
+  const P = PAL(), font = (f, c) => Object.assign({}, f, { color: c });
+  L.paper_bgcolor = P.bg; L.plot_bgcolor = P.bg;
+  L.font = font(L.font, P.text);
+  if (L.title) L.title = Object.assign({}, L.title, { font: font(L.title.font, P.ink) });
+  if (L.legend) L.legend = Object.assign({}, L.legend, { font: font(L.legend.font, P.text) });
+  L.hoverlabel = Object.assign({}, L.hoverlabel, { bgcolor: P.hover, font: { color: P.ink } });
+  Object.keys(L).forEach((k) => { if (/^[xy]axis\d*$/.test(k)) L[k] = Object.assign({}, L[k], { gridcolor: P.grid, linecolor: P.border }); });
+  (L.annotations || []).forEach((a) => (a.font = font(a.font, P.text)));
+  return fig.data.map((t) => (t.type === "bar" && t.marker && t.marker.line
+    ? Object.assign({}, t, { marker: Object.assign({}, t.marker, { line: Object.assign({}, t.marker.line, { color: P.bg }) }) }) : t));
+}
+
 const SHORT_DEGREE = { intermediate: "int", major: "maj", minor: "min" };
 
 /* Phone portrait: same figure, laid out for ~350 px (legend under the chart, short degree labels). */
@@ -88,11 +128,19 @@ function htmlLegend(div, fig) {
   return wrap;
 }
 
-function plot(div, fig, onClick) {
+async function plot(div, fig, onClick) {
+  await need(PLOTLY);
   const breakdown = !!onClick;
-  const layout = Object.assign(narrow() ? narrowLayout(fig, breakdown) : Object.assign({}, fig.layout), { autosize: true });
+  const layout = Object.assign(narrow() ? narrowLayout(fig, breakdown) : JSON.parse(JSON.stringify(fig.layout)), { autosize: true });
   delete layout.width;
-  Plotly.react(div, fig.data, layout, Object.assign({}, PLOT_CONFIG, narrow() ? { displayModeBar: false } : {}));
+  const data = themed(fig, layout);
+  let config = Object.assign({}, PLOT_CONFIG, narrow() ? { displayModeBar: false } : {});
+  if (breakdown) {          // tap = select a bar; no zoom or pan to get lost in (nothing to reset)
+    layout.dragmode = false;
+    Object.keys(layout).forEach((k) => { if (/^[xy]axis\d*$/.test(k)) layout[k] = Object.assign({}, layout[k], { fixedrange: true }); });
+    config = Object.assign(config, { displayModeBar: false, doubleClick: false, scrollZoom: false });
+  }
+  Plotly.react(div, data, layout, config);
   if (onClick && !div._ewClick) {
     div._ewClick = true;
     div.on("plotly_click", (ev) => { const p = ev.points && ev.points[0]; if (p && p.customdata) div._ewHandler(p.customdata); });
@@ -117,6 +165,7 @@ function tvTime(t, intraday) {                 // times are IST wall clock store
 }
 
 function tvChart(spec) {
+  const P = PAL();
   TV_LIVE.forEach((c) => { if (!document.body.contains(c.el)) { c.chart.remove(); TV_LIVE.delete(c); } });
   const LW = window.LightweightCharts;
   const fmt = (v) => (v === undefined || v === null ? "–" : Number(v).toFixed(2));
@@ -131,11 +180,11 @@ function tvChart(spec) {
 
   const chart = LW.createChart(el, {
     autoSize: true,
-    layout: { background: { type: "solid", color: "#1a1a19" }, textColor: "#c3c2b7", fontSize: 11,
-      attributionLogo: true, panes: { separatorColor: "#383835", enableResize: true } },
-    grid: { vertLines: { color: "#262624" }, horzLines: { color: "#262624" } },
-    rightPriceScale: { borderColor: "#383835" },
-    timeScale: { borderColor: "#383835", timeVisible: spec.intraday, secondsVisible: false, rightOffset: 3 },
+    layout: { background: { type: "solid", color: P.bg }, textColor: P.text, fontSize: 11,
+      attributionLogo: true, panes: { separatorColor: P.border, enableResize: true } },
+    grid: { vertLines: { color: P.grid }, horzLines: { color: P.grid } },
+    rightPriceScale: { borderColor: P.border },
+    timeScale: { borderColor: P.border, timeVisible: spec.intraday, secondsVisible: false, rightOffset: 3 },
     crosshair: { mode: LW.CrosshairMode.Normal },
     localization: { priceFormatter: fmt, timeFormatter: (t) => tvTime(t, spec.intraday) },
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -160,7 +209,7 @@ function tvChart(spec) {
     axisLabelVisible: true, title: l.title }));
   const marks = spec.markers.map((m) => ({ time: m.time, position: "atPriceMiddle", price: m.price, shape: m.shape,
     color: m.color, text: m.text, size: 1.2 }));
-  if (spec.signal_time) marks.push({ time: spec.signal_time, position: "aboveBar", shape: "arrowDown", color: "#c3c2b7", text: "signal", size: 0.8 });
+  if (spec.signal_time) marks.push({ time: spec.signal_time, position: "aboveBar", shape: "arrowDown", color: P.text, text: "signal", size: 0.8 });
   marks.sort((a, b) => a.time - b.time);
   LW.createSeriesMarkers(candles, marks);
   named.push(["Price", spec.up, [candles]]);
@@ -178,7 +227,7 @@ function tvChart(spec) {
       pointMarkersVisible: true, pointMarkersRadius: 3, crosshairMarkerVisible: false }, quiet), 0);
     s.setData(w.data);
     LW.createSeriesMarkers(s, w.labels.map((x) => ({ time: x.time, position: x.position, price: x.price,
-      shape: "circle", color: "#f0efec", text: x.text, size: 0.1 })));
+      shape: "circle", color: P.ink, text: x.text, size: 0.1 })));
     named.push([w.name, w.color, [s]]);
   });
 
@@ -197,7 +246,7 @@ function tvChart(spec) {
     for (let p = 1; p <= nPanes; p++) {           // each indicator pane: 0-100 with the 30 / 50 / 70 lines
       chart.priceScale("right", p).applyOptions({ scaleMargins: { top: 0.06, bottom: 0.06 } });
       const anchor = Object.values(lineSeries).find((s) => s.getPane().paneIndex() === p);
-      if (anchor) spec.bands.forEach((b) => anchor.createPriceLine({ price: b.price, color: "#6b6a64", lineWidth: 1,
+      if (anchor) spec.bands.forEach((b) => anchor.createPriceLine({ price: b.price, color: P.band, lineWidth: 1,
         lineStyle: b.style, axisLabelVisible: false }));
     }
     const size = () => {                          // price : each indicator pane = height : paneH
@@ -366,11 +415,11 @@ function metric(k, v) { return h("div", { class: "metric" }, h("div", { class: "
 
 // ---------------------------------------------------------------- tabs, header, job bar
 let activeTab = "ew5";
-function showTab(key) {
+function showTab(key, switchOnly) {
   activeTab = key;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.key === key));
   document.querySelectorAll(".tab").forEach((s) => s.classList.toggle("hidden", s.id !== `tab-${key}`));
-  ({ ew5: () => Dash.get("ew5").open(), ew3: () => Dash.get("ew3").open(), data: DataTab.open, run: RunTab.open,
+  if (!switchOnly) ({ ew5: () => Dash.get("ew5").open(), ew3: () => Dash.get("ew3").open(), data: DataTab.open, run: RunTab.open,
     alerts: () => AlertsTab.open(), guide: Guide.open })[key]();
   window.scrollTo(0, 0);
 }
@@ -512,14 +561,29 @@ class Dash {
     const ids = res.table.ids;
     if (!ids.includes(s.selected)) s.selected = ids[0];
     root.append(h("div", { class: "row" },
-      h("div", { class: "caption", style: "flex:3 1 220px" }, "Tap any signal to open its chart in an overlay. The same chart stays below."),
+      h("div", { class: "caption", style: "flex:3 1 220px" }, "Tap a signal to show its chart below the table. The overlay button opens it full screen."),
       h("button", { class: "btn small", style: "flex:0 0 auto", onclick: () => this.openDialog(s.selected) }, "⤢ Open chart overlay")));
     root.append(dataTable(res.table, { sideCol: res.side_col, selected: s.selected,
-      onRow: (id) => { s.selected = id; this.openDialog(id); this.drawChart(); } }));
+      onRow: (id) => { s.selected = id; this.drawChart(); } }));
     this.chartBox = h("div");
     root.append(this.chartBox);
-    this.drawChart();
+    this.chartPromise = this.drawChart();
     window.scrollTo(0, y);
+  }
+
+  /* Open one signal from elsewhere (Alerts tab): its file, its row selected, scrolled to its chart. */
+  async focus(file, id) {
+    const s = this.state;
+    Object.assign(s, { file, stat: null, live: {}, search: "", selected: id, bars: { outcome: [], mfemae: [], align: [], sides: [] } });
+    this.stale = true;
+    showTab(this.key, true);
+    await this.open();
+    if (!this.res || !this.res.table || !this.res.table.ids.includes(id)) {     // hidden by a filter: show all
+      s.filters = {}; s.ratio = [null, null]; s.selected = id;
+      await this.load();
+    }
+    if (this.chartPromise) await this.chartPromise;
+    if (this.chartBox) this.chartBox.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   filtersBox() {
@@ -620,10 +684,19 @@ class Dash {
       if (i >= 0) list.splice(i, 1); else list.push(cd);
       this.load();
     };
+    this.plots = this.plots || {};
     const add = (parent, name, chart) => {
-      const div = h("div", { class: "plot box", style: "padding:0" });
+      const sig = theme() + narrow() + JSON.stringify(figs[name]);
+      const kept = this.plots[name];
+      if (kept && kept.sig === sig) {               // same figure (e.g. a stat card was tapped): reuse it
+        kept.div._ewHandler = toggle(chart);
+        parent.append(kept.div);
+        return;
+      }
+      const div = h("div", { class: "plot box", style: "padding:0;min-height:300px" });
+      this.plots[name] = { div, sig };
       parent.append(div);
-      requestAnimationFrame(() => plot(div, figs[name], toggle(chart)));
+      requestAnimationFrame(() => plot(div, figs[name], toggle(chart)).catch((e) => div.replaceWith(note("error", e.message))));
     };
     const grid = h("div", { class: "charts" });
     box.append(grid);
@@ -689,7 +762,7 @@ class Dash {
     box.append(this.tfButtons(c, (tf) => { s.chartTf.tf = tf; this.drawChart(); }));
     box.append(this.chartToggles(s.groups, () => this.drawChart()));
     if (c.warning) box.append(note("warn", c.warning));
-    if (c.tv) box.append(tvChart(c.tv));
+    if (c.tv) { await need(TVLIB); box.append(tvChart(c.tv)); }
     if (c.tf_note) box.append(h("div", { class: "caption" }, c.tf_note));
     if (c.note) box.append(h("div", { class: "caption" }, c.note));
 
@@ -718,7 +791,7 @@ class Dash {
       panel.append(this.tfButtons(c, (v) => { tf = v; draw(); }));
       panel.append(this.chartToggles(s.dlg, draw));
       if (c.warning) panel.append(note("warn", c.warning));
-      if (c.tv) panel.append(tvChart(c.tv));
+      if (c.tv) { await need(TVLIB); panel.append(tvChart(c.tv)); }
       if (c.tf_note) panel.append(h("div", { class: "caption" }, c.tf_note));
       if (c.note) panel.append(h("div", { class: "caption" }, c.note));
     };
@@ -813,7 +886,8 @@ const DataTab = {
       multiselect("Timeframe", d.stored_timeframes, p.timeframes, (v) => { p.timeframes = v; DataTab.open(); }),
       h("div", { style: "flex:0 0 auto" }, check("Newest first", p.newest, (v) => { p.newest = v; reload(); }))));
     root.append(out);
-    reload();
+    if (p.tickers.length || p.timeframes.length || DataTab.previewed) reload();
+    else out.append(h("button", { class: "btn", onclick: () => { DataTab.previewed = true; reload(); } }, "Show the newest rows"));
   },
   report(r) {
     const box = h("div", { class: "box" }, h("b", {}, "Last update"));
@@ -933,6 +1007,13 @@ const RunTab = {
   },
 };
 
+/* A Telegram message as Telegram shows it: only its own tags (b, i, u, s, code, pre, links) are kept. */
+function tgHtml(text) {
+  return esc(text).replace(/\n/g, "<br>")
+    .replace(/&lt;(\/?)(b|i|u|s|code|pre)&gt;/g, "<$1$2>")
+    .replace(/&lt;a href=&quot;(https?:[^&]*)&quot;&gt;/g, '<a href="$1">').replace(/&lt;\/a&gt;/g, "</a>");
+}
+
 // ---------------------------------------------------------------- Alerts tab
 const AlertsTab = {
   form: null,
@@ -956,10 +1037,24 @@ const AlertsTab = {
         h("div", { style: "flex:3 1 200px" }, ok ? `✅ ${okText}` : `⚠️ ${badText}`),
         ok ? null : h("button", { class: "btn small", style: "flex:0 0 auto", onclick: () => { NATIVE.openSetting(which); setTimeout(() => AlertsTab.open(), 1500); } }, "Allow"));
       status.append(row(st.notifications, "Notifications allowed", "Notifications are off for this app", "notifications"));
-      status.append(row(st.exact, "Scans start on time", "Exact timing not allowed: scans may start a few minutes late", "exact"));
-      status.append(row(!st.battery, "Battery: not restricted", "Battery optimisation may delay or skip scans", "battery"));
+      status.append(row(st.exact, "Scans start on time (alarm clock)", "Exact alarms not allowed: scans may start late or not at all while locked", "exact"));
+      status.append(row(!st.battery, "Battery: unrestricted", "Battery optimisation can stop scans while the phone is locked", "battery"));
+      if (st.data_saver !== undefined) status.append(row(!st.data_saver, "Background data allowed", "Data Saver blocks downloads while locked", "data"));
+      if (st.autostart) status.append(row(false, "", `Auto-start (${st.maker}): allow it so scans can start while the app is closed`, "autostart"));
+      if (/xiaomi|redmi|poco|oppo|realme|oneplus|vivo|iqoo|huawei|honor|samsung|asus|tecno|infinix/.test(st.maker || "")) {
+        status.append(h("div", { class: "caption", style: "margin-top:6px" },
+          `${st.maker[0].toUpperCase() + st.maker.slice(1)} phones also have their own app battery setting: open it and choose "No restrictions" / "Unrestricted" (Samsung: remove the app from "Sleeping apps"). Don't swipe the app away from recent apps; on these phones that can cancel the schedule.`),
+          h("button", { class: "btn small", style: "margin-top:4px", onclick: () => NATIVE.openSetting("app") }, "Open app settings"));
+      }
+      status.append(h("div", { class: "row", style: "margin-top:10px;align-items:center" },
+        h("div", { class: "caption", style: "flex:3 1 200px" }, "Check it: start a test scan in 2 minutes, lock the phone and wait for the notification."),
+        h("button", { class: "btn small", style: "flex:0 0 auto", onclick: () => { NATIVE.testScheduleIn(2); toast("Test scan set for 2 minutes from now. Lock the phone."); setTimeout(() => AlertsTab.open(), 800); } }, "⏱ Test in 2 min")));
     } else {
       status.append(h("div", { class: "caption" }, "Scheduling and notifications run in the phone app."));
+    }
+    if (o.alarm_log && o.alarm_log.length) {
+      status.append(h("details", {}, h("summary", {}, "Scheduler log"),
+        h("div", {}, h("pre", { style: "white-space:pre-wrap;font-size:0.75rem;margin:0" }, o.alarm_log.join("\n")))));
     }
     root.append(status);
 
@@ -997,7 +1092,38 @@ const AlertsTab = {
       const chatIn = h("input", { type: "text", value: f.telegram_chat_id || "", placeholder: "e.g. 123456789",
         oninput: (e) => (f.telegram_chat_id = e.target.value.trim()) });
       const out = h("div");
-      tg.append(field("Bot token", tokenIn), field("Chat ID", chatIn), out,
+      const headIn = h("input", { type: "text", value: f.telegram_header || "", oninput: (e) => (f.telegram_header = e.target.value) });
+      const lineIn = h("textarea", { rows: 3, oninput: (e) => (f.telegram_line = e.target.value) }, f.telegram_line || "");
+      let lastFocus = lineIn;
+      [headIn, lineIn].forEach((el) => el.addEventListener("focus", () => (lastFocus = el)));
+      const insert = (name) => {                     // tap a placeholder: inserted where the cursor was
+        const el = lastFocus, at = el.selectionStart ?? el.value.length;
+        el.value = el.value.slice(0, at) + `{${name}}` + el.value.slice(el.selectionEnd ?? at);
+        el.dispatchEvent(new Event("input"));
+        el.focus();
+      };
+      const preview = h("div");
+      const showPreview = async () => {
+        try {
+          const r = await api("/api/alerts/telegram_preview", f);
+          clear(preview).append(h("div", { class: "caption" }, r.example ? "Preview with two example stocks (no alerts today yet):" : "Preview with today's alerts:"),
+            ...r.messages.slice(0, 1).map((m) => h("div", { class: "tg-msg", html: tgHtml(m) })));
+          clear(fieldsBox).append(...Object.entries(r.line_fields).map(([k, d]) => h("button", { class: "chip", title: d, onclick: () => insert(k) }, `{${k}}`)),
+            ...Object.entries(r.header_fields).map(([k, d]) => h("button", { class: "chip", title: d, onclick: () => insert(k) }, `{${k}}`)));
+        } catch (e) { clear(preview).append(note("error", e.message)); }
+      };
+      const fieldsBox = h("div", { class: "radios", style: "margin:6px 0" });
+      const template = h("details", {}, h("summary", {}, "✎ Message layout"), h("div", {},
+        h("div", { class: "caption" }, "Write the message with placeholders; tap one to insert it. <b>bold</b>, <i>italic</i>, <code>code</code> and links work as in Telegram."),
+        field("Header (once per message)", headIn), field("One line per stock", lineIn),
+        check("Group into \"Triggered today\" and \"New setups today\"", f.telegram_group !== false, (v) => (f.telegram_group = v)),
+        h("div", { class: "lbl", style: "margin-top:8px" }, "Placeholders"), fieldsBox,
+        h("div", { class: "row", style: "margin-top:6px" },
+          h("button", { class: "btn small", onclick: showPreview }, "👁 Preview"),
+          h("button", { class: "btn small", onclick: () => { f.telegram_header = ""; f.telegram_line = ""; f.telegram_group = true; drawTelegram(); } }, "↺ Default layout")),
+        preview));
+      template.addEventListener("toggle", () => { if (template.open && !fieldsBox.childNodes.length) showPreview(); });
+      tg.append(field("Bot token", tokenIn), field("Chat ID", chatIn), template, out,
         h("div", { class: "row", style: "margin-top:8px" },
           h("button", { class: "btn small", onclick: async () => {
             try {
@@ -1047,13 +1173,9 @@ const AlertsTab = {
     // ---- today's alerts and history (tap: chart)
     const table = (rows) => ({ columns: ["Time", "Event", "Strategy", "Ticker", "TF", "Degree", "Side", "alignment", "Trigger", "Stop"],
       rows: rows.map((e) => [e.at.slice(5), e.event === "TRIGGERED" ? "Triggered" : "New setup", e.strategy.toUpperCase(), e.ticker, e.tf, e.degree, e.side, e.alignment || "", e.trigger.toFixed(2), e.stop.toFixed(2)]) });
-    const open = (rows) => async (id, i) => {
-      const e = rows[i], d = Dash.get(e.strategy);
-      if (!d.res) await d.open();
-      d.openDialog(e.id, e.file);
-    };
+    const open = (rows) => (id, i) => Dash.get(rows[i].strategy).focus(rows[i].file, rows[i].id);
     root.append(h("h3", {}, `Today (${o.today.length})`));
-    if (o.today.length) root.append(h("div", { class: "caption" }, "Tap a row for its chart."), dataTable(table(o.today), { sideCol: "Side", onRow: open(o.today) }));
+    if (o.today.length) root.append(h("div", { class: "caption" }, "Tap a row: it opens in its EW5 / EW3 tab with the chart."), dataTable(table(o.today), { sideCol: "Side", onRow: open(o.today) }));
     else root.append(h("div", { class: "caption" }, "No alerts today yet."));
     if (o.history.length > o.today.length) {
       root.append(h("details", {}, h("summary", {}, `Last 14 days (${o.history.length})`),
@@ -1069,11 +1191,13 @@ const AlertsTab = {
 
 // ---------------------------------------------------------------- User Guide
 const Guide = {
-  docs: null, which: "functional",
+  docs: null, which: "pictures",
   async open() {
     const root = clear($("tab-guide"));
     if (!Guide.docs) { root.append(spinner()); try { Guide.docs = await api("/api/guide"); } catch (e) { clear(root).append(note("error", e.message)); return; } clear(root); }
-    const tabs = [["functional", "How to use it (F&O)"], ["technical", "Technical documentation"], ["phone", "Phone app"]].filter(([k]) => Guide.docs[k]);
+    const tabs = [["pictures", "Elliott Wave in pictures"], ["functional", "How to use it (F&O)"],
+      ["technical", "Technical documentation"], ["phone", "Phone app"]].filter(([k]) => Guide.docs[k]);
+    if (!Guide.docs[Guide.which]) Guide.which = tabs[0][0];
     root.append(h("div", { class: "subtabs" }, chips(tabs, Guide.which, (v) => { Guide.which = v; Guide.open(); }, true)));
     root.append(h("div", { class: "guide", html: Guide.docs[Guide.which] }));
   },
@@ -1083,6 +1207,8 @@ const Guide = {
 function boot() {
   const nav = $("tabs");
   TABS.forEach(([key, text]) => nav.append(h("button", { "data-key": key, onclick: () => showTab(key) }, text)));
+  document.querySelector(".top").append(h("button", { class: "theme-btn", title: "Light / dark",
+    onclick: () => setTheme(theme() === "light" ? "dark" : "light") }, theme() === "light" ? "🌙 Dark" : "☀️ Light"));
   new Dash("ew5"); new Dash("ew3");
   refreshHeader();
   showTab("ew5");

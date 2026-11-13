@@ -54,6 +54,7 @@ POST: dict[str, Callable[[dict], Any]] = {
     "/api/alerts/test": lambda b: alerts.test_notification(),
     "/api/alerts/telegram_test": api.alerts_telegram_test,
     "/api/alerts/telegram_chat": api.alerts_telegram_chat,
+    "/api/alerts/telegram_preview": api.alerts_telegram_preview,
 }
 
 
@@ -148,14 +149,27 @@ class Server(ThreadingHTTPServer):
         self.server_name, self.server_port = "127.0.0.1", self.server_address[1]
 
 
+FIXED_PORTS = range(47651, 47661)       # same address every launch: the WebView keeps its cache and settings
+
+
+def _bind(port: int) -> "Server":
+    for p in ([port] if port else list(FIXED_PORTS)) + [0]:
+        try:
+            return Server(("127.0.0.1", p), Handler)
+        except OSError:
+            continue
+    raise OSError("no free port")
+
+
 def start(root: str, port: int = 0) -> str:
     """Start in a background thread; returns the page URL (with the session token)."""
     global _server
     if _server is None:
         api.init(root)
-        _server = Server(("127.0.0.1", int(port)), Handler)
+        _server = _bind(int(port))
         _server.daemon_threads = True
         threading.Thread(target=_server.serve_forever, name="http", daemon=True).start()
+        threading.Thread(target=api.warm_up, name="warm-up", daemon=True).start()
     return f"http://127.0.0.1:{_server.server_address[1]}/?t={TOKEN}"
 
 

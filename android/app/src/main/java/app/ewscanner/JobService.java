@@ -76,6 +76,7 @@ public class JobService extends Service {
                 com.chaquo.python.Python.getInstance().getModule("mobile.server")
                         .callAttr("scheduled", getFilesDir().getAbsolutePath());
             } catch (Throwable e) {
+                Scheduler.log(getApplicationContext(), "scan could not start: " + e);
                 update(false, "");
             }
         }, "scheduled-scan").start();
