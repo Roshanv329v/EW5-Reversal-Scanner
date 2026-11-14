@@ -59,12 +59,32 @@ Same as the desktop:
 - **Back button** closes an open overlay or list first.
 - **Share results CSV** (Run tab) sends a results file to any app.
 
+### Stocks: all, or F&O only
+
+`tickers.csv` lists every stock with its market cap, CNX sector, F&O flag (`fno_enabled`),
+macro sector and sector index. The Data tab (update), the Run / Backtest tab (scan) and the
+Alerts tab can use **All stocks** (~1,300) or **F&O stocks** (`fno_enabled = true`, ~210);
+indices and commodities are always included. Each run's caption says which list it used.
+
+On the EW5 / EW3 tabs:
+
+- **Stock attributes** (under the filters, closed until you open it): filters for market cap,
+  CNX sector, F&O, macro sector and sector index. They are saved with *Save filters*.
+- Three charts right under the filters: signals by **market cap**, **F&O** and **macro
+  sector**, LONG / SHORT stacked. Tap a bar to narrow the signal table, as with the breakdown
+  charts. Indices and commodities show as *Index* / *Commodity*.
+
+When the app updates from 1.7 it brings the new tickers file (the old list is kept as
+`tickers_before_attributes.csv`) and reorganises the stored data once (about a minute) for
+the larger universe.
+
 ### Alerts (scheduled scans and notifications)
 
 The **Alerts** tab runs the scanner by itself and tells you what happened today, with the app
 closed and the screen off.
 
-At each time you set (default **12:30 and 15:45, Monday to Friday**):
+At each time you set (default **12:30 and 15:45, Monday to Friday**, F&O stocks), plus a
+**weekly full scan of every stock** (default **Friday 18:00**, after the close):
 
 1. the latest data is downloaded (the same incremental update as the Data tab);
 2. EW5 and EW3 run over the last few days (default 10) with the normal settings and
@@ -78,7 +98,12 @@ notification always lists the whole day, triggers first. Tap it to open the Aler
 a row there to open that stock in its EW5 / EW3 tab, scrolled to its chart. The scans' results are also in the EW5 / EW3 tabs as
 `backtest_auto_…` files (the newest four of each are kept).
 
-Settings: days, times (add or remove), whether to download first, EW5 / EW3, timeframes,
+The weekly full scan covers ~1,300 stocks and takes much longer; the first one also downloads
+the full history of every stock the phone does not have yet. To spread that out, run
+**Data → Update data** with *All stocks* once on Wi-Fi, or import the desktop's stock.csv.
+
+Settings: days, times (add or remove), the stocks for these scans (F&O / all), the weekly
+full scan (on / off, day, time), whether to download first, EW5 / EW3, timeframes,
 what to be notified about, *only ALIGNED* signals, and how many days back a setup may still
 trigger today. **Run now** starts a scan at once; **Test notification** shows what an alert
 looks like.

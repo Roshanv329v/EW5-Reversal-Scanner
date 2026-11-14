@@ -487,7 +487,7 @@ class Dash {
     this.key = key;
     this.root = $(`tab-${key}`);
     this.state = { file: null, filters: {}, search: "", ratio: [null, null], stat: null, live: {},
-      bars: { outcome: [], mfemae: [], align: [], sides: [] }, groups: {}, dlg: {}, selected: null };
+      bars: { outcome: [], mfemae: [], align: [], sides: [], attr: [] }, groups: {}, dlg: {}, selected: null };
     this.loaded = false; this.stale = true; this.seq = 0; this.res = null; this.saved = null;
     Dash.all.push(this);
   }
@@ -508,13 +508,13 @@ class Dash {
     Object.keys(p).forEach((k) => { if (Array.isArray(p[k]) && k !== "ratio") s.filters[k] = p[k].slice(); });
     s.search = p.search || ""; s.ratio = (p.ratio || [null, null]).slice(); s.stat = p.stat || null;
     s.groups = Object.assign({}, p.chart_groups || {}); s.dlg = Object.assign({}, p.chart_groups || {});
-    s.bars = { outcome: [], mfemae: [], align: [], sides: [] }; s.live = {};
+    s.bars = { outcome: [], mfemae: [], align: [], sides: [], attr: [] }; s.live = {};
   }
 
   currentPrefs() {
     const s = this.state, res = this.res;
     const out = {};
-    (res ? res.filter_cols : []).forEach(([c]) => (out[c] = (s.filters[c] || []).slice()));
+    [...(res ? res.filter_cols : []), ...((res && res.attr_cols) || [])].forEach(([c]) => (out[c] = (s.filters[c] || []).slice()));
     out.search = s.search; out.ratio = s.ratio.slice(); out.stat = s.stat;
     out.chart_groups = {};
     [...(res ? res.level_groups : []), "ema", "ind"].forEach((g) => (out.chart_groups[g] = s.groups[g] !== false));
@@ -522,7 +522,7 @@ class Dash {
   }
 
   async load(resetBars) {
-    if (resetBars) this.state.bars = { outcome: [], mfemae: [], align: [], sides: [] };
+    if (resetBars) this.state.bars = { outcome: [], mfemae: [], align: [], sides: [], attr: [] };
     const seq = ++this.seq;
     const s = this.state;
     let res;
@@ -550,7 +550,9 @@ class Dash {
     if (res.info) { root.append(note("info", res.info)); return; }
 
     root.append(this.filtersBox());
+    root.append(this.attributesBox());
     if (res.warning) { root.append(note("warn", res.warning)); return; }
+    root.append(this.attributeCharts());
     root.append(res.evaluated ? this.kpiCards() : this.liveCards());
     root.append(this.breakdown());
 
@@ -574,7 +576,7 @@ class Dash {
   /* Open one signal from elsewhere (Alerts tab): its file, its row selected, scrolled to its chart. */
   async focus(file, id) {
     const s = this.state;
-    Object.assign(s, { file, stat: null, live: {}, search: "", selected: id, bars: { outcome: [], mfemae: [], align: [], sides: [] } });
+    Object.assign(s, { file, stat: null, live: {}, search: "", selected: id, bars: { outcome: [], mfemae: [], align: [], sides: [], attr: [] } });
     this.stale = true;
     showTab(this.key, true);
     await this.open();
@@ -584,6 +586,48 @@ class Dash {
     }
     if (this.chartPromise) await this.chartPromise;
     if (this.chartBox) this.chartBox.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  /* Stock attributes from tickers.csv: a section that opens on demand (closed by default). */
+  attributesBox() {
+    const res = this.res, s = this.state;
+    if (!res.attr_cols) return h("div");
+    const active = res.attr_cols.filter(([c]) => (s.filters[c] || []).length).length;
+    const grid = h("div", { class: "row" });
+    res.attr_cols.forEach(([col, lbl]) => grid.append(multiselect(lbl, res.options[col] || [], s.filters[col] || [],
+      (v) => { s.filters[col] = v; this.attrOpen = true; this.load(true); })));
+    const box = h("details", { class: "attr-box", open: this.attrOpen || null,
+      ontoggle: (e) => (this.attrOpen = e.target.open) },
+      h("summary", {}, `🏷️ Stock attributes${active ? ` · ${active} filter${active > 1 ? "s" : ""} on` : ""}`),
+      h("div", {}, h("div", { class: "caption" }, "Market cap, F&O, sectors from tickers.csv. Indices and commodities show as Index / Commodity."),
+        grid, active ? h("button", { class: "btn small", style: "margin-top:8px", onclick: () => {
+          res.attr_cols.forEach(([c]) => (s.filters[c] = [])); this.load(true); } }, "✕ Clear attribute filters") : null));
+    return box;
+  }
+
+  /* Signals by market cap / F&O / macro sector; a tapped bar narrows the table (like the breakdown). */
+  attributeCharts() {
+    const res = this.res, s = this.state, figs = res.attr_figures || {};
+    const names = Object.keys(figs);
+    if (!names.length) return h("div");
+    this.plots = this.plots || {};
+    const grid = h("div", { class: "charts attr-charts" });
+    const toggle = (cd) => {
+      const list = (s.bars.attr = s.bars.attr || []), k = JSON.stringify(cd);
+      if (cd[1] === "other") return;
+      const i = list.findIndex((x) => JSON.stringify(x) === k);
+      if (i >= 0) list.splice(i, 1); else list.push(cd);
+      this.load();
+    };
+    names.forEach((name) => {
+      const sig = theme() + narrow() + JSON.stringify(figs[name]), key = `attr_${name}`, kept = this.plots[key];
+      if (kept && kept.sig === sig) { kept.div._ewHandler = toggle; grid.append(kept.div); return; }
+      const div = h("div", { class: "plot box", style: "padding:0;min-height:200px" });
+      this.plots[key] = { div, sig };
+      grid.append(div);
+      requestAnimationFrame(() => plot(div, figs[name], toggle).catch((e) => div.replaceWith(note("error", e.message))));
+    });
+    return grid;
   }
 
   filtersBox() {
@@ -612,7 +656,7 @@ class Dash {
 
   normalisedSaved() {
     const p = this.saved, out = {};
-    this.res.filter_cols.forEach(([c]) => (out[c] = (p[c] || []).slice()));
+    [...this.res.filter_cols, ...(this.res.attr_cols || [])].forEach(([c]) => (out[c] = (p[c] || []).slice()));
     out.search = p.search || ""; out.ratio = (p.ratio || [null, null]).slice(); out.stat = p.stat || null;
     out.chart_groups = {};
     [...this.res.level_groups, "ema", "ind"].forEach((g) => (out.chart_groups[g] = (p.chart_groups || {})[g] !== false));
@@ -824,7 +868,7 @@ const DataTab = {
     let d, tick;
     try { [d, tick] = await Promise.all([api("/api/data"), api("/api/tickers")]); }
     catch (e) { clear(root).append(note("error", e.message)); return; }
-    if (!DataTab.form) DataTab.form = { pasted: "", save_pasted: false, timeframes: d.timeframes.slice(), days: d.incremental_days, confirm: false };
+    if (!DataTab.form) DataTab.form = { pasted: "", save_pasted: false, timeframes: d.timeframes.slice(), days: d.incremental_days, confirm: false, universe: "all" };
     const f = DataTab.form;
     clear(root);
 
@@ -839,13 +883,14 @@ const DataTab = {
     const paste = h("textarea", { rows: 2, placeholder: "RELIANCE.NS, TCS.NS, INFY.NS", oninput: (e) => { f.pasted = e.target.value; saveBox.querySelector("input").disabled = !f.pasted.trim(); } }, f.pasted);
     const saveBox = check("Save pasted list to the tickers file", f.save_pasted, (v) => (f.save_pasted = v), !f.pasted.trim());
     ctl.append(field("…or paste stock tickers (replaces the file for this update)", paste), saveBox);
+    if (tick.universes) ctl.append(field("Stocks (from the tickers file, unless pasted above)", chips(tick.universes, f.universe, (v) => (f.universe = v), true)));
     ctl.append(field("Timeframes", chips(d.timeframes.map((t) => [t, t]), f.timeframes, (v) => (f.timeframes = v))));
     ctl.append(h("div", { class: "row" },
       field("Incremental days", h("input", { type: "number", min: 1, max: 700, value: f.days, onchange: (e) => (f.days = +e.target.value) })),
-      h("button", { class: "btn primary", onclick: () => Jobs.start("/api/data/update", { pasted: f.pasted, save_pasted: f.save_pasted, timeframes: f.timeframes, days: f.days, full: false }).then(() => DataTab.open()) }, "⟳ Update data")));
+      h("button", { class: "btn primary", onclick: () => Jobs.start("/api/data/update", { pasted: f.pasted, save_pasted: f.save_pasted, timeframes: f.timeframes, days: f.days, full: false, universe: f.universe }).then(() => DataTab.open()) }, "⟳ Update data")));
     ctl.append(h("div", { class: "caption" }, "New tickers get their full history; all others only the last N days."));
     ctl.append(h("hr", { style: "border:0;border-top:1px solid var(--border);margin:12px 0" }));
-    const fullBtn = h("button", { class: "btn", disabled: !f.confirm || null, onclick: () => Jobs.start("/api/data/update", { pasted: f.pasted, save_pasted: f.save_pasted, timeframes: f.timeframes, days: f.days, full: true }).then(() => DataTab.open()) }, "⟲ Full re-download");
+    const fullBtn = h("button", { class: "btn", disabled: !f.confirm || null, onclick: () => Jobs.start("/api/data/update", { pasted: f.pasted, save_pasted: f.save_pasted, timeframes: f.timeframes, days: f.days, full: true, universe: f.universe }).then(() => DataTab.open()) }, "⟲ Full re-download");
     ctl.append(h("div", { class: "row", style: "align-items:center" }, check("Yes, replace all stored history", f.confirm, (v) => { f.confirm = v; fullBtn.disabled = !v; }), fullBtn));
     if (NATIVE && NATIVE.pickStockCsv) {
       ctl.append(h("div", { class: "row", style: "margin-top:10px;align-items:center" },
@@ -923,7 +968,7 @@ const RunTab = {
         timeframes: o.default_timeframes.slice(), lengths: o.default_lengths.slice(), horizon_bars: o.horizon_bars,
         pivot_tie: o.pivot_tie, hi_source: o.hi_source, lo_source: o.lo_source, min_w5_vs_w1: o.min_w5_vs_w1,
         max_since: "", contexts: o.default_contexts.slice(), min_retrace: o.min_retrace, max_retrace: o.max_retrace,
-        resignal: false, aligned_only: false, stages: {} };
+        resignal: false, aligned_only: false, stages: {}, universe: "all" };
     }
     const f = RunTab.f;
     const S = o.strategies.find((x) => x.key === f.strategy);
@@ -937,6 +982,7 @@ const RunTab = {
     const date = (key, lbl) => field(lbl, h("input", { type: "date", value: f[key], min: o.first_day, max: o.last_day, onchange: (e) => { f[key] = e.target.value; RunTab.check(); } }));
     if (f.mode === "asof") box.append(date("as_of", "As-of date (signals as they stood after this day's close)"));
     if (f.mode === "backtest") box.append(h("div", { class: "row" }, date("start", "Start date"), date("end", "End date")));
+    if (o.universes) box.append(field("Stocks", chips(o.universes, f.universe || "all", (v) => (f.universe = v), true)));
     box.append(field(`Timeframes (${o.weekly} is built from the daily bars and can also be scanned)`, chips(o.timeframes.map((t) => [t, t]), f.timeframes, (v) => { f.timeframes = v; RunTab.check(); })));
     box.append(field("ZigZag lengths", chips(o.lengths, f.lengths, (v) => { f.lengths = v; RunTab.check(); })));
     box.append(field("Stages", chips(S.stages.map((x) => [x, x]), f.stages[f.strategy], (v) => { f.stages[f.strategy] = v; RunTab.check(); })));
@@ -1072,6 +1118,20 @@ const AlertsTab = {
     };
     drawTimes();
     box.append(field("Times (phone time)", times));
+    if (o.universes) box.append(field("Stocks for these scans", chips(o.universes, f.universe || "fno", (v) => (f.universe = v), true)));
+    const full = h("div", { class: "box", style: "margin-top:8px" });
+    const drawFull = () => {
+      clear(full).append(check("Weekly full scan of every stock in the tickers file", f.full_enabled !== false, (v) => { f.full_enabled = v; drawFull(); }),
+        h("div", { class: "caption" }, "All ~1,300 stocks: download, then EW5 and EW3. Long (the first one also downloads the history of stocks the phone does not have yet), so it runs after the close."));
+      if (f.full_enabled === false) return;
+      full.append(field("Day", chips(o.days.map((d, i) => [i + 1, d]), f.full_days || [5], (v) => (f.full_days = v))));
+      const ft = h("div", { class: "radios" });
+      (f.full_times = f.full_times && f.full_times.length ? f.full_times : ["18:00"]).forEach((t, i) => ft.append(h("span", { class: "time-item" },
+        h("input", { type: "time", value: t, style: "width:auto", onchange: (e) => (f.full_times[i] = e.target.value) }))));
+      full.append(field("Time", ft));
+    };
+    drawFull();
+    box.append(full);
     box.append(check("Download the latest data first", f.update_data, (v) => (f.update_data = v)));
     box.append(field("Screeners", chips(o.strategies, f.strategies, (v) => (f.strategies = v))));
     box.append(field("Timeframes", chips(o.timeframes.map((t) => [t, t]), f.timeframes, (v) => (f.timeframes = v))));

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -11,7 +13,7 @@ import streamlit as st
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
 import stock_data
-from core import charts, data_store as ds, htf, prefs, runner, strategies
+from core import charts, data_store as ds, htf, prefs, runner, strategies, universe
 from core.strategies import Strategy
 from core.config import ROOT, load_config, resolve
 
@@ -55,8 +57,26 @@ def stock_df() -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False)
 def _run_engine(path: str, mtime: float, params_json: str) -> pd.DataFrame:
-    return runner.run_engine(_load_stock(path, mtime), runner.RunParams.from_json(params_json),
-                             cfg["signal_indicators"], HTF)
+    params = runner.RunParams.from_json(params_json)
+    data = _load_stock(path, mtime)
+    if params.universe != "all":                     # e.g. F&O stocks only (+ indices and commodities)
+        data = data[data["Ticker"].isin(set(universe.final_list(cfg["tickers_file"], params.universe)))]
+    return runner.run_engine(data, params, cfg["signal_indicators"], HTF)
+
+
+@st.cache_data(show_spinner=False)
+def _attributes(path: str, mtime: float) -> pd.DataFrame:
+    return universe.load_attributes(Path(path))
+
+
+def attributes() -> pd.DataFrame:
+    path = cfg["tickers_file"]
+    return _attributes(str(path), path.stat().st_mtime) if path.exists() else universe.load_attributes(path)
+
+
+def _universe_label(key: str) -> str:
+    n = universe.counts(cfg["tickers_file"]).get(key, 0)
+    return f"{universe.UNIVERSES[key]} ({n:,})"
 
 
 @st.cache_data(show_spinner=False)
@@ -96,6 +116,9 @@ with st.sidebar:
     save_pasted = st.checkbox("Save pasted list to the tickers file", disabled=not pasted.strip())
     st.caption(f"Final list = stock tickers + {len(stock_data.indian_index)} indices + "
                f"{len(stock_data.commodity)} commodities (lists in `stock_data.py`)")
+    data_universe = st.radio("Stocks", list(universe.UNIVERSES), format_func=_universe_label, horizontal=True,
+                             help="All stocks in the tickers file, or only those with fno_enabled = true. "
+                                  "Ignored when tickers are pasted above.")
     data_tfs = st.multiselect("Timeframes", cfg["timeframes"], default=cfg["timeframes"])
     inc_days = st.number_input("Incremental days", min_value=1, max_value=700,
                                value=int(cfg["incremental_days"]),
@@ -122,22 +145,22 @@ if not _data_now.empty:
         f":green-badge[:material/schedule: Data to {_data_now['time'].max():%d %b %Y}] "
         f":violet-badge[:material/inventory_2: {len(runner.list_results(cfg['results_dir']))} saved runs]")
 
-tab_ew5, tab_ew3, tab_data, tab_run, tab_guide = st.tabs([
+tab_ew5, tab_ew3, tab_data, tab_run, tab_alerts, tab_guide = st.tabs([
     strategies.EW5.tab, strategies.EW3.tab, ":material/database: Data",
-    ":material/query_stats: Run / Backtest", ":material/menu_book: User Guide"])
+    ":material/query_stats: Run / Backtest", ":material/notifications: Alerts", ":material/menu_book: User Guide"])
 
 
 # ----------------------------------------------------------------------------------
 # Tab 1 - Data
 # ----------------------------------------------------------------------------------
-def _stock_tickers() -> list[str]:
+def _stock_tickers(scope: Optional[str] = None) -> list[str]:
     if pasted.strip():
         return ds.parse_ticker_text(pasted)
     path = resolve(tickers_path)
     if not path.exists():
         st.error(f"Tickers file not found: {path}")
         return []
-    return ds.clean_tickers(stock_data.read_stock_tickers(path))
+    return ds.clean_tickers(universe.stocks(path, scope or data_universe))
 
 
 with tab_data:
@@ -155,7 +178,7 @@ with tab_data:
             st.error("Pick at least one timeframe.")
         else:
             if pasted.strip() and save_pasted:
-                ds.write_tickers(resolve(tickers_path), stocks)
+                universe.write_stocks(resolve(tickers_path), stocks)           # keeps the attribute columns
             bar = st.progress(0.0, text="Starting download…")
             report = ds.update_data(
                 cfg, tickers, data_tfs, int(inc_days), full=do_full,
@@ -189,7 +212,7 @@ with tab_data:
         st.info("No data yet. Press **Update data** in the sidebar - the first run downloads the full history.")
     else:
         stored = set(data["Ticker"].unique())
-        listed = stock_data.build_final_list(_stock_tickers())
+        listed = stock_data.build_final_list(_stock_tickers("all"))
         new_ones = [t for t in listed if t not in stored]
         if new_ones:
             st.info(f"{len(new_ones)} ticker(s) in your list are not in stock.csv yet and will get a "
@@ -266,6 +289,9 @@ with tab_run:
         stage_default = cfg["ew3"]["stages"] if is_ew3 else ENGINE["stages"]
         a, b, c = st.columns(3)
         available_tfs = sorted(data["time_frame"].unique())
+        run_universe = st.radio("Stocks", list(universe.UNIVERSES), format_func=_universe_label, horizontal=True,
+                                key="run_universe", help="Scan every stock in the tickers file, or F&O stocks only "
+                                                         "(indices and commodities are always included)")
         run_tfs = a.multiselect("Timeframes", available_tfs, key="run_tfs",
                                 default=[tf for tf in available_tfs if tf in cfg["timeframes"]] or available_tfs,
                                 help=f"{WEEKLY} is built from the daily bars. It is used for the higher-timeframe "
@@ -357,7 +383,8 @@ with tab_run:
                     as_of=str(as_of) if as_of else None, start=str(start) if start else None,
                     end=str(end) if end else None,
                     strategy=S_run.key, contexts=tuple(contexts),
-                    min_retrace=min_retrace, max_retrace=max_retrace, aligned_only=bool(aligned_only))
+                    min_retrace=min_retrace, max_retrace=max_retrace, aligned_only=bool(aligned_only),
+                    universe=run_universe)
                 with st.spinner("Running the Elliott Wave engine…"):
                     result = _run_engine(str(cfg["stock_csv"]), cfg["stock_csv"].stat().st_mtime,
                                          params.to_json())
@@ -461,7 +488,8 @@ def _live_cards(S: Strategy, view: pd.DataFrame, state_key: str) -> pd.DataFrame
 
 # ---- saved filters ----------------------------------------------------------------
 def _filter_columns(S: Strategy) -> list[str]:
-    return [col for col, _ in S.filter_cols]
+    """Saved-filter columns: the strategy's filters and the stock attributes (tickers.csv)."""
+    return [col for col, _ in S.filter_cols] + list(universe.ATTR_COLS)
 
 
 def _chart_toggles(S: Strategy) -> list[str]:
@@ -523,6 +551,14 @@ def _filters(S: Strategy, res: pd.DataFrame) -> pd.DataFrame:
 
     picks = {col: slot.multiselect(label, options(col), key=_k(S, f"f_{col}"), disabled=col not in res.columns)
              for slot, (col, label) in zip(st.columns(len(S.filter_cols)), S.filter_cols)}
+    # stock attributes from tickers.csv: in a section that stays closed until opened
+    attr_cols = [(c, universe.ATTR_LABELS[c]) for c in universe.ATTR_COLS]
+    active = [lbl for c, lbl in attr_cols if st.session_state.get(_k(S, f"f_{c}"))]
+    with st.expander(":material/sell: Stock attributes · market cap, F&O, sectors", expanded=False):
+        st.caption("From tickers.csv. Indices and commodities show as Index / Commodity."
+                   + (f" Filters on: {', '.join(active)}." if active else ""))
+        picks.update({col: slot.multiselect(label, options(col), key=_k(S, f"f_{col}"))
+                      for slot, (col, label) in zip(st.columns(len(attr_cols)), attr_cols)})
 
     row2 = st.columns([2, 2.2, 1.3, 1.1, 0.9], vertical_alignment="bottom")
     search = row2[0].text_input("Ticker search", key=_k(S, "f_search"), placeholder="e.g. BAJ")
@@ -745,6 +781,7 @@ def render_dashboard(S: Strategy) -> None:
     chosen = head[0].selectbox("Results file", names, key=file_key)
     path = cfg["results_dir"] / chosen
     res, meta = _load_results(str(path), path.stat().st_mtime)
+    res = universe.attach(res, attributes())                      # market cap, F&O, sectors (tickers.csv)
     params = meta.get("params", {})
     mode_name = runner.MODES.get(params.get("mode", ""), "Run")
     period = (params.get("as_of") or
@@ -753,7 +790,8 @@ def render_dashboard(S: Strategy) -> None:
              f" · contexts {', '.join(params.get('contexts', []))}" if S.key == "ew3" else "")
     head[1].caption(f"**{mode_name}** · {period} · lengths {params.get('lengths', '?')} · "
                     f"horizon {params.get('horizon_bars', '?')} bars · pivot_tie {params.get('pivot_tie', '?')}"
-                    f"\n\nstages {', '.join(params.get('stages', []))}{extra}")
+                    f"\n\nstages {', '.join(params.get('stages', []))}{extra} · "
+                    f"{universe.UNIVERSES.get(params.get('universe', 'all'), 'All stocks')}")
 
     if res.empty:
         st.info("This run produced no signals.")
@@ -766,15 +804,25 @@ def render_dashboard(S: Strategy) -> None:
     if filtered.empty:
         st.warning("No signals match the filters.")
         return
+    nonce_key = _k(S, f"chartsel_{chosen}")
+    suffix = f"{S.key}_{chosen}_{len(filtered)}_{st.session_state.get(nonce_key, 0)}"
+    picked_notes: list[str] = []
+    chart_mask = pd.Series(True, index=filtered.index)
+
+    # ---- signals by stock attribute, right under the filters: click a bar to narrow the table
+    attr_slots = st.columns(len(universe.CHART_COLS))
+    for slot, col in zip(attr_slots, universe.CHART_COLS):
+        picked = [(c, v) for c, v in _chart_pick(slot, charts.attribute_breakdown(
+            filtered, col, universe.ATTR_LABELS[col], S.side_col, height=320), f"attr_{col}_{suffix}") if v != "other"]
+        if picked:
+            chart_mask &= universe.mask(filtered, {col: [v for _, v in picked]})
+            picked_notes.append(f"{universe.ATTR_LABELS[col]} {', '.join(v for _, v in picked)}")
+
     view = _kpi_cards(S, filtered, stat_key) if evaluated else _live_cards(S, filtered, stat_key)
 
     # ---- breakdown charts: click a bar to narrow the table
-    nonce_key = _k(S, f"chartsel_{chosen}")
-    suffix = f"{S.key}_{chosen}_{len(filtered)}_{st.session_state.get(nonce_key, 0)}"
     st.markdown("#### :material/bar_chart: Breakdown")
     st.caption("Click a bar to filter the signal table to the signals inside it. Shift-click adds more bars.")
-    picked_notes: list[str] = []
-    chart_mask = pd.Series(True, index=filtered.index)
     if evaluated:
         left, right = st.columns(2)
         bars = _chart_pick(left, charts.outcome_breakdown(filtered), f"outcome_{suffix}")
@@ -875,6 +923,128 @@ with tab_ew3:
 # ----------------------------------------------------------------------------------
 # Tab - User Guide
 # ----------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------
+# Tab - Alerts: scheduled scans on this Mac (scheduled_scan.py + macOS launchd)
+# ----------------------------------------------------------------------------------
+def _alert_times(text: str) -> list[str]:
+    return [t.strip() for t in text.replace(";", ",").split(",") if t.strip()]
+
+
+with tab_alerts:
+    import scheduled_scan as sc
+    from core import alert_events as ev, alert_settings as aset
+
+    st.subheader(":material/notifications: Alerts · scheduled scans on this Mac")
+    st.caption("At the set times this Mac downloads the latest data, runs EW5 and EW3 and shows one notification "
+               "(and a Telegram message if switched on) with the stocks triggered or set up today. The usual times "
+               "scan the chosen stocks (default F&O); the weekly full scan covers every stock in tickers.csv. "
+               "The phone app has the same Alerts, with its own settings.")
+    a_settings = sc.load_settings(cfg)
+    a_status = sc.status()
+    loaded = any(v["loaded"] for v in a_status.values())
+    with st.container(border=True):
+        top = st.columns([3, 1.2, 1.2], vertical_alignment="center")
+        top[0].markdown(f"**Schedule:** {':green[installed]' if loaded else ':orange[not installed]'}"
+                        + (f" · next: {' · '.join(aset.next_runs(a_settings))}" if a_settings.get("enabled") else " · scans are off"))
+        if top[1].button("Install schedule" if not loaded else "Update schedule", type="primary", width="stretch",
+                         icon=":material/schedule:", key="alerts_install",
+                         help="Adds two macOS launch agents (~/Library/LaunchAgents/com.ewscanner.scan.*) "
+                              "that run scheduled_scan.py at the times below"):
+            sc.install(cfg)
+            st.rerun()
+        if top[2].button("Remove schedule", width="stretch", icon=":material/schedule_send:", disabled=not loaded,
+                         key="alerts_uninstall"):
+            sc.uninstall()
+            st.rerun()
+        st.caption("The Mac must be on: a scan missed while it slept runs as soon as it wakes. "
+                   "Notifications come from Script Editor / osascript; allow them in System Settings → Notifications.")
+        run_cols = st.columns(2)
+        for col, (kind, label) in zip(run_cols, (("regular", f"Run {universe.UNIVERSES[a_settings['universe']]} scan now"),
+                                               ("full", "Run full scan now (all stocks)"))):
+            if col.button(label, width="stretch", icon=":material/play_arrow:", key=f"alerts_run_{kind}"):
+                cfg["logs_dir"].mkdir(parents=True, exist_ok=True)
+                with open(cfg["logs_dir"] / "scheduled_scan.log", "a") as out:
+                    subprocess.Popen([sys.executable, str(ROOT / "scheduled_scan.py"), "--kind", kind, "--source", "manual"],
+                                     cwd=ROOT, stdout=out, stderr=out, start_new_session=True)
+                st.toast("Scan started in the background. The notification comes when it finishes.")
+
+    with st.form("alert_settings"):
+        st.markdown("**Settings**")
+        f1, f2, f3 = st.columns(3)
+        v_enabled = f1.checkbox("Scheduled scans on", value=a_settings["enabled"])
+        v_days = f2.multiselect("Days", list(range(1, 8)), default=a_settings["days"], format_func=lambda d: aset.DAYS[d - 1])
+        v_times = f3.text_input("Times (24 h, comma separated)", ", ".join(a_settings["times"]))
+        f1, f2, f3 = st.columns(3)
+        v_universe = f1.radio("Stocks for these scans", list(universe.UNIVERSES), format_func=_universe_label,
+                              index=list(universe.UNIVERSES).index(a_settings.get("universe", "fno")))
+        v_full = f2.checkbox("Weekly full scan of every stock", value=a_settings.get("full_enabled", True))
+        v_full_days = f2.multiselect("Full scan day", list(range(1, 8)), default=a_settings.get("full_days", [5]),
+                                     format_func=lambda d: aset.DAYS[d - 1])
+        v_full_times = f3.text_input("Full scan time", ", ".join(a_settings.get("full_times", ["18:00"])))
+        v_update = f3.checkbox("Download the latest data first", value=a_settings["update_data"])
+        f1, f2, f3 = st.columns(3)
+        v_strats = f1.multiselect("Screeners", list(strategies.STRATEGIES), default=a_settings["strategies"],
+                                  format_func=lambda k: strategies.STRATEGIES[k].name)
+        v_tfs = f2.multiselect("Timeframes", ["1D", "4hr", "60m", "1W"], default=a_settings["timeframes"])
+        v_events = f3.multiselect("Notify about", ["TRIGGERED", "NEW"], default=a_settings["events"],
+                                  format_func=lambda e: "Triggered today" if e == "TRIGGERED" else "New setups today")
+        f1, f2 = st.columns(2)
+        v_aligned = f1.checkbox("Only signals ALIGNED with the higher timeframes", value=a_settings["aligned_only"])
+        v_lookback = f2.number_input("Setups from the last N days can trigger today", 2, 60, int(a_settings["lookback_days"]))
+        st.markdown("**Telegram** (optional)")
+        t1, t2, t3 = st.columns([1, 2, 1.4])
+        v_tg = t1.radio("Telegram", ["Off", "On"], index=1 if a_settings.get("telegram") else 0, horizontal=True)
+        v_token = t2.text_input("Bot token", type="password",
+                                placeholder="saved (type to replace)" if a_settings.get("telegram_token") else "123456789:AA…")
+        v_chat = t3.text_input("Chat ID", a_settings.get("telegram_chat_id", ""))
+        v_head = st.text_input("Message header", a_settings.get("telegram_header"))
+        v_line = st.text_area("One line per stock", a_settings.get("telegram_line"), height=70,
+                              help="Placeholders: " + ", ".join("{" + k + "}" for k in ev.LINE_FIELDS)
+                                   + " · header: " + ", ".join("{" + k + "}" for k in ev.HEADER_FIELDS))
+        v_group = st.checkbox('Group into "Triggered today" and "New setups today"', value=a_settings.get("telegram_group", True))
+        if st.form_submit_button("Save settings", type="primary", icon=":material/save:"):
+            try:
+                sc.save_settings(cfg, {
+                    "enabled": v_enabled, "days": v_days, "times": _alert_times(v_times), "universe": v_universe,
+                    "full_enabled": v_full, "full_days": v_full_days, "full_times": _alert_times(v_full_times),
+                    "update_data": v_update, "strategies": v_strats, "timeframes": v_tfs, "events": v_events,
+                    "aligned_only": v_aligned, "lookback_days": v_lookback, "telegram": v_tg == "On",
+                    "telegram_token": v_token, "telegram_chat_id": v_chat, "telegram_header": v_head,
+                    "telegram_line": v_line, "telegram_group": v_group})
+                st.success("Saved" + (" and the schedule updated." if loaded else ". Press Install schedule to run it on this Mac."))
+            except ValueError as exc:
+                st.error(str(exc))
+
+    tg_cols = st.columns([1, 1, 3])
+    if tg_cols[0].button("Preview Telegram message", icon=":material/visibility:", key="alerts_preview"):
+        st.code(ev.telegram_text("EW alerts today (example)", ev.SAMPLE, a_settings)[0], language=None)
+    if tg_cols[1].button("Send test to Telegram", icon=":material/send:", key="alerts_tg_test",
+                         disabled=not (a_settings.get("telegram_token") and a_settings.get("telegram_chat_id"))):
+        result = ev.send_telegram(a_settings, "EW Scanner · test alert", ev.SAMPLE)
+        (st.success if result == "sent" else st.error)(f"Telegram: {result}")
+
+    last = sc._read(sc._dir(cfg) / "alerts_last_run.json", None)
+    if last:
+        with st.container(border=True):
+            st.markdown(f"**Last scan** · {last.get('started', '').replace('T', ' ')} · "
+                        f"{universe.UNIVERSES.get(last.get('universe', 'fno'), '')} · {last.get('source')}")
+            if last.get("skipped"):
+                st.warning(f"Skipped: {last['skipped']}")
+            else:
+                st.caption(f"{last.get('seconds', '?')} s · today: {last.get('triggered', 0)} triggered, "
+                           f"{last.get('new_setups', 0)} new setups · {last.get('new_events', 0)} not notified before"
+                           + (f" · Telegram: {last['telegram']}" if last.get("telegram") else ""))
+    hist = sc._read(sc._dir(cfg) / "alerts_history.json", [])
+    if hist:
+        hist_df = pd.DataFrame(hist[::-1])
+        today_df = hist_df[hist_df["day"].eq(str(pd.Timestamp.now().date()))]
+        show = ["at", "event", "strategy", "ticker", "tf", "degree", "side", "alignment", "trigger", "stop", "file"]
+        st.markdown(f"**Today ({len(today_df)})** · open the stock in the EW5 / EW3 tab with its `backtest_auto_…` file")
+        st.dataframe(today_df[[c for c in show if c in today_df.columns]], hide_index=True, height=260)
+        with st.expander(f"Last 14 days ({len(hist_df)})"):
+            st.dataframe(hist_df[[c for c in show if c in hist_df.columns]], hide_index=True, height=320)
+
+
 with tab_guide:
     functional, technical = st.tabs(["How to use it (F&O)", "Technical documentation"])
     functional.markdown((ROOT / "docs" / "functional_guide.md").read_text(encoding="utf-8"))

@@ -31,41 +31,14 @@ from typing import Any, Optional
 
 import pandas as pd
 
-from core import htf, runner, strategies
+from core import htf, runner, strategies, universe
 from mobile import jobs, scan
+from core.alert_settings import DAYS, DEFAULTS, _times, clean_settings, next_runs, public, slots  # noqa: F401
+from core.alert_events import (HEADER_FIELDS, LINE_FIELDS, SAMPLE, TELEGRAM_LIMIT, TELEGRAM_URL,  # noqa: F401
+                               _Fields, _event_rows, _line, _num, _telegram, line_fields, send_telegram,
+                               telegram_text)
 from mobile.fetch import yahoo_fetch
 
-DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-DEFAULTS: dict[str, Any] = {
-    "enabled": True,
-    "days": [1, 2, 3, 4, 5],                 # 1 = Monday ... 7 = Sunday
-    "times": ["12:30", "15:45"],             # phone's local time (IST)
-    "update_data": True,
-    "strategies": ["ew5", "ew3"],
-    "timeframes": ["1D", "4hr", "60m"],
-    "events": ["TRIGGERED", "NEW"],
-    "aligned_only": False,                   # notify only signals ALIGNED with the higher timeframes
-    "lookback_days": 10,                     # setups from this many days back can still trigger today
-    "telegram": False,                       # also send the day's list to a Telegram bot (off by default)
-    "telegram_token": "",                    # from @BotFather; kept in the app's private storage only
-    "telegram_chat_id": "",
-    "telegram_header": "<b>{title}</b>",
-    "telegram_line": "{icon} {strategy} <b>{ticker}</b> {tf} {degree} {side} · {time} · {alignment} · trigger {trigger} · stop {stop}",
-    "telegram_group": True,                  # "Triggered today" / "New setups today" sections
-}
-# placeholders for the Telegram message (Alerts tab shows this list)
-HEADER_FIELDS = {"title": "the notification title", "date": "the trading day", "count": "stocks today",
-                 "triggered": "triggered today", "new": "new setups today"}
-LINE_FIELDS = {
-    "icon": "🟢 LONG / 🔴 SHORT", "event": "Triggered / New setup", "strategy": "EW5 / EW3", "ticker": "RELIANCE.NS",
-    "symbol": "RELIANCE (no .NS)", "tf": "60m / 4hr / 1D", "degree": "minor / intermediate / major", "side": "LONG / SHORT",
-    "time": "when it triggered / appeared", "signal_time": "signal bar", "alignment": "ALIGNED / MIXED / AGAINST",
-    "htf": "higher-timeframe trends", "stage": "wave stage", "context": "EW3 context", "close": "close at the signal",
-    "trigger": "TRIGGER level", "stop": "STOP level", "entry": "entry price (triggered)", "target1": "first target",
-    "target2": "second target", "target1_name": "e.g. W4_END", "target2_name": "e.g. FIB_0.500",
-    "risk_pct": "trigger→stop distance in %", "tradingview": "TradingView link (NSE stocks)"}
-TELEGRAM_URL = "https://api.telegram.org/bot{token}/{method}"
-TELEGRAM_LIMIT = 3800                        # Telegram allows 4096 characters per message
 KEEP_AUTO_FILES = 4                          # per strategy
 HISTORY_DAYS = 14
 
@@ -103,72 +76,6 @@ def load_settings(app) -> dict:
     return out
 
 
-def clean_settings(values: dict, old: Optional[dict] = None) -> dict:
-    """Validate what the Alerts tab sends. An empty token keeps the saved one (the page never sees it)."""
-    out = dict(DEFAULTS)
-    out["enabled"] = bool(values.get("enabled"))
-    out["days"] = sorted({int(d) for d in values.get("days", []) if 1 <= int(d) <= 7})
-    times = []
-    for t in values.get("times", []):
-        try:
-            hh, mm = str(t).split(":")[:2]
-            if 0 <= int(hh) < 24 and 0 <= int(mm) < 60:
-                times.append(f"{int(hh):02d}:{int(mm):02d}")
-        except ValueError:
-            continue
-    out["times"] = sorted(set(times))
-    out["update_data"] = bool(values.get("update_data", True))
-    out["strategies"] = [s for s in values.get("strategies", []) if s in strategies.STRATEGIES]
-    out["timeframes"] = [tf for tf in values.get("timeframes", []) if tf in ("1D", "4hr", "60m", "1W")]
-    out["events"] = [e for e in values.get("events", []) if e in ("TRIGGERED", "NEW")]
-    out["aligned_only"] = bool(values.get("aligned_only"))
-    out["lookback_days"] = max(2, min(60, int(values.get("lookback_days") or DEFAULTS["lookback_days"])))
-    out["telegram"] = bool(values.get("telegram"))
-    token = str(values.get("telegram_token") or "").strip()
-    out["telegram_token"] = token or (old or {}).get("telegram_token", "")
-    out["telegram_chat_id"] = str(values.get("telegram_chat_id") or "").strip()
-    out["telegram_header"] = str(values.get("telegram_header") or DEFAULTS["telegram_header"])[:500]
-    out["telegram_line"] = str(values.get("telegram_line") or DEFAULTS["telegram_line"])[:800]
-    out["telegram_group"] = bool(values.get("telegram_group", True))
-    problems = []
-    if out["telegram"] and not (out["telegram_token"] and out["telegram_chat_id"]):
-        problems.append("Telegram needs a bot token and a chat ID.")
-    if out["enabled"]:
-        if not out["days"]:
-            problems.append("Pick at least one day.")
-        if not out["times"]:
-            problems.append("Add at least one time.")
-        if not out["strategies"]:
-            problems.append("Pick EW5, EW3 or both.")
-        if not out["timeframes"]:
-            problems.append("Pick at least one timeframe.")
-        if not out["events"]:
-            problems.append("Pick what to be notified about.")
-    if problems:
-        raise ValueError(" ".join(problems))
-    return out
-
-
-def next_runs(settings: dict, now: Optional[datetime] = None, count: int = 3) -> list[str]:
-    """The next scheduled times (same rule as app.ewscanner.Scheduler)."""
-    if not settings.get("enabled") or not settings.get("days") or not settings.get("times"):
-        return []
-    now = now or datetime.now()
-    out = []
-    for offset in range(0, 15):
-        day = (now + timedelta(days=offset)).date()
-        if day.isoweekday() not in settings["days"]:
-            continue
-        for t in settings["times"]:
-            hh, mm = map(int, t.split(":"))
-            at = datetime(day.year, day.month, day.day, hh, mm)
-            if at > now:
-                out.append(at.strftime("%a %d %b %H:%M"))
-                if len(out) == count:
-                    return out
-    return out
-
-
 def _java(cls: str, method: str, *args: Any) -> bool:
     """Call into the Android app; False on a desktop (tests, browser preview)."""
     try:
@@ -179,124 +86,11 @@ def _java(cls: str, method: str, *args: Any) -> bool:
         return False
 
 
-def public(settings: dict) -> dict:
-    """Settings for the page: the bot token is never sent back, only whether one is saved."""
-    out = {k: v for k, v in settings.items() if k != "telegram_token"}
-    out["telegram_token_set"] = bool(settings.get("telegram_token"))
-    return out
-
-
 def save_settings(app, values: dict) -> dict:
     settings = clean_settings(values, load_settings(app))
     _write(settings_path(app), settings)
     scheduled = _java("Scheduler", "reschedule")
     return {"ok": True, "settings": public(settings), "next": next_runs(settings), "scheduled": scheduled}
-
-
-# ----------------------------------------------------------------------------------
-# Telegram (optional)
-# ----------------------------------------------------------------------------------
-def _telegram(token: str, method: str, payload: dict) -> dict:
-    req = urllib.request.Request(TELEGRAM_URL.format(token=token, method=method),
-                                 data=json.dumps(payload).encode("utf-8"),
-                                 headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            return json.load(resp)
-    except urllib.error.HTTPError as exc:          # Telegram explains the problem in the body
-        try:
-            return json.load(exc)
-        except ValueError:
-            return {"ok": False, "description": f"HTTP {exc.code}"}
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        return {"ok": False, "description": f"no connection ({getattr(exc, 'reason', exc)})"}
-
-
-class _Fields(dict):
-    """format_map values: unknown {names} stay as written instead of failing."""
-    def __missing__(self, key: str) -> str:
-        return "{" + key + "}"
-
-
-def _num(v: Any) -> str:
-    return "" if v is None or (isinstance(v, float) and pd.isna(v)) else f"{float(v):,.2f}"
-
-
-def line_fields(e: dict) -> _Fields:
-    """Values for one stock's line (HTML-escaped: the template may use <b>, <i>, <code>, <a>)."""
-    t = str(e.get("ticker", ""))
-    symbol = t[:-3] if t.endswith(".NS") else t
-    trigger, stop = e.get("trigger"), e.get("stop")
-    risk = abs(float(trigger) - float(stop)) / float(trigger) * 100 if trigger and stop else None
-    raw = {
-        "icon": "🟢" if e.get("side") == "LONG" else "🔴" if e.get("side") == "SHORT" else "•",
-        "event": "Triggered" if e.get("event") == "TRIGGERED" else "New setup",
-        "strategy": str(e.get("strategy", "")).upper(), "ticker": t, "symbol": symbol, "tf": e.get("tf", ""),
-        "degree": e.get("degree", ""), "side": e.get("side", ""), "time": str(e.get("at", ""))[11:16] or e.get("at", ""),
-        "signal_time": e.get("signal_time", ""), "alignment": e.get("alignment") or "", "htf": e.get("htf") or "",
-        "stage": e.get("stage") or "", "context": e.get("context") or "", "close": _num(e.get("close")),
-        "trigger": _num(trigger), "stop": _num(stop), "entry": _num(e.get("entry")),
-        "target1": _num(e.get("target1")), "target2": _num(e.get("target2")),
-        "target1_name": e.get("target1_name") or "", "target2_name": e.get("target2_name") or "",
-        "risk_pct": f"{risk:.2f}%" if risk is not None else "",
-        "tradingview": f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}" if t.endswith(".NS") else "",
-    }
-    return _Fields({k: html.escape(str(v)) for k, v in raw.items()})
-
-
-def telegram_text(title: str, events: list[dict], settings: Optional[dict] = None) -> list[str]:
-    """The day's list as Telegram messages (HTML), from the Alerts tab's templates, split under the limit."""
-    s = {**DEFAULTS, **(settings or {})}
-    n_trig = sum(e.get("event") == "TRIGGERED" for e in events)
-    head = s["telegram_header"].format_map(_Fields({
-        "title": html.escape(title), "date": html.escape(str(events[0].get("at", ""))[:10]) if events else "",
-        "count": str(len(events)), "triggered": str(n_trig), "new": str(len(events) - n_trig)}))
-    groups = ((("TRIGGERED", "Triggered today"), ("NEW", "New setups today")) if s["telegram_group"]
-              else ((None, None),))
-    blocks = []
-    for kind, label in groups:
-        rows = [e for e in events if kind is None or e["event"] == kind]
-        if not rows:
-            continue
-        lines = [f"<b>{label} ({len(rows)})</b>"] if label else []
-        lines += [s["telegram_line"].format_map(line_fields(e)).replace(" ·  · ", " · ") for e in rows]
-        blocks.append("\n".join(lines))
-    messages, current = [], head
-    for line in "\n\n".join(blocks).split("\n"):
-        if len(current) + len(line) + 1 > TELEGRAM_LIMIT:
-            messages.append(current)
-            current = head + " (continued)"
-        current += "\n" + line
-    messages.append(current)
-    return messages
-
-
-def send_telegram(settings: dict, title: str, events: list[dict]) -> str:
-    if not (settings.get("telegram_token") and settings.get("telegram_chat_id")):
-        return "not set up"
-    for text in telegram_text(title, events, settings):
-        payload = {"chat_id": settings["telegram_chat_id"], "text": text, "parse_mode": "HTML",
-                   "disable_web_page_preview": True}
-        r = _telegram(settings["telegram_token"], "sendMessage", payload)
-        if not r.get("ok") and "parse" in str(r.get("description", "")).lower():
-            # a template with unbalanced HTML: send it as plain text rather than not at all
-            payload.pop("parse_mode")
-            r = _telegram(settings["telegram_token"], "sendMessage", payload)
-        if not r.get("ok"):
-            return f"failed: {r.get('description', 'unknown error')}"
-    return "sent"
-
-
-SAMPLE = [{"event": "TRIGGERED", "strategy": "ew5", "ticker": "RELIANCE.NS", "tf": "60m", "degree": "minor",
-           "side": "SHORT", "at": "2026-01-02 13:15", "signal_time": "2026-01-02 11:15", "alignment": "ALIGNED",
-           "htf": "BEARISH · BEARISH", "stage": "WAVE5_IN_PROGRESS", "close": 1301.2, "trigger": 1298.5,
-           "stop": 1312.0, "entry": 1297.0, "target1": 1270.4, "target2": 1255.0,
-           "target1_name": "W4_END", "target2_name": "FIB_0.500"},
-          {"event": "NEW", "strategy": "ew3", "ticker": "TCS.NS", "tf": "4hr", "degree": "intermediate",
-           "side": "LONG", "at": "2026-01-02 09:15", "signal_time": "2026-01-02 09:15", "alignment": "MIXED",
-           "htf": "NEUTRAL · BULLISH", "stage": "WAVE2_COMPLETED", "context": "AFTER_ABC", "close": 3410.0,
-           "trigger": 3425.0, "stop": 3380.0, "entry": None, "target1": 3502.0, "target2": 3610.0,
-           "target1_name": "W1_END", "target2_name": "W3_TGT_1.618xW1"}]
 
 
 def telegram_preview(app, values: dict) -> dict:
@@ -343,46 +137,6 @@ def telegram_find_chat(app, values: dict) -> dict:
     return {"chats": [[cid, name] for cid, name in chats.items()]}
 
 
-# ----------------------------------------------------------------------------------
-# One scheduled run
-# ----------------------------------------------------------------------------------
-def _event_rows(res: pd.DataFrame, S, today: date, wanted: list[str], aligned_only: bool, file: str) -> list[dict]:
-    if res.empty:
-        return []
-    side = S.side_col
-    rows = []
-    trig = res["status"].eq("TRIGGERED") & (pd.to_datetime(res["trigger_time"]).dt.date == today)
-    new = pd.to_datetime(res["signal_time"]).dt.date == today
-    for event, mask in (("TRIGGERED", trig), ("NEW", new)):
-        if event not in wanted:
-            continue
-        part = res[mask]
-        if aligned_only and "alignment" in part.columns:
-            part = part[part["alignment"].eq(htf.ALIGNED)]
-        (t1_name, t2_name) = [lvl for _, lvl in S.target_cards]
-        for idx, r in part.iterrows():
-            at = r["trigger_time"] if event == "TRIGGERED" else r["signal_time"]
-            rows.append({
-                "stage": r.get("stage"), "context": r.get("context"),
-                "entry": None if pd.isna(r.get("entry_price")) else round(float(r["entry_price"]), 2),
-                "target1": round(float(r[t1_name]), 2) if pd.notna(r.get(t1_name)) else None, "target1_name": t1_name,
-                "target2": round(float(r[t2_name]), 2) if pd.notna(r.get(t2_name)) else None, "target2_name": t2_name,
-                "htf": " · ".join(str(r[c]) for c in htf.TREND_COLS if c in r.index and pd.notna(r[c])),
-                "key": f"{S.key}|{r['Ticker']}|{r['time_frame']}|{r['zigzag_length']}|{r['signal_time']}|{event}",
-                "event": event, "strategy": S.key, "ticker": r["Ticker"], "tf": r["time_frame"],
-                "degree": r["degree"], "side": r[side], "alignment": r.get("alignment"),
-                "at": str(pd.Timestamp(at))[:16], "signal_time": str(pd.Timestamp(r["signal_time"]))[:16],
-                "trigger": round(float(r["TRIGGER"]), 2), "stop": round(float(r["STOP"]), 2),
-                "close": round(float(r["close"]), 2), "file": file, "id": int(idx)})
-    return rows
-
-
-def _line(e: dict) -> str:
-    what = "triggered" if e["event"] == "TRIGGERED" else "new setup"
-    align = f" · {e['alignment']}" if e.get("alignment") else ""
-    return f"{e['strategy'].upper()} {e['ticker']} {e['tf']} {e['side']} · {what} {e['at'][11:]}{align}"
-
-
 def _prune_auto_files(results_dir: Path) -> None:
     for prefix in ("backtest_auto_", "ew3_backtest_auto_"):
         files = sorted(results_dir.glob(f"{prefix}*.csv"), key=lambda f: f.stat().st_mtime, reverse=True)
@@ -391,10 +145,15 @@ def _prune_auto_files(results_dir: Path) -> None:
             old.with_suffix(".json").unlink(missing_ok=True)
 
 
-def run(app, source: str = "schedule", today: Optional[date] = None, notify: bool = True) -> dict:
-    """Start the scan as the one background job. Returns the job, or {'busy': ...}."""
+def run(app, source: str = "schedule", today: Optional[date] = None, notify: bool = True,
+        kind: str = "regular") -> dict:
+    """
+    Start the scan as the one background job. Returns the job, or {'busy': ...}.
+    kind "full": the weekly scan of every stock; "regular": the Alerts tab's universe.
+    """
     settings = load_settings(app)
     today = today or date.today()
+    scope = "all" if kind == "full" else settings.get("universe", "fno")
 
     def work(job: jobs.Job) -> dict:
         t0 = time.time()
@@ -405,10 +164,12 @@ def run(app, source: str = "schedule", today: Optional[date] = None, notify: boo
         if settings["update_data"] and source == "schedule":
             waited = wait_for_network(job)                    # a phone just woken from sleep may be offline
             summary["network_wait_s"] = waited
+        tickers = universe.final_list(app.cfg["tickers_file"], scope)
+        summary["universe"] = scope
         if settings["update_data"]:
             from mobile import api
-            tickers = api.stock_data.build_final_list(api._stock_tickers())
-            job.say(f"Data update: {len(tickers)} tickers (last {app.cfg['incremental_days']} days)")
+            job.say(f"Data update: {len(tickers)} tickers, {universe.UNIVERSES[scope]} "
+                    f"(last {app.cfg['incremental_days']} days; new tickers: full history)")
             report = app.store.update(tickers, app.cfg["timeframes"], int(app.cfg["incremental_days"]), False,
                                       yahoo_fetch, progress=lambda f, m: job.progress(f / steps, f"Data · {m}"))
             app.last_report = api._report_json(report)
@@ -429,10 +190,12 @@ def run(app, source: str = "schedule", today: Optional[date] = None, notify: boo
                 pivot_tie=engine["pivot_tie"], hi_source=engine["hi_source"], lo_source=engine["lo_source"],
                 min_w5_vs_w1=float(engine["min_w5_vs_w1"]), start=str(start), end=str(today), strategy=key,
                 contexts=tuple(ew3_cfg["contexts"]), min_retrace=float(ew3_cfg["min_retrace"]),
-                max_retrace=float(ew3_cfg["max_retrace"]))
+                max_retrace=float(ew3_cfg["max_retrace"]), universe=scope)
             n = len(app.store.part_paths())
-            job.say(f"{S.name}: setups since {start}")
-            res = scan.run_groups(app.store.frames(), n, p, app.cfg["signal_indicators"], app.cfg["htf"],
+            job.say(f"{S.name}: {universe.UNIVERSES[scope]}, setups since {start}")
+            keep = set(tickers)
+            res = scan.run_groups((f[f["Ticker"].isin(keep)] for f in app.store.frames()), n, p,
+                                  app.cfg["signal_indicators"], app.cfg["htf"],
                                   progress=lambda i, total, d=done: job.progress(
                                       (d + i / max(total, 1)) / steps, f"{key.upper()} · part {min(i + 1, total)}/{total}"))
             saved = runner.save_results(res, p, app.cfg["results_dir"], app.store.dir,
@@ -472,7 +235,8 @@ def run(app, source: str = "schedule", today: Optional[date] = None, notify: boo
         return summary
 
     try:
-        return jobs.start("alerts", "Scheduled scan" if source == "schedule" else "Alert scan", work)
+        title = ("Weekly full scan" if kind == "full" else "Scheduled scan") if source == "schedule" else "Alert scan"
+        return jobs.start("alerts", title, work)
     except RuntimeError as exc:                         # another job is running: try at the next time
         _write(_dir(app) / "alerts_last_run.json", {"source": source, "started": datetime.now().isoformat(timespec="seconds"),
                                                      "date": str(today), "skipped": str(exc)})
@@ -509,7 +273,9 @@ def overview(app) -> dict:
     settings = load_settings(app)
     history = _read(_dir(app) / "alerts_history.json", [])
     today = str(date.today())
+    n = universe.counts(app.cfg["tickers_file"])
     return {"settings": public(settings), "next": next_runs(settings), "days": list(DAYS),
+            "universes": [[k, f"{v} ({n.get(k, 0):,} stocks)"] for k, v in universe.UNIVERSES.items()],
             "last_run": _read(_dir(app) / "alerts_last_run.json", None),
             "today": [h for h in history if h.get("day", h["notified"][:10]) == today][::-1],
             "history": history[::-1][:300], "timeframes": app.cfg["timeframes"], "alarm_log": alarm_log(app),

@@ -62,19 +62,19 @@ public class JobService extends Service {
             lock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ewscanner:job");
             lock.acquire(6 * 60 * 60 * 1000L);                    // safety cap: 6 hours
         }
-        if (scheduled) runScheduled();
+        if (scheduled) runScheduled(intent.getStringExtra(Scheduler.EXTRA_KIND));
         return START_NOT_STICKY;
     }
 
     /** Start Python if the app was closed, then mobile.server.scheduled(); the job stops this service. */
-    private void runScheduled() {
+    private void runScheduled(String kind) {
         new Thread(() -> {
             try {
                 if (!com.chaquo.python.Python.isStarted()) {
                     com.chaquo.python.Python.start(new com.chaquo.python.android.AndroidPlatform(getApplicationContext()));
                 }
                 com.chaquo.python.Python.getInstance().getModule("mobile.server")
-                        .callAttr("scheduled", getFilesDir().getAbsolutePath());
+                        .callAttr("scheduled", getFilesDir().getAbsolutePath(), kind == null ? "regular" : kind);
             } catch (Throwable e) {
                 Scheduler.log(getApplicationContext(), "scan could not start: " + e);
                 update(false, "");

@@ -173,10 +173,13 @@ def start(root: str, port: int = 0) -> str:
     return f"http://127.0.0.1:{_server.server_address[1]}/?t={TOKEN}"
 
 
-def scheduled(root: str) -> str:
-    """Called by app.ewscanner.JobService when a scheduled time comes (app may have been closed)."""
+def scheduled(root: str, kind: str = "regular") -> str:
+    """
+    Called by app.ewscanner.JobService when a scheduled time comes (the app may have been
+    closed). kind "full" = the weekly scan of every stock, "regular" = the usual F&O scan.
+    """
     start(root)
-    return json.dumps(alerts.run(api._app(), source="schedule"), default=str)
+    return json.dumps(alerts.run(api._app(), source="schedule", kind=kind), default=str)
 
 
 def results_dir() -> str:

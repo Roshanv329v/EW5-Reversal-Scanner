@@ -1,212 +1,1324 @@
-360ONE.NS
-ABB.NS
-ABCAPITAL.NS
-ADANIENSOL.NS
-ADANIENT.NS
-ADANIGREEN.NS
-ADANIPORTS.NS
-ADANIPOWER.NS
-ALKEM.NS
-AMBER.NS
-AMBUJACEM.NS
-ANANDRATHI.NS
-ANGELONE.NS
-APLAPOLLO.NS
-APOLLOHOSP.NS
-ASHOKLEY.NS
-ASIANPAINT.NS
-ASTRAL.NS
-ATHERENERG.NS
-AUBANK.NS
-AUROPHARMA.NS
-AXISBANK.NS
-BAJAJ-AUTO.NS
-BAJAJFINSV.NS
-BAJFINANCE.NS
-BANDHANBNK.NS
-BANKBARODA.NS
-BANKINDIA.NS
-BDL.NS
-BEL.NS
-BHARATFORG.NS
-BHARTIARTL.NS
-BHEL.NS
-BIOCON.NS
-BLUESTARCO.NS
-BOSCHLTD.NS
-BPCL.NS
-BRITANNIA.NS
-BSE.NS
-CAMS.NS
-CANBK.NS
-CDSL.NS
-CGPOWER.NS
-CHOLAFIN.NS
-CIPLA.NS
-COALINDIA.NS
-COCHINSHIP.NS
-COFORGE.NS
-COLPAL.NS
-CONCOR.NS
-CROMPTON.NS
-CUMMINSIND.NS
-DABUR.NS
-DELHIVERY.NS
-DIVISLAB.NS
-DIXON.NS
-DLF.NS
-DMART.NS
-DRREDDY.NS
-EICHERMOT.NS
-ENRIN.NS
-ETERNAL.NS
-FEDERALBNK.NS
-FORCEMOT.NS
-FORTIS.NS
-GAIL.NS
-GLENMARK.NS
-GMRAIRPORT.NS
-GODFRYPHLP.NS
-GODREJCP.NS
-GODREJPROP.NS
-GRASIM.NS
-GVT&D.NS
-HAL.NS
-HAVELLS.NS
-HCLTECH.NS
-HDFCAMC.NS
-HDFCBANK.NS
-HDFCLIFE.NS
-HEROMOTOCO.NS
-HINDALCO.NS
-HINDPETRO.NS
-HINDUNILVR.NS
-HINDZINC.NS
-HYUNDAI.NS
-ICICIBANK.NS
-ICICIGI.NS
-ICICILIFE.NS
-IDEA.NS
-IDFCFIRSTB.NS
-IEX.NS
-INDHOTEL.NS
-INDIANB.NS
-INDIGO.NS
-INDUSINDBK.NS
-INDUSTOWER.NS
-INFY.NS
-INOXWIND.NS
-IOC.NS
-IREDA.NS
-IRFC.NS
-ITC.NS
-JINDALSTEL.NS
-JIOFIN.NS
-JSWENERGY.NS
-JSWSTEEL.NS
-JUBLFOOD.NS
-KALYANKJIL.NS
-KAYNES.NS
-KEI.NS
-KFINTECH.NS
-KOTAKBANK.NS
-KPITTECH.NS
-LAURUSLABS.NS
-LICHSGFIN.NS
-LICI.NS
-LODHA.NS
-LT.NS
-LTF.NS
-LTM.NS
-LUPIN.NS
-M&M.NS
-MAHABANK.NS
-MANAPPURAM.NS
-MANKIND.NS
-MARICO.NS
-MARUTI.NS
-MAXHEALTH.NS
-MAZDOCK.NS
-MCX.NS
-MFSL.NS
-MOTHERSON.NS
-MOTILALOFS.NS
-MPHASIS.NS
-MUTHOOTFIN.NS
-NAM-INDIA.NS
-NATIONALUM.NS
-NAUKRI.NS
-NBCC.NS
-NESTLEIND.NS
-NHPC.NS
-NMDC.NS
-NTPC.NS
-NYKAA.NS
-OBEROIRLTY.NS
-OFSS.NS
-OIL.NS
-ONGC.NS
-PAGEIND.NS
-PATANJALI.NS
-PAYTM.NS
-PERSISTENT.NS
-PETRONET.NS
-PFC.NS
-PGEL.NS
-PHOENIXLTD.NS
-PIDILITIND.NS
-PIIND.NS
-PNB.NS
-PNBHOUSING.NS
-POLICYBZR.NS
-POLYCAB.NS
-POWERGRID.NS
-POWERINDIA.NS
-PREMIERENE.NS
-PRESTIGE.NS
-RADICO.NS
-RBLBANK.NS
-RECLTD.NS
-RELIANCE.NS
-RVNL.NS
-SAGILITY.NS
-SAIL.NS
-SBICARD.NS
-SBILIFE.NS
-SBIN.NS
-SHREECEM.NS
-SHRIRAMFIN.NS
-SIEMENS.NS
-SOLARINDS.NS
-SONACOMS.NS
-SRF.NS
-SUNPHARMA.NS
-SUPREMEIND.NS
-SUZLON.NS
-SWIGGY.NS
-TATACONSUM.NS
-TATAELXSI.NS
-TATAPOWER.NS
-TATASTEEL.NS
-TCS.NS
-TECHM.NS
-TIINDIA.NS
-TITAN.NS
-TMPV.NS
-TORNTPHARM.NS
-TRENT.NS
-TVSMOTOR.NS
-UJJIVANSFB.NS
-ULTRACEMCO.NS
-UNIONBANK.NS
-UNITDSPR.NS
-UNOMINDA.NS
-UPL.NS
-VBL.NS
-VEDL.NS
-VMM.NS
-VOLTAS.NS
-WAAREEENER.NS
-WIPRO.NS
-YESBANK.NS
-ZYDUSLIFE.NS
+﻿Ticker,marketcapname,cnx_sector_name,fno_enabled,macro_info,sector_info
+RELIANCE.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+BHARTIARTL.NS,Large Cap,CNX500,true,Telecommunication,NIFTY 500
+HDFCBANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+ICICIBANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+SBIN.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+TCS.NS,Large Cap,CNXIT,true,Information Technology,NIFTY IT
+BAJFINANCE.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+LT.NS,Large Cap,CNXINFRASTRUCTURE,true,Industrials,NIFTY INFRASTRUCTURE
+LICI.NS,Large Cap,,true,Financial Services,-
+KOTAKBANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+HINDUNILVR.NS,Large Cap,CNXFMCG,true,Fast Moving Consumer Goods,NIFTY FMCG
+INFY.NS,Large Cap,CNXIT,true,Information Technology,NIFTY IT
+SUNPHARMA.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+ADANIPORTS.NS,Large Cap,CNX500,true,Services,NIFTY 500
+TITAN.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+AXISBANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+MARUTI.NS,Large Cap,CNXAUTO,true,Consumer Discretionary,NIFTY AUTO
+ADANIPOWER.NS,Large Cap,CNXINFRASTRUCTURE,true,Utilities,NIFTY INFRASTRUCTURE
+HCLTECH.NS,Large Cap,CNXIT,true,Information Technology,NIFTY IT
+ADANIENT.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+ITC.NS,Large Cap,CNX500,true,Fast Moving Consumer Goods,NIFTY 500
+ULTRACEMCO.NS,Large Cap,CNXCOMMODITIES,true,Commodities,NIFTY COMMODITIES
+ETERNAL.NS,Large Cap,,true,Consumer Discretionary,-
+JSWSTEEL.NS,Large Cap,CNXMETAL,true,Commodities,NIFTY METAL
+HAL.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+NTPC.NS,Large Cap,CNXINFRASTRUCTURE,true,Utilities,NIFTY INFRASTRUCTURE
+DIVISLAB.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+BAJAJFINSV.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+BAJAJ-AUTO.NS,Large Cap,CNXAUTO,true,Consumer Discretionary,NIFTY AUTO
+BEL.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+ONGC.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+COALINDIA.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+ASIANPAINT.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+NESTLEIND.NS,Large Cap,,true,Fast Moving Consumer Goods,-
+POWERGRID.NS,Large Cap,CNX500,true,Utilities,NIFTY 500
+HINDZINC.NS,Large Cap,CNXMETAL,true,Commodities,NIFTY METAL
+TATASTEEL.NS,Large Cap,CNXMETAL,true,Commodities,NIFTY METAL
+ADANIGREEN.NS,Large Cap,CNX500,true,Utilities,NIFTY 500
+SHRIRAMFIN.NS,Large Cap,,true,Financial Services,-
+DMART.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+INDIGO.NS,Large Cap,,true,Services,-
+TVSMOTOR.NS,Large Cap,CNXAUTO,true,Consumer Discretionary,NIFTY AUTO
+HINDALCO.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+EICHERMOT.NS,Large Cap,CNXAUTO,true,Consumer Discretionary,NIFTY AUTO
+GRASIM.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+IOC.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+WIPRO.NS,Large Cap,CNXIT,true,Information Technology,NIFTY IT
+DLF.NS,Large Cap,CNXINFRASTRUCTURE,true,Consumer Discretionary,NIFTY INFRASTRUCTURE
+SBILIFE.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+TORNTPHARM.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+ADANIENSOL.NS,Large Cap,,true,Utilities,-
+SOLARINDS.NS,Large Cap,CNXINFRASTRUCTURE,true,Commodities,NIFTY INFRASTRUCTURE
+MOTHERSON.NS,Large Cap,,true,Consumer Discretionary,-
+TECHM.NS,Large Cap,CNXIT,true,Information Technology,NIFTY IT
+TRENT.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+HYUNDAI.NS,Large Cap,,true,Consumer Discretionary,-
+PNB.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+BSE.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+TMCV.NS,Large Cap,,false,Industrials,-
+CHOLAFIN.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+PIDILITIND.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+UNIONBANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+BHEL.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+TATACAP.NS,Large Cap,,false,Financial Services,-
+ICICIAMC.NS,Large Cap,,false,Financial Services,-
+JIOFIN.NS,Large Cap,,true,Financial Services,-
+ABB.NS,Large Cap,CNXINFRASTRUCTURE,true,Industrials,NIFTY INFRASTRUCTURE
+VBL.NS,Large Cap,CNXFMCG,true,Fast Moving Consumer Goods,NIFTY FMCG
+BOSCHLTD.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+BANKBARODA.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+GROWW.NS,Large Cap,,false,Financial Services,-
+POWERINDIA.NS,Large Cap,,true,Industrials,-
+IDEA.NS,Large Cap,CNX500,true,Telecommunication,NIFTY 500
+BPCL.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+LAURUSLABS.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+CGPOWER.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+SIEMENS.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+HDFCLIFE.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+INDHOTEL.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+LENSKART.NS,Large Cap,,false,Consumer Discretionary,-
+INDIANB.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+PAYTM.NS,Large Cap,,true,Financial Services,-
+GAIL.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+BAJAJHLDNG.NS,Large Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+APOLLOHOSP.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+LODHA.NS,Large Cap,,true,Consumer Discretionary,-
+CUMMINSIND.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+POLYCAB.NS,Large Cap,,true,Industrials,-
+MEESHO.NS,Large Cap,,false,Consumer Discretionary,-
+CANBK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+ZYDUSLIFE.NS,Large Cap,,true,Healthcare,-
+LGEINDIA.NS,Large Cap,,false,Consumer Discretionary,-
+JINDALSTEL.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+MARICO.NS,Large Cap,CNXFMCG,true,Fast Moving Consumer Goods,NIFTY FMCG
+DRREDDY.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+BRITANNIA.NS,Large Cap,CNXFMCG,true,Fast Moving Consumer Goods,NIFTY FMCG
+HDFCAMC.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+MUTHOOTFIN.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+CIPLA.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+ABCAPITAL.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+ENRIN.NS,Large Cap,,true,Industrials,-
+TATAPOWER.NS,Large Cap,CNXINFRASTRUCTURE,true,Utilities,NIFTY INFRASTRUCTURE
+PFC.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+MANKIND.NS,Large Cap,,true,Healthcare,-
+IRFC.NS,Large Cap,,true,Financial Services,-
+HEROMOTOCO.NS,Large Cap,CNXAUTO,true,Consumer Discretionary,NIFTY AUTO
+TATACONSUM.NS,Large Cap,,true,Fast Moving Consumer Goods,-
+TMPV.NS,Large Cap,,true,Consumer Discretionary,-
+GMRAIRPORT.NS,Large Cap,,true,Services,-
+AUROPHARMA.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+NYKAA.NS,Large Cap,,true,Consumer Discretionary,-
+INDUSTOWER.NS,Large Cap,,true,Telecommunication,-
+UNITDSPR.NS,Large Cap,,true,Fast Moving Consumer Goods,-
+VEDL.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+LLOYDSME.NS,Large Cap,,false,Commodities,-
+PERSISTENT.NS,Large Cap,CNXIT,true,Information Technology,NIFTY IT
+ASHOKLEY.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+MCX.NS,Large Cap,,true,Financial Services,-
+AMBUJACEM.NS,Large Cap,CNXCOMMODITIES,true,Commodities,NIFTY COMMODITIES
+JSWENERGY.NS,Large Cap,CNXINFRASTRUCTURE,true,Utilities,NIFTY INFRASTRUCTURE
+MAXHEALTH.NS,Large Cap,,true,Healthcare,-
+LUPIN.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+COFORGE.NS,Large Cap,,true,Information Technology,-
+FEDERALBNK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+GODREJCP.NS,Large Cap,CNXFMCG,true,Fast Moving Consumer Goods,NIFTY FMCG
+SHREECEM.NS,Large Cap,CNXCOMMODITIES,true,Commodities,NIFTY COMMODITIES
+OFSS.NS,Large Cap,CNXIT,true,Information Technology,NIFTY IT
+IDBI.NS,Large Cap,NSEBANK,false,Financial Services,NIFTY BANK
+BHARATFORG.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+ICICIGI.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+BHARTIHEXA.NS,Large Cap,,false,Telecommunication,-
+HINDPETRO.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+PHOENIXLTD.NS,Large Cap,CNXREALTY,true,Consumer Discretionary,NIFTY REALTY
+UNOMINDA.NS,Large Cap,,true,Consumer Discretionary,-
+RECLTD.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+JSWINFRA.NS,Large Cap,,false,Services,-
+DIXON.NS,Large Cap,CNXINDIA,true,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+ATHERENERG.NS,Large Cap,,true,Consumer Discretionary,-
+NAUKRI.NS,Large Cap,CNXIT,true,Consumer Discretionary,NIFTY IT
+MAZDOCK.NS,Large Cap,,true,Industrials,-
+NHPC.NS,Large Cap,CNXINFRASTRUCTURE,true,Utilities,NIFTY INFRASTRUCTURE
+GLENMARK.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+MOTILALOFS.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+SRF.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+WAAREEENER.NS,Large Cap,,true,Industrials,-
+HAVELLS.NS,Large Cap,CNXINDIA,true,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+SAIL.NS,Large Cap,CNXMETAL,true,Commodities,NIFTY METAL
+AUBANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+KALYANKJIL.NS,Large Cap,,true,Consumer Discretionary,-
+OIL.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+INDUSINDBK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+PRESTIGE.NS,Large Cap,CNXREALTY,true,Consumer Discretionary,NIFTY REALTY
+MAHABANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+BANKINDIA.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+NAM-INDIA.NS,Large Cap,,true,Financial Services,-
+NTPCGREEN.NS,Large Cap,,false,Utilities,-
+LTF.NS,Large Cap,,true,Financial Services,-
+IDFCFIRSTB.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+BAJAJHFL.NS,Large Cap,,false,Financial Services,-
+DABUR.NS,Large Cap,CNXFMCG,true,Fast Moving Consumer Goods,NIFTY FMCG
+OBEROIRLTY.NS,Large Cap,CNXREALTY,true,Consumer Discretionary,NIFTY REALTY
+ATGL.NS,Large Cap,,false,Energy,-
+ASTERDM.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+APLAPOLLO.NS,Large Cap,CNXMETAL,true,Industrials,NIFTY METAL
+RADICO.NS,Large Cap,CNX500,true,Fast Moving Consumer Goods,NIFTY 500
+TORNTPOWER.NS,Large Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+APARINDS.NS,Large Cap,CNX500,false,Industrials,NIFTY 500
+NMDC.NS,Large Cap,CNXMETAL,true,Commodities,NIFTY METAL
+ALKEM.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+IOB.NS,Large Cap,NSEBANK,false,Financial Services,NIFTY BANK
+NATIONALUM.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+RBLBANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+GICRE.NS,Large Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+BIOCON.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+WELCORP.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+JSL.NS,Large Cap,CNXMETAL,false,Commodities,NIFTY METAL
+LINDEINDIA.NS,Large Cap,CNX500,false,Commodities,NIFTY 500
+COROMANDEL.NS,Large Cap,CNX500,false,Commodities,NIFTY 500
+FORTIS.NS,Large Cap,CNXPHARMA,true,Healthcare,NIFTY PHARMA
+SONACOMS.NS,Large Cap,,true,Consumer Discretionary,-
+ABBOTINDIA.NS,Large Cap,,false,Healthcare,-
+SCHAEFFLER.NS,Large Cap,CNXINFRASTRUCTURE,false,Consumer Discretionary,NIFTY INFRASTRUCTURE
+GODREJPROP.NS,Large Cap,CNXREALTY,true,Consumer Discretionary,NIFTY REALTY
+BERGEPAINT.NS,Large Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+SBICARD.NS,Large Cap,,true,Financial Services,-
+GLAND.NS,Large Cap,,false,Healthcare,-
+YESBANK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+MRF.NS,Large Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+ANTHEM.NS,Large Cap,,false,Healthcare,-
+SUZLON.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+FACT.NS,Large Cap,,false,Commodities,-
+FLUOROCHEM.NS,Large Cap,,false,Commodities,-
+SWIGGY.NS,Large Cap,,true,Consumer Discretionary,-
+NAVINFLUOR.NS,Large Cap,CNX500,false,Commodities,NIFTY 500
+POLICYBZR.NS,Large Cap,,true,Financial Services,-
+CPPLUS.NS,Large Cap,,false,Industrials,-
+CUPID.NS,Large Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+TATACOMM.NS,Large Cap,CNX500,false,Telecommunication,NIFTY 500
+360ONE.NS,Large Cap,,true,Financial Services,-
+PIRAMALFIN.NS,Large Cap,,false,Financial Services,-
+AIIL.NS,Large Cap,,false,Financial Services,-
+PETRONET.NS,Large Cap,CNX500,true,Energy,NIFTY 500
+MFSL.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+IPCALAB.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+UPL.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+HDBFS.NS,Large Cap,,false,Financial Services,-
+MPHASIS.NS,Large Cap,CNXIT,true,Information Technology,NIFTY IT
+COLPAL.NS,Large Cap,CNXFMCG,true,Fast Moving Consumer Goods,NIFTY FMCG
+PATANJALI.NS,Large Cap,,true,Fast Moving Consumer Goods,-
+GLAXO.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+VMM.NS,Large Cap,,true,Consumer Discretionary,-
+LTTS.NS,Large Cap,CNXIT,false,Information Technology,NIFTY IT
+EMCURE.NS,Large Cap,,false,Healthcare,-
+BALKRISIND.NS,Large Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+TIINDIA.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+AEGISLOG.NS,Large Cap,,false,Energy,-
+POONAWALLA.NS,Large Cap,,false,Financial Services,-
+HINDCOPPER.NS,Large Cap,CNXMETAL,false,Commodities,NIFTY METAL
+SUPREMEIND.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+RVNL.NS,Large Cap,,true,Industrials,-
+AJANTPHARM.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+SAILIFE.NS,Large Cap,,false,Healthcare,-
+PREMIERENE.NS,Large Cap,,true,Industrials,-
+JKCEMENT.NS,Large Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+KPRMILL.NS,Large Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+ANANDRATHI.NS,Large Cap,,true,Financial Services,-
+MEDANTA.NS,Large Cap,,false,Healthcare,-
+KEI.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+PTCIL.NS,Large Cap,,false,Industrials,-
+PWL.NS,Large Cap,,false,Consumer Discretionary,-
+NH.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+BDL.NS,Large Cap,CNXINFRASTRUCTURE,true,Industrials,NIFTY INFRASTRUCTURE
+GODREJIND.NS,Large Cap,CNX500,false,Diversified,NIFTY 500
+VOLTAS.NS,Large Cap,CNXINDIA,true,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+KARURVYSYA.NS,Large Cap,NSEBANK,false,Financial Services,NIFTY BANK
+SHYAMMETL.NS,Large Cap,,false,Industrials,-
+IRCTC.NS,Large Cap,,false,Consumer Discretionary,-
+ITCHOTELS.NS,Large Cap,,false,Consumer Discretionary,-
+ENDURANCE.NS,Large Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+PAGEIND.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+NUVAMA.NS,Large Cap,,false,Financial Services,-
+STARHEALTH.NS,Large Cap,,false,Financial Services,-
+ASTRAL.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+CONCOR.NS,Large Cap,CNX500,true,Services,NIFTY 500
+HUDCO.NS,Large Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+LALPATHLAB.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+IREDA.NS,Large Cap,,true,Financial Services,-
+THERMAX.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+ACUTAAS.NS,Large Cap,,false,Healthcare,-
+NLCINDIA.NS,Large Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+WOCKPHARMA.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+DELHIVERY.NS,Large Cap,,true,Services,-
+BLUESTARCO.NS,Large Cap,CNXINDIA,true,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+PPLPHARMA.NS,Large Cap,,false,Healthcare,-
+LICHSGFIN.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+UBL.NS,Large Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+3MINDIA.NS,Large Cap,CNX500,false,Diversified,NIFTY 500
+ANGELONE.NS,Large Cap,,true,Financial Services,-
+CRISIL.NS,Large Cap,CNX500,false,Financial Services,NIFTY 500
+EXIDEIND.NS,Large Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+AEGISVOPAK.NS,Large Cap,,false,Energy,-
+MRPL.NS,Large Cap,CNX500,false,Energy,NIFTY 500
+UCOBANK.NS,Large Cap,NSEBANK,false,Financial Services,NIFTY BANK
+COCHINSHIP.NS,Large Cap,CNX500,true,Industrials,NIFTY 500
+KIMS.NS,Large Cap,,false,Healthcare,-
+CDSL.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+HEXT.NS,Large Cap,,false,Information Technology,-
+GABRIEL.NS,Large Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+AIAENG.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+TATAINVEST.NS,Large Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+SANSERA.NS,Large Cap,,false,Consumer Discretionary,-
+ACMESOLAR.NS,Large Cap,,false,Utilities,-
+CENTRALBK.NS,Large Cap,NSEBANK,false,Financial Services,NIFTY BANK
+PNBHOUSING.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+SYRMA.NS,Large Cap,,false,Industrials,-
+CRAFTSMAN.NS,Large Cap,,false,Consumer Discretionary,-
+MANAPPURAM.NS,Large Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+JUBLFOOD.NS,Large Cap,CNXSERVICES,true,Consumer Discretionary,NIFTY SERVICES SECTOR
+ASAHIINDIA.NS,Large Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+HSCL.NS,Large Cap,CNX500,false,Commodities,NIFTY 500
+GODFRYPHLP.NS,Large Cap,CNX500,true,Fast Moving Consumer Goods,NIFTY 500
+IKS.NS,Large Cap,,false,Information Technology,-
+DALBHARAT.NS,Large Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+BANDHANBNK.NS,Large Cap,NSEBANK,true,Financial Services,NIFTY BANK
+RUBICON.NS,Large Cap,,false,Healthcare,-
+CHOLAHLDNG.NS,Large Cap,,false,Financial Services,-
+IIFL.NS,Large Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+REDINGTON.NS,Large Cap,CNXIT,false,Services,NIFTY IT
+TATATECH.NS,Large Cap,,false,Information Technology,-
+NEULANDLAB.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+HONAUT.NS,Large Cap,CNXAUTO,false,Industrials,NIFTY AUTO
+ESCORTS.NS,Large Cap,CNX500,false,Industrials,NIFTY 500
+APOLLOTYRE.NS,Large Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+ZFCVINDIA.NS,Large Cap,,false,Consumer Discretionary,-
+NIACL.NS,Large Cap,,false,Financial Services,-
+URBANCO.NS,Large Cap,,false,Consumer Discretionary,-
+PIIND.NS,Large Cap,CNX500,true,Commodities,NIFTY 500
+ABSLAMC.NS,Large Cap,,false,Financial Services,-
+MSUMI.NS,Large Cap,,false,Consumer Discretionary,-
+ITI.NS,Large Cap,CNX500,false,Telecommunication,NIFTY 500
+FORCEMOT.NS,Large Cap,,true,Consumer Discretionary,-
+SUNTV.NS,Large Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+SCHNEIDER.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+GRSE.NS,Large Cap,CNX500,false,Industrials,NIFTY 500
+NETWEB.NS,Large Cap,,false,Information Technology,-
+KIRLOSENG.NS,Large Cap,CNXAUTO,false,Industrials,NIFTY AUTO
+JYOTICNC.NS,Large Cap,,false,Industrials,-
+CEMPRO.NS,Large Cap,,false,Industrials,-
+TATAELXSI.NS,Large Cap,CNX500,true,Information Technology,NIFTY 500
+DATAPATTNS.NS,Large Cap,,false,Industrials,-
+AMBER.NS,Large Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+CGCL.NS,Large Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+WELSPUNLIV.NS,Large Cap,,false,Consumer Discretionary,-
+GILLETTE.NS,Large Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+TIMKEN.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+GODIGIT.NS,Large Cap,,false,Financial Services,-
+KAYNES.NS,Large Cap,,true,Industrials,-
+KPIL.NS,Large Cap,,false,Industrials,-
+CUB.NS,Large Cap,NSEBANK,false,Financial Services,NIFTY BANK
+ACC.NS,Large Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+METROBRAND.NS,Large Cap,,false,Consumer Discretionary,-
+PGHH.NS,Large Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+IRB.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+AFFLE.NS,Large Cap,,false,Information Technology,-
+DIACABS.NS,Large Cap,,false,Industrials,-
+SJVN.NS,Large Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+HATSUN.NS,Large Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+SUNDRMFAST.NS,Large Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+RRKABEL.NS,Large Cap,,false,Industrials,-
+AETHER.NS,Large Cap,,false,Commodities,-
+THELEELA.NS,Large Cap,,false,Consumer Discretionary,-
+HBLENGINE.NS,Large Cap,,false,Industrials,-
+DEEPAKNTR.NS,Large Cap,CNX500,false,Commodities,NIFTY 500
+GESHIP.NS,Large Cap,CNX500,false,Services,NIFTY 500
+NBCC.NS,Large Cap,CNXINFRASTRUCTURE,true,Industrials,NIFTY INFRASTRUCTURE
+AWL.NS,Large Cap,,false,Fast Moving Consumer Goods,-
+GRINDWELL.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+CHENNPETRO.NS,Large Cap,CNX500,false,Energy,NIFTY 500
+ABDL.NS,Large Cap,,false,Fast Moving Consumer Goods,-
+PFOCUS.NS,Large Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+BELRISE.NS,Large Cap,,false,Consumer Discretionary,-
+KIOCL.NS,Large Cap,CNXMETAL,false,Commodities,NIFTY METAL
+SAGILITY.NS,Large Cap,,true,Information Technology,-
+TDPOWERSYS.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+PINELABS.NS,Large Cap,,false,Financial Services,-
+FSL.NS,Large Cap,CNXIT,false,Services,NIFTY IT
+APLLTD.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+CARBORUNIV.NS,Large Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+GRANULES.NS,Large Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+IGL.NS,Mid Cap,CNX500,false,Energy,NIFTY 500
+SHRIPISTON.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+EIHOTEL.NS,Mid Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+FINCABLES.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+SHILPAMED.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+RAMCOCEM.NS,Mid Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+EMMVEE.NS,Mid Cap,,false,Industrials,-
+IGIL.NS,Mid Cap,,false,Services,-
+AADHARHFC.NS,Mid Cap,,false,Financial Services,-
+KAJARIACER.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+CASTROLIND.NS,Mid Cap,CNX500,false,Energy,NIFTY 500
+LMW.NS,Mid Cap,,false,Industrials,-
+MTARTECH.NS,Mid Cap,,false,Industrials,-
+ELGIEQUIP.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+ONESOURCE.NS,Mid Cap,,false,Healthcare,-
+HAPPYFORGE.NS,Mid Cap,,false,Industrials,-
+CAPLIPOINT.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+ERIS.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+TENNIND.NS,Mid Cap,,false,Consumer Discretionary,-
+CHALET.NS,Mid Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+CAMS.NS,Mid Cap,,true,Financial Services,-
+ALIVUS.NS,Mid Cap,,false,Healthcare,-
+SYNGENE.NS,Mid Cap,CNX500,false,Healthcare,NIFTY 500
+BRIGADE.NS,Mid Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+INOXINDIA.NS,Mid Cap,,false,Industrials,-
+CREDITACC.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+APOLLO.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+PFIZER.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+MINDACORP.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+ENGINERSIN.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+COHANCE.NS,Mid Cap,,false,Healthcare,-
+TBOTEK.NS,Mid Cap,,false,Consumer Discretionary,-
+EMAMILTD.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+AARTIIND.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+GRWRHITECH.NS,Mid Cap,,false,Industrials,-
+BEML.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+AGARWALEYE.NS,Mid Cap,,false,Healthcare,-
+RATNAMANI.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+SUMICHEM.NS,Mid Cap,,false,Commodities,-
+BAYERCROP.NS,Mid Cap,,false,Commodities,-
+ANANTRAJ.NS,Mid Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+JSWCEMENT.NS,Mid Cap,,false,Commodities,-
+POLYMED.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+CESC.NS,Mid Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+IFCI.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+JINDALSAW.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+KFINTECH.NS,Mid Cap,,true,Financial Services,-
+NAZARA.NS,Mid Cap,,false,Consumer Discretionary,-
+HONASA.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+AEQUS.NS,Mid Cap,,false,Industrials,-
+NAVA.NS,Mid Cap,,false,Utilities,-
+KANSAINER.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+PGEL.NS,Mid Cap,CNX500,true,Consumer Discretionary,NIFTY 500
+FINEORG.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+SOUTHBANK.NS,Mid Cap,NSEBANK,false,Financial Services,NIFTY BANK
+TRITURBINE.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+CHOICEIN.NS,Mid Cap,,false,Financial Services,-
+ASTRAMICRO.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+PVRINOX.NS,Mid Cap,,false,Consumer Discretionary,-
+INDGN.NS,Mid Cap,,false,Healthcare,-
+OLAELEC.NS,Mid Cap,,false,Consumer Discretionary,-
+DEVYANI.NS,Mid Cap,,false,Consumer Discretionary,-
+BBOX.NS,Mid Cap,,false,Information Technology,-
+SAMMAANCAP.NS,Mid Cap,,false,Financial Services,-
+DEEPAKFERT.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+NATCOPHARM.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+AZAD.NS,Mid Cap,,false,Industrials,-
+SKYGOLD.NS,Mid Cap,,false,Consumer Discretionary,-
+ZENTEC.NS,Mid Cap,CNXIT,false,Industrials,NIFTY IT
+TRAVELFOOD.NS,Mid Cap,,false,Consumer Discretionary,-
+SARDAEN.NS,Mid Cap,CNXMETAL,false,Commodities,NIFTY METAL
+GRAPHITE.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+LUMAXTECH.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+GMDCLTD.NS,Mid Cap,CNXMETAL,false,Commodities,NIFTY METAL
+PSB.NS,Mid Cap,NSEBANK,false,Financial Services,NIFTY BANK
+TATACHEM.NS,Mid Cap,,false,Commodities,-
+CHAMBLFERT.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+JUBLPHARMA.NS,Mid Cap,,false,Healthcare,-
+VTL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+CENTURYPLY.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+ATUL.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+PCJEWELLER.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+KPITTECH.NS,Mid Cap,,true,Information Technology,-
+ASTRAZEN.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+ZYDUSWELL.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+ECLERX.NS,Mid Cap,CNXIT,false,Services,NIFTY IT
+SHREEJISPG.NS,Mid Cap,,false,Services,-
+GPIL.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+ANURAS.NS,Mid Cap,,false,Commodities,-
+LTFOODS.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+USHAMART.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+PARADEEP.NS,Mid Cap,,false,Commodities,-
+NIVABUPA.NS,Mid Cap,,false,Financial Services,-
+RKFORGE.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+VIJAYA.NS,Mid Cap,,false,Healthcare,-
+SHAILY.NS,Mid Cap,,false,Consumer Discretionary,-
+MARKSANS.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+CEATLTD.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+CORONA.NS,Mid Cap,,false,Healthcare,-
+VOLTAMP.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+TMB.NS,Mid Cap,,false,Financial Services,-
+ACE.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+DCMSHRIRAM.NS,Mid Cap,CNX500,false,Diversified,NIFTY 500
+CIEINDIA.NS,Mid Cap,,false,Consumer Discretionary,-
+BALRAMCHIN.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+ARVIND.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+LLOYDSENGG.NS,Mid Cap,,false,Industrials,-
+KTKBANK.NS,Mid Cap,NSEBANK,false,Financial Services,NIFTY BANK
+AVALON.NS,Mid Cap,,false,Industrials,-
+CROMPTON.NS,Mid Cap,CNXINDIA,true,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+SOBHA.NS,Mid Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+SUDEEPPHRM.NS,Mid Cap,,false,Commodities,-
+ABREL.NS,Mid Cap,,false,Consumer Discretionary,-
+VGUARD.NS,Mid Cap,CNXINDIA,false,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+SPLPETRO.NS,Mid Cap,,false,Commodities,-
+PRIVISCL.NS,Mid Cap,,false,Commodities,-
+CARTRADE.NS,Mid Cap,,false,Consumer Discretionary,-
+FIVESTAR.NS,Mid Cap,,false,Financial Services,-
+CCL.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+THANGAMAYL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+KIRLOSBROS.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+RAINBOW.NS,Mid Cap,,false,Healthcare,-
+EDELWEISS.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+TI.NS,Mid Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+VARROC.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+CANHLIFE.NS,Mid Cap,,false,Financial Services,-
+VENTIVE.NS,Mid Cap,,false,Consumer Discretionary,-
+WABAG.NS,Mid Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+BASF.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+ASKAUTOLTD.NS,Mid Cap,,false,Consumer Discretionary,-
+GALLANTT.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+SCI.NS,Mid Cap,CNX500,false,Services,NIFTY 500
+SAREGAMA.NS,Mid Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+INGERRAND.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+TEGA.NS,Mid Cap,,false,Industrials,-
+MANORAMA.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+ZENSARTECH.NS,Mid Cap,CNXIT,false,Information Technology,NIFTY IT
+CONCORDBIO.NS,Mid Cap,,false,Healthcare,-
+JSWHL.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+PRUDENT.NS,Mid Cap,,false,Financial Services,-
+PGIL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+DOMS.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+NUVOCO.NS,Mid Cap,,false,Commodities,-
+BIKAJI.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+AMAGI.NS,Mid Cap,,false,Information Technology,-
+TRIDENT.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+NSLNISP.NS,Mid Cap,,false,Commodities,-
+SGMART.NS,Mid Cap,,false,Commodities,-
+UJJIVANSFB.NS,Mid Cap,,true,Financial Services,-
+JBMA.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+METROPOLIS.NS,Mid Cap,,false,Healthcare,-
+ATLANTAELE.NS,Mid Cap,,false,Industrials,-
+AKUMS.NS,Mid Cap,,false,Healthcare,-
+EIDPARRY.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+VINATIORGA.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+HOMEFIRST.NS,Mid Cap,,false,Financial Services,-
+CYIENT.NS,Mid Cap,CNXIT,false,Information Technology,NIFTY IT
+MANYAVAR.NS,Mid Cap,,false,Consumer Discretionary,-
+E2E.NS,Mid Cap,,false,Information Technology,-
+QPOWER.NS,Mid Cap,,false,Industrials,-
+MGL.NS,Mid Cap,CNX500,false,Energy,NIFTY 500
+GODREJAGRO.NS,Mid Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+KSB.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+VIYASH.NS,Mid Cap,,false,Healthcare,-
+BLUESTONE.NS,Mid Cap,,false,Consumer Discretionary,-
+IIFLCAPS.NS,Mid Cap,,false,Financial Services,-
+TECHNOE.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+LOTUSDEV.NS,Mid Cap,,false,Consumer Discretionary,-
+INOXWIND.NS,Mid Cap,CNXINFRASTRUCTURE,true,Industrials,NIFTY INFRASTRUCTURE
+PCBL.NS,Mid Cap,,false,Commodities,-
+GRAVITA.NS,Mid Cap,CNXMETAL,false,Commodities,NIFTY METAL
+PARKHOSPS.NS,Mid Cap,,false,Healthcare,-
+JMFINANCIL.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+ICIL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+UTIAMC.NS,Mid Cap,,false,Financial Services,-
+INDIACEM.NS,Mid Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+SIGNATURE.NS,Mid Cap,,false,Consumer Discretionary,-
+UTLSOLAR.NS,Mid Cap,,false,Industrials,-
+BLUEDART.NS,Mid Cap,CNXINFRASTRUCTURE,false,Services,NIFTY INFRASTRUCTURE
+WHIRLPOOL.NS,Mid Cap,CNXINDIA,false,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+JKTYRE.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+IRCON.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+PARAS.NS,Mid Cap,,false,Industrials,-
+CANFINHOME.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+TIPSMUSIC.NS,Mid Cap,,false,Consumer Discretionary,-
+IEX.NS,Mid Cap,NIFTY_FIN_SERVICE,true,Financial Services,NIFTY FINANCIAL SERVICES
+WESTLIFE.NS,Mid Cap,,false,Consumer Discretionary,-
+YATHARTH.NS,Mid Cap,,false,Healthcare,-
+BLACKBUCK.NS,Mid Cap,,false,Services,-
+BLUEJET.NS,Mid Cap,,false,Healthcare,-
+LLOYDSENT.NS,Mid Cap,,false,Commodities,-
+AVANTIFEED.NS,Mid Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+SBFC.NS,Mid Cap,,false,Financial Services,-
+ELECON.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+TITAGARH.NS,Mid Cap,,false,Industrials,-
+KRBL.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+UNIMECH.NS,Mid Cap,,false,Industrials,-
+WELENT.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+JAINREC.NS,Mid Cap,,false,Commodities,-
+BANCOINDIA.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+TANLA.NS,Mid Cap,CNXIT,false,Information Technology,NIFTY IT
+INDIAMART.NS,Mid Cap,,false,Consumer Discretionary,-
+LEMONTREE.NS,Mid Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+WEWORK.NS,Mid Cap,,false,Services,-
+JPPOWER.NS,Mid Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+PGHL.NS,Mid Cap,,false,Healthcare,-
+ABLBL.NS,Mid Cap,,false,Consumer Discretionary,-
+MAXESTATES.NS,Mid Cap,,false,Consumer Discretionary,-
+TARIL.NS,Mid Cap,,false,Industrials,-
+BLS.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+JUBLINGREA.NS,Mid Cap,,false,Commodities,-
+RITES.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+TIMETECHNO.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+STAR.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+JLHL.NS,Mid Cap,,false,Healthcare,-
+FINPIPE.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+SUDARSCHEM.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+TSFINV.NS,Mid Cap,,false,Financial Services,-
+PNGJL.NS,Mid Cap,,false,Consumer Discretionary,-
+KMEW.NS,Mid Cap,,false,Services,-
+PRICOLLTD.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+BSOFT.NS,Mid Cap,CNXIT,false,Information Technology,NIFTY IT
+AARTIPHARM.NS,Mid Cap,,false,Healthcare,-
+BBTC.NS,Mid Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+MBAPL.NS,Mid Cap,,false,Commodities,-
+SANDUMA.NS,Mid Cap,,false,Commodities,-
+RPEL.NS,Mid Cap,,false,Industrials,-
+DYNAMATECH.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+SSWL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+AAVAS.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+KEC.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+JWL.NS,Mid Cap,,false,Industrials,-
+JAYNECOIND.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+APTUS.NS,Mid Cap,,false,Financial Services,-
+KINGFA.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+KIRLPNU.NS,Mid Cap,,false,Industrials,-
+ENTERO.NS,Mid Cap,,false,Consumer Discretionary,-
+HCG.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+NCC.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+NEOGEN.NS,Mid Cap,,false,Commodities,-
+OLECTRA.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+GPPL.NS,Mid Cap,CNXINFRASTRUCTURE,false,Services,NIFTY INFRASTRUCTURE
+MMTC.NS,Mid Cap,CNX500,false,Services,NIFTY 500
+FIRSTCRY.NS,Mid Cap,,false,Consumer Discretionary,-
+SANOFICONR.NS,Mid Cap,,false,Healthcare,-
+ALKYLAMINE.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+BATAINDIA.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+CELLO.NS,Mid Cap,,false,Consumer Discretionary,-
+AFCONS.NS,Mid Cap,,false,Industrials,-
+RAILTEL.NS,Mid Cap,,false,Telecommunication,-
+AXISCADES.NS,Mid Cap,CNXIT,false,Industrials,NIFTY IT
+RELIGARE.NS,Mid Cap,,false,Financial Services,-
+RATEGAIN.NS,Mid Cap,,false,Information Technology,-
+ESABINDIA.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+THYROCARE.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+GALAXYSURF.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+SUVEN.NS,Mid Cap,,false,Healthcare,-
+GRINFRA.NS,Mid Cap,,false,Industrials,-
+WAAREERTL.NS,Mid Cap,,false,Industrials,-
+TTKPRESTIG.NS,Mid Cap,CNXINDIA,false,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+CLEAN.NS,Mid Cap,,false,Commodities,-
+RPOWER.NS,Mid Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+RAYMOND.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+KRISHANA.NS,Mid Cap,,false,Commodities,-
+EPL.NS,Mid Cap,,false,Industrials,-
+POWERMECH.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+ORKLAINDIA.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+SANOFI.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+TFCILTD.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+MIDHANI.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+RHIM.NS,Mid Cap,,false,Industrials,-
+DCBBANK.NS,Mid Cap,NSEBANK,false,Financial Services,NIFTY BANK
+SMLMAH.NS,Mid Cap,,false,Industrials,-
+TEJASNET.NS,Mid Cap,,false,Telecommunication,-
+MEDPLUS.NS,Mid Cap,,false,Consumer Discretionary,-
+ETHOSLTD.NS,Mid Cap,,false,Consumer Discretionary,-
+PRECWIRE.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+NESCO.NS,Mid Cap,CNXINFRASTRUCTURE,false,Services,NIFTY INFRASTRUCTURE
+TTML.NS,Mid Cap,CNX500,false,Telecommunication,NIFTY 500
+VESUVIUS.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+INTELLECT.NS,Mid Cap,CNXIT,false,Information Technology,NIFTY IT
+RELAXO.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+OPTIEMUS.NS,Mid Cap,CNX500,false,Telecommunication,NIFTY 500
+AVL.NS,Mid Cap,,false,Consumer Discretionary,-
+SWANCORP.NS,Mid Cap,,false,Commodities,-
+STARCEMENT.NS,Mid Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+PAISALO.NS,Mid Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+ISGEC.NS,Mid Cap,,false,Industrials,-
+MAHSEAMLES.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+SKFINDIA.NS,Mid Cap,CNXINFRASTRUCTURE,false,Consumer Discretionary,NIFTY INFRASTRUCTURE
+SUNFLAG.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+JYOTHYLAB.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+IXIGO.NS,Mid Cap,,false,Consumer Discretionary,-
+EUREKAFORB.NS,Mid Cap,,false,Consumer Discretionary,-
+SETL.NS,Mid Cap,,false,Industrials,-
+GARFIBRES.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+SONATSOFTW.NS,Mid Cap,CNXIT,false,Information Technology,NIFTY IT
+KSHINTL.NS,Mid Cap,,false,Industrials,-
+ZEEL.NS,Mid Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+MAHLIFE.NS,Mid Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+CEIGALL.NS,Mid Cap,,false,Industrials,-
+GNFC.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+CYIENTDLM.NS,Mid Cap,,false,Industrials,-
+SAPPHIRE.NS,Mid Cap,,false,Consumer Discretionary,-
+INDIASHLTR.NS,Mid Cap,,false,Financial Services,-
+JKPAPER.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+GAEL.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+AEROFLEX.NS,Mid Cap,,false,Industrials,-
+INNOVACAP.NS,Mid Cap,,false,Healthcare,-
+KRN.NS,Mid Cap,,false,Industrials,-
+BALUFORGE.NS,Mid Cap,,false,Industrials,-
+SPARC.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+GOKULAGRO.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+SJS.NS,Mid Cap,,false,Consumer Discretionary,-
+DBL.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+AJAXENGG.NS,Mid Cap,,false,Industrials,-
+CENTUM.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+SHARDACROP.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+SAFARI.NS,Mid Cap,,false,Consumer Discretionary,-
+EBGNG.NS,Mid Cap,,false,Information Technology,-
+HNDFDS.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+EQUITASBNK.NS,Mid Cap,,false,Financial Services,-
+TIIL.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+NEPHROPLUS.NS,Mid Cap,,false,Healthcare,-
+WHEELS.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+BECTORFOOD.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+TCI.NS,Mid Cap,CNXINFRASTRUCTURE,false,Services,NIFTY INFRASTRUCTURE
+SFL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+CERA.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+RBA.NS,Mid Cap,,false,Consumer Discretionary,-
+BIRLACORPN.NS,Mid Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+KPIGREEN.NS,Mid Cap,,false,Utilities,-
+SUPRAJIT.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+NEWGEN.NS,Mid Cap,CNXIT,false,Information Technology,NIFTY IT
+SKIPPER.NS,Mid Cap,CNX500,false,Industrials,NIFTY 500
+JKLAKSHMI.NS,Mid Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+BALAMINES.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+FCL.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+MANINDS.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+VMART.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+BORORENEW.NS,Mid Cap,,false,Industrials,-
+FDC.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+TRANSRAILL.NS,Mid Cap,,false,Industrials,-
+JAIBALAJI.NS,Mid Cap,CNXMETAL,false,Commodities,NIFTY METAL
+RCF.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+V2RETAIL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+FEDFINA.NS,Mid Cap,,false,Financial Services,-
+CAMPUS.NS,Mid Cap,,false,Consumer Discretionary,-
+MARINE.NS,Mid Cap,,false,Industrials,-
+SBCL.NS,Mid Cap,,false,Industrials,-
+JAMNAAUTO.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+VRLLOG.NS,Mid Cap,CNXINFRASTRUCTURE,false,Services,NIFTY INFRASTRUCTURE
+REDTAPE.NS,Mid Cap,,false,Consumer Discretionary,-
+IOLCP.NS,Mid Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+IMFA.NS,Mid Cap,CNXMETAL,false,Commodities,NIFTY METAL
+JUSTDIAL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+SMARTWORKS.NS,Mid Cap,,false,Services,-
+PDSL.NS,Mid Cap,,false,Consumer Discretionary,-
+ROSSTECH.NS,Mid Cap,,false,Industrials,-
+GSFC.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+DODLA.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+ITDC.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+PRSMJOHNSN.NS,Mid Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+BAJAJCON.NS,Mid Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+ACI.NS,Mid Cap,,false,Commodities,-
+FIEMIND.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+ROLEXRINGS.NS,Mid Cap,,false,Consumer Discretionary,-
+GULFOILLUB.NS,Mid Cap,CNX500,false,Energy,NIFTY 500
+GOODLUCK.NS,Mid Cap,CNXMETAL,false,Industrials,NIFTY METAL
+GMMPFAUDLR.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+SENCO.NS,Mid Cap,,false,Consumer Discretionary,-
+SHARDAMOTR.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+MSTCLTD.NS,Mid Cap,,false,Services,-
+STYLAMIND.NS,Mid Cap,,false,Consumer Discretionary,-
+RAIN.NS,Mid Cap,CNX500,false,Commodities,NIFTY 500
+STYL.NS,Mid Cap,,false,Financial Services,-
+TRIVENI.NS,Mid Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+PICCADIL.NS,Mid Cap,,false,Fast Moving Consumer Goods,-
+EMIL.NS,Mid Cap,,false,Consumer Discretionary,-
+SENORES.NS,Mid Cap,,false,Healthcare,-
+SIS.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+TVSSCS.NS,Mid Cap,,false,Services,-
+LGBBROSLTD.NS,Mid Cap,CNXMETAL,false,Consumer Discretionary,NIFTY METAL
+GREENLAM.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+LUMAXIND.NS,Mid Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+GANESHHOU.NS,Mid Cap,,false,Consumer Discretionary,-
+ORCHPHARMA.NS,Mid Cap,,false,Healthcare,-
+CSBBANK.NS,Mid Cap,,false,Financial Services,-
+GREAVESCOT.NS,Mid Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+VIKRAMSOLR.NS,Mid Cap,,false,Industrials,-
+THOMASCOOK.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+KDDL.NS,Mid Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+KALPATARU.NS,Mid Cap,,false,Consumer Discretionary,-
+QUESS.NS,Mid Cap,CNXSERVICES,false,Services,NIFTY SERVICES SECTOR
+ARTEMISMED.NS,Mid Cap,,false,Healthcare,-
+SUPRIYA.NS,Mid Cap,,false,Healthcare,-
+GUJTHEM.NS,Mid Cap,,false,Healthcare,-
+SANATHAN.NS,Small Cap,,false,Consumer Discretionary,-
+GOKEX.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+VADILALIND.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+INOXGREEN.NS,Small Cap,,false,Services,-
+RAMRAT.NS,Small Cap,,false,Industrials,-
+MAPMYINDIA.NS,Small Cap,,false,Information Technology,-
+SAMBHV.NS,Small Cap,,false,Industrials,-
+PURVA.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+MASFIN.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+HCC.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+BOSCH-HCIL.NS,Small Cap,,false,Consumer Discretionary,-
+CARERATING.NS,Small Cap,CNX500,false,Financial Services,NIFTY 500
+ABFRL.NS,Small Cap,,false,Consumer Discretionary,-
+HAPPSTMNDS.NS,Small Cap,,false,Information Technology,-
+SMSPHARMA.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+FOSECOIND.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+GUFICBIO.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+GOLDIAM.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+SHAKTIPUMP.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+MASTEK.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+IONEXCHANG.NS,Small Cap,,false,Utilities,-
+PRAJIND.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+SURYAROSNI.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+AARTIDRUGS.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+BANSALWIRE.NS,Small Cap,,false,Industrials,-
+SGFIN.NS,Small Cap,,false,Financial Services,-
+INDIGOPNTS.NS,Small Cap,,false,Consumer Discretionary,-
+WSTCSTPAPR.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+ARVINDFASN.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+CRAMC.NS,Small Cap,,false,Financial Services,-
+RPTECH.NS,Small Cap,,false,Information Technology,-
+SOTL.NS,Small Cap,CNX500,false,Energy,NIFTY 500
+IFBIND.NS,Small Cap,CNXINDIA,false,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+NORTHARC.NS,Small Cap,,false,Financial Services,-
+SUNTECK.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+DBREALTY.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+RUSTOMJEE.NS,Small Cap,,false,Consumer Discretionary,-
+TEXRAIL.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+AGI.NS,Small Cap,,false,Industrials,-
+JUNIPER.NS,Small Cap,,false,Consumer Discretionary,-
+ZOTA.NS,Small Cap,,false,Healthcare,-
+SAATVIKGL.NS,Small Cap,,false,Industrials,-
+WAKEFIT.NS,Small Cap,,false,Consumer Discretionary,-
+FILATEX.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+MOIL.NS,Small Cap,CNXMETAL,false,Commodities,NIFTY METAL
+UFLEX.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+YASHO.NS,Small Cap,,false,Commodities,-
+MANINFRA.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+JSFB.NS,Small Cap,,false,Financial Services,-
+LXCHEM.NS,Small Cap,,false,Commodities,-
+BAJAJHIND.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+AVANTEL.NS,Small Cap,,false,Industrials,-
+CCAVENUE.NS,Small Cap,,false,Financial Services,-
+GUJALKALI.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+ICRA.NS,Small Cap,CNX500,false,Financial Services,NIFTY 500
+LATENTVIEW.NS,Small Cap,,false,Information Technology,-
+ELECTCAST.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+DATAMATICS.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+MAHLOG.NS,Small Cap,CNX500,false,Services,NIFTY 500
+63MOONS.NS,Small Cap,,false,Information Technology,-
+JSLL.NS,Small Cap,,false,Consumer Discretionary,-
+SWARAJENG.NS,Small Cap,CNXAUTO,false,Industrials,NIFTY AUTO
+ORIENTELEC.NS,Small Cap,CNXINDIA,false,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+RPGLIFE.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+HARSHA.NS,Small Cap,,false,Industrials,-
+PARAGMILK.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+NETWORK18.NS,Small Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+DEEPINDS.NS,Small Cap,,false,Energy,-
+GVPIL.NS,Small Cap,,false,Industrials,-
+NRBBEARING.NS,Small Cap,CNXINFRASTRUCTURE,false,Consumer Discretionary,NIFTY INFRASTRUCTURE
+ELLEN.NS,Small Cap,,false,Commodities,-
+SEAMECLTD.NS,Small Cap,CNXSERVICES,false,Services,NIFTY SERVICES SECTOR
+PTC.NS,Small Cap,CNX500,false,Utilities,NIFTY 500
+GHCL.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+CAPILLARY.NS,Small Cap,,false,Information Technology,-
+EPIGRAL.NS,Small Cap,,false,Commodities,-
+TCPLPACK.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+SHILCTECH.NS,Small Cap,,false,Industrials,-
+SHANTIGEAR.NS,Small Cap,CNXAUTO,false,Industrials,NIFTY AUTO
+KOLTEPATIL.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+DHANUKA.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+MHRIL.NS,Small Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+ALOKINDS.NS,Small Cap,,false,Consumer Discretionary,-
+SUBROS.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+SHAREINDIA.NS,Small Cap,,false,Financial Services,-
+INDIQUBE.NS,Small Cap,,false,Services,-
+ASHAPURMIN.NS,Small Cap,CNXMETAL,false,Commodities,NIFTY METAL
+DEEDEV.NS,Small Cap,,false,Industrials,-
+AGIIL.NS,Small Cap,,false,Consumer Discretionary,-
+SHOPERSTOP.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+DALMIASUG.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+RENUKA.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+TATVA.NS,Small Cap,,false,Commodities,-
+BANARISUG.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+RAYMONDREL.NS,Small Cap,,false,Consumer Discretionary,-
+VENUSPIPES.NS,Small Cap,,false,Industrials,-
+MPSLTD.NS,Small Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+UNIVCABLES.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+KSL.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+SINDHUTRAD.NS,Small Cap,,false,Energy,-
+NITINSPIN.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+SYMPHONY.NS,Small Cap,CNXINDIA,false,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+RTNPOWER.NS,Small Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+CHEMPLASTS.NS,Small Cap,,false,Commodities,-
+KSCL.NS,Small Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+TARC.NS,Small Cap,,false,Consumer Discretionary,-
+BOROLTD.NS,Small Cap,,false,Consumer Discretionary,-
+VISHNU.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+SAMHI.NS,Small Cap,,false,Consumer Discretionary,-
+RALLIS.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+NPST.NS,Small Cap,,false,Financial Services,-
+VSSL.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+SWSOLAR.NS,Small Cap,,false,Industrials,-
+STYLEBAAZA.NS,Small Cap,,false,Consumer Discretionary,-
+RESPONIND.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+HERITGFOOD.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+JINDWORLD.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+LUXIND.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+ASHIANA.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+RTNINDIA.NS,Small Cap,,false,Consumer Discretionary,-
+KIRLOSIND.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+AHLUCONT.NS,Small Cap,CNXREALTY,false,Industrials,NIFTY REALTY
+IDEAFORGE.NS,Small Cap,,false,Industrials,-
+UNICHEMLAB.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+PITTIENG.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+PRINCEPIPE.NS,Small Cap,,false,Industrials,-
+JASH.NS,Small Cap,,false,Industrials,-
+GREENPLY.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+ANUP.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+RML.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+CMSINFO.NS,Small Cap,,false,Services,-
+PACEDIGITK.NS,Small Cap,,false,Telecommunication,-
+JTEKTINDIA.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+VIPIND.NS,Small Cap,,false,Consumer Discretionary,-
+INDOSTAR.NS,Small Cap,,false,Financial Services,-
+RAYMONDLSL.NS,Small Cap,,false,Consumer Discretionary,-
+VSTTILLERS.NS,Small Cap,CNXAUTO,false,Industrials,NIFTY AUTO
+VSTIND.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+SBC.NS,Small Cap,,false,Consumer Discretionary,-
+MOSCHIP.NS,Small Cap,,false,Information Technology,-
+NILKAMAL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+TVSSRICHAK.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+UNIPARTS.NS,Small Cap,,false,Consumer Discretionary,-
+SOLARA.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+STYRENIX.NS,Small Cap,,false,Commodities,-
+KIRIINDUS.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+MMFL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+JKIL.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+WONDERLA.NS,Small Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+PNCINFRA.NS,Small Cap,CNXREALTY,false,Industrials,NIFTY REALTY
+GOPAL.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+HEMIPROP.NS,Small Cap,,false,Services,-
+BAJAJELEC.NS,Small Cap,CNXINDIA,false,Consumer Discretionary,NIFTY INDIA CONSUMPTION
+AURIONPRO.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+SANGHVIMOV.NS,Small Cap,CNX500,false,Services,NIFTY 500
+NFL.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+SANGAMIND.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+ARSSBL.NS,Small Cap,,false,Financial Services,-
+REFEX.NS,Small Cap,CNX500,false,Utilities,NIFTY 500
+HIRECT.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+VINDHYATEL.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+INDSWFTLAB.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+ASHOKA.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+ORIENTHOT.NS,Small Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+SANDHAR.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+PSPPROJECT.NS,Small Cap,CNXREALTY,false,Industrials,NIFTY REALTY
+ADVENZYMES.NS,Small Cap,CNX500,false,Healthcare,NIFTY 500
+MAYURUNIQ.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+PREMEXPLN.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+WEBELSOLAR.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+ANTELOPUS.NS,Small Cap,,false,Energy,-
+BBL.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+JINDALPOLY.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+KNRCON.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+RATNAVEER.NS,Small Cap,,false,Industrials,-
+WINDMACHIN.NS,Small Cap,,false,Industrials,-
+HLEGLAS.NS,Small Cap,,false,Industrials,-
+TRUALT.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+INDRAMEDCO.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+EIEL.NS,Small Cap,,false,Utilities,-
+RSYSTEMS.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+JTLIND.NS,Small Cap,,false,Industrials,-
+POLYPLEX.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+SHRINGARMS.NS,Small Cap,,false,Consumer Discretionary,-
+KERNEX.NS,Small Cap,CNXIT,false,Services,NIFTY IT
+EMUDHRA.NS,Small Cap,,false,Information Technology,-
+BALMLAWRIE.NS,Small Cap,CNX500,false,Diversified,NIFTY 500
+MARATHON.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+PRABHA.NS,Small Cap,,false,Energy,-
+PROTEAN.NS,Small Cap,,false,Information Technology,-
+ALEMBICLTD.NS,Small Cap,CNXPHARMA,false,Consumer Discretionary,NIFTY PHARMA
+SATIN.NS,Small Cap,CNX500,false,Financial Services,NIFTY 500
+POCL.NS,Small Cap,,false,Commodities,-
+ROUTE.NS,Small Cap,,false,Telecommunication,-
+INTERARCH.NS,Small Cap,,false,Industrials,-
+MUTHOOTMF.NS,Small Cap,,false,Financial Services,-
+ARVSMART.NS,Small Cap,CNXINFRASTRUCTURE,false,Consumer Discretionary,NIFTY INFRASTRUCTURE
+INDOTECH.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+BEPL.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+VAIBHAVGBL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+RPSGVENT.NS,Small Cap,,false,Services,-
+XPROINDIA.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+JUBLCPL.NS,Small Cap,,false,Commodities,-
+NACLIND.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+MONARCH.NS,Small Cap,,false,Financial Services,-
+DBCORP.NS,Small Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+RELTD.NS,Small Cap,,false,Industrials,-
+CARRARO.NS,Small Cap,,false,Consumer Discretionary,-
+HEIDELBERG.NS,Small Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+MUFIN.NS,Small Cap,,false,Financial Services,-
+AUTOAXLES.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+HIKAL.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+CARYSIL.NS,Small Cap,,false,Consumer Discretionary,-
+JAYKAY.NS,Small Cap,,false,Industrials,-
+RAMCOIND.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+NAVNETEDUL.NS,Small Cap,CNXMEDIA,false,Fast Moving Consumer Goods,NIFTY MEDIA
+DCAL.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+CRIZAC.NS,Small Cap,,false,Consumer Discretionary,-
+FUSION.NS,Small Cap,,false,Financial Services,-
+KKCL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+HGINFRA.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+RAMKY.NS,Small Cap,CNXREALTY,false,Industrials,NIFTY REALTY
+ADFFOODS.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+INDNIPPON.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+PANAMAPET.NS,Small Cap,CNX500,false,Energy,NIFTY 500
+FLAIR.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+SASKEN.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+AJMERA.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+OSWALPUMPS.NS,Small Cap,,false,Industrials,-
+BLSE.NS,Small Cap,,false,Information Technology,-
+ADOR.NS,Small Cap,,false,Industrials,-
+GANDHAR.NS,Small Cap,,false,Energy,-
+KITEX.NS,Small Cap,,false,Consumer Discretionary,-
+PATELENG.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+FMGOETZE.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+HINDOILEXP.NS,Small Cap,CNX500,false,Energy,NIFTY 500
+ORIENTCEM.NS,Small Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+STOVEKRAFT.NS,Small Cap,,false,Consumer Discretionary,-
+DDEVPLSTIK.NS,Small Cap,,false,Commodities,-
+TALBROAUTO.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+GIPCL.NS,Small Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+MANGLMCEM.NS,Small Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+HUBTOWN.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+GNA.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+EFCIL.NS,Small Cap,,false,Services,-
+RISHABH.NS,Small Cap,,false,Industrials,-
+MAITHANALL.NS,Small Cap,CNXMETAL,false,Commodities,NIFTY METAL
+SUNDROP.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+IMAGICAA.NS,Small Cap,,false,Consumer Discretionary,-
+DIAMONDYD.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+BHAGCHEM.NS,Small Cap,,false,Commodities,-
+BLUSPRING.NS,Small Cap,,false,Services,-
+SUNCLAY.NS,Small Cap,,false,Consumer Discretionary,-
+VEEDOL.NS,Small Cap,,false,Energy,-
+ROSSARI.NS,Small Cap,,false,Commodities,-
+DREDGECORP.NS,Small Cap,CNXINFRASTRUCTURE,false,Services,NIFTY INFRASTRUCTURE
+ESAFSFB.NS,Small Cap,,false,Financial Services,-
+EASEMYTRIP.NS,Small Cap,,false,Consumer Discretionary,-
+GATEWAY.NS,Small Cap,,false,Services,-
+NIITMTS.NS,Small Cap,,false,Consumer Discretionary,-
+REPCOHOME.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+VINCOFE.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+SIMPLEXINF.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+ALGOQUANT.NS,Small Cap,,false,Financial Services,-
+NOCIL.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+MOLDTKPAC.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+ZAGGLE.NS,Small Cap,,false,Information Technology,-
+GANECOS.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+SIRCA.NS,Small Cap,,false,Consumer Discretionary,-
+JGCHEM.NS,Small Cap,,false,Commodities,-
+EVEREADY.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+GLOBUSSPR.NS,Small Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+SIYSIL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+DELTACORP.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+POKARNA.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+SPAL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+PARKHOTELS.NS,Small Cap,,false,Consumer Discretionary,-
+VIMTALABS.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+STLNETWORK.NS,Small Cap,,false,Telecommunication,-
+PENIND.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+BOMDYEING.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+APOLLOPIPE.NS,Small Cap,,false,Industrials,-
+VENKEYS.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+NITCO.NS,Small Cap,,false,Consumer Discretionary,-
+PARACABLES.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+COSMOFIRST.NS,Small Cap,,false,Industrials,-
+CANTABIL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+PANACEABIO.NS,Small Cap,,false,Healthcare,-
+CONFIPET.NS,Small Cap,,false,Energy,-
+SOMANYCERA.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+UTKARSHBNK.NS,Small Cap,,false,Financial Services,-
+RAJRATAN.NS,Small Cap,,false,Consumer Discretionary,-
+MEDIASSIST.NS,Small Cap,,false,Financial Services,-
+AURUM.NS,Small Cap,,false,Information Technology,-
+EPACKPEB.NS,Small Cap,,false,Industrials,-
+AWFIS.NS,Small Cap,,false,Services,-
+INDIAGLYCO.NS,Small Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+RAMCOSYS.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+MUKANDLTD.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+ORISSAMINE.NS,Small Cap,CNXMETAL,false,Commodities,NIFTY METAL
+BRIGHOTEL.NS,Small Cap,,false,Consumer Discretionary,-
+ADVAIT.NS,Small Cap,,false,Industrials,-
+ARKADE.NS,Small Cap,,false,Consumer Discretionary,-
+WINDLAS.NS,Small Cap,,false,Healthcare,-
+JNKINDIA.NS,Small Cap,,false,Industrials,-
+PRAKASH.NS,Small Cap,CNXMETAL,false,Commodities,NIFTY METAL
+MANAKCOAT.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+TAJGVK.NS,Small Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+SHANTIGOLD.NS,Small Cap,,false,Consumer Discretionary,-
+SANSTAR.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+GKENERGY.NS,Small Cap,,false,Industrials,-
+SMCGLOBAL.NS,Small Cap,,false,Financial Services,-
+GEOJITFSL.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+KRISHNADEF.NS,Small Cap,,false,Industrials,-
+KCP.NS,Small Cap,CNXCOMMODITIES,false,Commodities,NIFTY COMMODITIES
+LANDMARK.NS,Small Cap,,false,Consumer Discretionary,-
+KROSS.NS,Small Cap,,false,Consumer Discretionary,-
+GMBREW.NS,Small Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+JISLJALEQS.NS,Small Cap,,false,Industrials,-
+NIBE.NS,Small Cap,,false,Industrials,-
+ASIANENE.NS,Small Cap,,false,Energy,-
+EXICOM.NS,Small Cap,,false,Industrials,-
+EUROPRATIK.NS,Small Cap,,false,Consumer Discretionary,-
+MSPL.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+SYNCOMF.NS,Small Cap,,false,Healthcare,-
+ONEPOINT.NS,Small Cap,,false,Services,-
+TCIEXP.NS,Small Cap,CNX500,false,Services,NIFTY 500
+BCG.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+GRMOVER.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+BAJEL.NS,Small Cap,,false,Industrials,-
+SAGCEM.NS,Small Cap,,false,Commodities,-
+GREENPANEL.NS,Small Cap,,false,Consumer Discretionary,-
+OMAXE.NS,Small Cap,,false,Consumer Discretionary,-
+NELCO.NS,Small Cap,CNX500,false,Information Technology,NIFTY 500
+RACLGEAR.NS,Small Cap,,false,Consumer Discretionary,-
+DCXINDIA.NS,Small Cap,,false,Industrials,-
+DYCL.NS,Small Cap,,false,Industrials,-
+SHK.NS,Small Cap,CNXFMCG,false,Commodities,NIFTY FMCG
+MOBIKWIK.NS,Small Cap,,false,Financial Services,-
+SAKSOFT.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+SHREEPUSHK.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+EMSLIMITED.NS,Small Cap,,false,Utilities,-
+NDRAUTO.NS,Small Cap,,false,Consumer Discretionary,-
+AVADHSUGAR.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+LAOPALA.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+QUADFUTURE.NS,Small Cap,,false,Industrials,-
+KRSNAA.NS,Small Cap,,false,Healthcare,-
+HUHTAMAKI.NS,Small Cap,,false,Industrials,-
+TIL.NS,Small Cap,,false,Industrials,-
+GOCLCORP.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+HPL.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+SCILAL.NS,Small Cap,,false,Financial Services,-
+TARSONS.NS,Small Cap,,false,Healthcare,-
+DIFFNKG.NS,Small Cap,,false,Industrials,-
+HATHWAY.NS,Small Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+PFS.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+SURYODAY.NS,Small Cap,,false,Financial Services,-
+BHAGERIA.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+MBEL.NS,Small Cap,,false,Industrials,-
+SPANDANA.NS,Small Cap,,false,Financial Services,-
+RGL.NS,Small Cap,,false,Consumer Discretionary,-
+ARMANFIN.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+MTNL.NS,Small Cap,,false,Telecommunication,-
+NUCLEUS.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+VIDYAWIRES.NS,Small Cap,,false,Industrials,-
+STUDDS.NS,Small Cap,,false,Consumer Discretionary,-
+FISCHER.NS,Small Cap,,false,Healthcare,-
+JAICORPLTD.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+ARFIN.NS,Small Cap,,false,Commodities,-
+SDBL.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+OAL.NS,Small Cap,,false,Commodities,-
+INDIANHUME.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+MOTISONS.NS,Small Cap,,false,Consumer Discretionary,-
+5PAISA.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+GALAPREC.NS,Small Cap,,false,Industrials,-
+DHANBANK.NS,Small Cap,NSEBANK,false,Financial Services,NIFTY BANK
+JYOTISTRUC.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+SUMMITSEC.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+INFOBEAN.NS,Small Cap,,false,Information Technology,-
+INSECTICID.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+TINNARUBR.NS,Small Cap,,false,Industrials,-
+EIMCOELECO.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+HITECH.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+TEAMLEASE.NS,Small Cap,CNX500,false,Services,NIFTY 500
+SERVOTECH.NS,Small Cap,,false,Industrials,-
+DOLLAR.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+EPACK.NS,Small Cap,,false,Consumer Discretionary,-
+ACCELYA.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+JINDRILL.NS,Small Cap,CNX500,false,Energy,NIFTY 500
+AEROENTER.NS,Small Cap,,false,Industrials,-
+IKIO.NS,Small Cap,,false,Consumer Discretionary,-
+CAPACITE.NS,Small Cap,CNXREALTY,false,Industrials,NIFTY REALTY
+WENDT.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+TIRUMALCHM.NS,Small Cap,,false,Commodities,-
+ALLCARGO.NS,Small Cap,CNXINFRASTRUCTURE,false,Services,NIFTY INFRASTRUCTURE
+CAMLINFINE.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+GPTINFRA.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+DLINKINDIA.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+UDS.NS,Small Cap,,false,Services,-
+GOCOLORS.NS,Small Cap,,false,Consumer Discretionary,-
+JAGRAN.NS,Small Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+HINDWAREAP.NS,Small Cap,,false,Consumer Discretionary,-
+GARUDA.NS,Small Cap,,false,Consumer Discretionary,-
+AHCL.NS,Small Cap,,false,Healthcare,-
+UTTAMSUGAR.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+JAGSNPHARM.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+DCW.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+MOL.NS,Small Cap,,false,Commodities,-
+VIKRAN.NS,Small Cap,,false,Industrials,-
+KOPRAN.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+PNBGILTS.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+ROTO.NS,Small Cap,,false,Industrials,-
+RICOAUTO.NS,Small Cap,,false,Consumer Discretionary,-
+KALAMANDIR.NS,Small Cap,,false,Consumer Discretionary,-
+IPL.NS,Small Cap,,false,Commodities,-
+FAZE3Q.NS,Small Cap,,false,Consumer Discretionary,-
+JAYBARMARU.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+DSSL.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+SHALBY.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+MANALIPETC.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+ALLTIME.NS,Small Cap,,false,Consumer Discretionary,-
+TTKHLTCARE.NS,Small Cap,CNXPHARMA,false,Diversified,NIFTY PHARMA
+WALCHANNAG.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+BHARATSE.NS,Small Cap,,false,Consumer Discretionary,-
+IZMO.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+ASIANTILES.NS,Small Cap,,false,Consumer Discretionary,-
+SPMLINFRA.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+IMPAL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+GENESYS.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+ALLDIGI.NS,Small Cap,,false,Services,-
+KPEL.NS,Small Cap,,false,Utilities,-
+NAVKARCORP.NS,Small Cap,CNX500,false,Services,NIFTY 500
+BALAJITELE.NS,Small Cap,,false,Consumer Discretionary,-
+EXCELINDUS.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+SPIC.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+GHCLTEXTIL.NS,Small Cap,,false,Consumer Discretionary,-
+DEN.NS,Small Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+ASTEC.NS,Small Cap,,false,Commodities,-
+GKSL.NS,Small Cap,,false,Healthcare,-
+YATRA.NS,Small Cap,,false,Consumer Discretionary,-
+STEL.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+INDOBORAX.NS,Small Cap,,false,Commodities,-
+SKMEGGPROD.NS,Small Cap,CNX500,false,Fast Moving Consumer Goods,NIFTY 500
+PLATIND.NS,Small Cap,,false,Commodities,-
+SHRIRAMPPS.NS,Small Cap,,false,Consumer Discretionary,-
+EKC.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+BLKASHYAP.NS,Small Cap,CNXREALTY,false,Industrials,NIFTY REALTY
+SULA.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+MWL.NS,Small Cap,,false,Industrials,-
+IGARASHI.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+MATRIMONY.NS,Small Cap,CNXIT,false,Consumer Discretionary,NIFTY IT
+JINDALPHOT.NS,Small Cap,,false,Financial Services,-
+DOLATALGO.NS,Small Cap,,false,Financial Services,-
+IVALUE.NS,Small Cap,,false,Information Technology,-
+HARIOMPIPE.NS,Small Cap,,false,Industrials,-
+ASALCBR.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+MICEL.NS,Small Cap,,false,Industrials,-
+IRISDOREME.NS,Small Cap,,false,Consumer Discretionary,-
+LAXMIDENTL.NS,Small Cap,,false,Healthcare,-
+PUNJABCHEM.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+GODAVARIB.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+ATULAUTO.NS,Small Cap,CNXAUTO,false,Industrials,NIFTY AUTO
+RIIL.NS,Small Cap,CNXINFRASTRUCTURE,false,Services,NIFTY INFRASTRUCTURE
+DHAMPURSUG.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+GREENPOWER.NS,Small Cap,CNXINFRASTRUCTURE,false,Utilities,NIFTY INFRASTRUCTURE
+BAJAJHCARE.NS,Small Cap,,false,Healthcare,-
+SIGACHI.NS,Small Cap,,false,Healthcare,-
+FINOPB.NS,Small Cap,,false,Financial Services,-
+SYSTMTXC.NS,Small Cap,,false,Financial Services,-
+KAMDHENU.NS,Small Cap,CNXMETAL,false,Industrials,NIFTY METAL
+RHETAN.NS,Small Cap,,false,Industrials,-
+PRIMESECU.NS,Small Cap,,false,Financial Services,-
+IRMENERGY.NS,Small Cap,,false,Energy,-
+BHARATWIRE.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+MONTECARLO.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+AFSL.NS,Small Cap,,false,Financial Services,-
+TNPETRO.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+ARIHANTCAP.NS,Small Cap,,false,Financial Services,-
+UGROCAP.NS,Small Cap,,false,Financial Services,-
+DAMCAPITAL.NS,Small Cap,,false,Financial Services,-
+APEX.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+RAJOOENG.NS,Small Cap,,false,Industrials,-
+NIITLTD.NS,Small Cap,CNXIT,false,Consumer Discretionary,NIFTY IT
+PRECAM.NS,Small Cap,CNXAUTO,false,Consumer Discretionary,NIFTY AUTO
+WEL.NS,Small Cap,,false,Consumer Discretionary,-
+JPOLYINVST.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+RUPA.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+CONTROLPR.NS,Small Cap,CNX500,false,Information Technology,NIFTY 500
+SOLARWORLD.NS,Small Cap,,false,Industrials,-
+TNPL.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+REGAAL.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+SALZERELEC.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+UNIECOM.NS,Small Cap,,false,Information Technology,-
+SEPC.NS,Small Cap,,false,Industrials,-
+ORIENTTECH.NS,Small Cap,,false,Information Technology,-
+SWELECTES.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+DIGITIDE.NS,Small Cap,,false,Information Technology,-
+BIRLANU.NS,Small Cap,,false,Commodities,-
+WCIL.NS,Small Cap,,false,Services,-
+SRM.NS,Small Cap,,false,Industrials,-
+SUBEXLTD.NS,Small Cap,,false,Information Technology,-
+PREMIERPOL.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+JARO.NS,Small Cap,,false,Consumer Discretionary,-
+NAHARSPING.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+SURAJEST.NS,Small Cap,,false,Consumer Discretionary,-
+AWHCL.NS,Small Cap,,false,Utilities,-
+BCLIND.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+SHREDIGCEM.NS,Small Cap,,false,Commodities,-
+EXCELSOFT.NS,Small Cap,,false,Information Technology,-
+KRYSTAL.NS,Small Cap,,false,Services,-
+MAMATA.NS,Small Cap,,false,Industrials,-
+DWARKESH.NS,Small Cap,CNXFMCG,false,Fast Moving Consumer Goods,NIFTY FMCG
+ROHLTD.NS,Small Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+ELECTHERM.NS,Small Cap,,false,Industrials,-
+QUICKHEAL.NS,Small Cap,,false,Information Technology,-
+ZUARI.NS,Small Cap,CNX500,false,Commodities,NIFTY 500
+DHARMAJ.NS,Small Cap,,false,Commodities,-
+RMDRIP.NS,Small Cap,,false,Industrials,-
+ADVANCE.NS,Small Cap,,false,Commodities,-
+SALASAR.NS,Small Cap,CNXINFRASTRUCTURE,false,Industrials,NIFTY INFRASTRUCTURE
+STANLEY.NS,Small Cap,,false,Consumer Discretionary,-
+PATELRMART.NS,Small Cap,,false,Consumer Discretionary,-
+STERTOOLS.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+PROSTARM.NS,Small Cap,,false,Industrials,-
+KECL.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+GEMAROMA.NS,Small Cap,,false,Commodities,-
+ZUARIIND.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+HIMATSEIDE.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+NDTV.NS,Small Cap,,false,Consumer Discretionary,-
+GANESHCP.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+MANBA.NS,Small Cap,,false,Financial Services,-
+ASAL.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+VASCONEQ.NS,Small Cap,CNXREALTY,false,Consumer Discretionary,NIFTY REALTY
+GICHSGFIN.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+ECOSMOBLTY.NS,Small Cap,,false,Services,-
+EMKAY.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+MEIL.NS,Small Cap,,false,Industrials,-
+STCINDIA.NS,Small Cap,CNX500,false,Services,NIFTY 500
+DECCANCE.NS,Small Cap,,false,Commodities,-
+WANBURY.NS,Small Cap,CNXPHARMA,false,Healthcare,NIFTY PHARMA
+BIRLAMONEY.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+KAMATHOTEL.NS,Small Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+SOLEX.NS,Small Cap,,false,Industrials,-
+20MICRONS.NS,Small Cap,CNXMETAL,false,Commodities,NIFTY METAL
+KELLTONTEC.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+SUYOG.NS,Small Cap,,false,Telecommunication,-
+ADVENTHTL.NS,Small Cap,,false,Consumer Discretionary,-
+AGARIND.NS,Small Cap,CNXINFRASTRUCTURE,false,Commodities,NIFTY INFRASTRUCTURE
+DENTA.NS,Small Cap,,false,Utilities,-
+COFFEEDAY.NS,Small Cap,CNX500,false,Consumer Discretionary,NIFTY 500
+TVTODAY.NS,Small Cap,CNXMEDIA,false,Consumer Discretionary,NIFTY MEDIA
+FABTECH.NS,Small Cap,,false,Healthcare,-
+VAKRANGEE.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+SCODATUBES.NS,Small Cap,,false,Industrials,-
+INDOFARM.NS,Small Cap,,false,Industrials,-
+EIFFL.NS,Small Cap,,false,Fast Moving Consumer Goods,-
+ADSL.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+ONMOBILE.NS,Small Cap,,false,Consumer Discretionary,-
+MALLCOM.NS,Small Cap,,false,Industrials,-
+PPL.NS,Small Cap,,false,Industrials,-
+LAXMIINDIA.NS,Small Cap,,false,Financial Services,-
+KHAICHEM.NS,Small Cap,,false,Commodities,-
+KSOLVES.NS,Small Cap,,false,Information Technology,-
+WSI.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+BIGBLOC.NS,Small Cap,,false,Commodities,-
+CEWATER.NS,Small Cap,,false,Utilities,-
+CHEMFAB.NS,Small Cap,,false,Commodities,-
+URJA.NS,Small Cap,CNX500,false,Industrials,NIFTY 500
+RAMAPHO.NS,Small Cap,,false,Commodities,-
+MINDTECK.NS,Small Cap,CNXIT,false,Information Technology,NIFTY IT
+ADVANIHOTR.NS,Small Cap,CNXSERVICES,false,Consumer Discretionary,NIFTY SERVICES SECTOR
+INDOTHAI.NS,Small Cap,NIFTY_FIN_SERVICE,false,Financial Services,NIFTY FINANCIAL SERVICES
+RKSWAMY.NS,Small Cap,,false,Consumer Discretionary,-
+NILASPACES.NS,Small Cap,CNXINFRASTRUCTURE,false,Consumer Discretionary,NIFTY INFRASTRUCTURE
+TARACHAND.NS,Small Cap,,false,Services,-
+VPRPL.NS,Small Cap,,false,Industrials,-
+DREAMFOLKS.NS,Small Cap,,false,Services,-

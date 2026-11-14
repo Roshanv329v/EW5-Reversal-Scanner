@@ -15,6 +15,7 @@ for the whole universe at once).
 from __future__ import annotations
 
 import json
+import shutil
 import zlib
 from functools import lru_cache
 from pathlib import Path
@@ -24,7 +25,7 @@ import pandas as pd
 
 from core import data_store as ds
 
-N_PARTS = 16
+N_PARTS = 64                  # ~20 tickers each for ~1,300 stocks (1.0-1.7 used 16; migrate() moves old data)
 ProgressFn = Callable[[float, str], None]
 
 
@@ -36,6 +37,49 @@ class Store:
     def __init__(self, cfg: dict):
         self.cfg = cfg
         self.dir = Path(cfg["stock_csv"]).parent / "stock_parts"
+        self.migrate()
+
+    # ---------------------------------------------------------------- layout
+    def migrate(self) -> int:
+        """
+        Data saved with another number of parts (app 1.0-1.7: 16) is moved to N_PARTS parts,
+        one old part at a time, into a new folder that then replaces the old one.
+        Returns the rows moved (0 when nothing had to be done).
+        """
+        layout = self.dir / "layout.json"
+        if not self.dir.exists():
+            return 0
+        try:
+            parts = json.loads(layout.read_text(encoding="utf-8"))["parts"]
+        except (OSError, ValueError, KeyError):
+            parts = 16 if any(self.dir.glob("stock_*.csv")) else N_PARTS
+        if parts == N_PARTS:
+            if not layout.exists():
+                layout.write_text(json.dumps({"parts": N_PARTS}), encoding="utf-8")
+            return 0
+        new_dir = self.dir.with_name("stock_parts_new")
+        if new_dir.exists():
+            shutil.rmtree(new_dir)
+        new_dir.mkdir(parents=True)
+        rows = 0
+        for old in sorted(self.dir.glob("stock_*.csv")):
+            df = ds.load_stock_csv(old)
+            rows += len(df)
+            for i, part in df.groupby(df["Ticker"].map(part_of)):
+                target = new_dir / f"stock_{int(i):02d}.csv"
+                part.to_csv(target, mode="a", header=not target.exists(), index=False, date_format=ds.TIME_FMT)
+        for path in new_dir.glob("stock_*.csv"):                     # keys sorted, like a normal save
+            df = ds.load_stock_csv(path).sort_values(ds.KEYS).reset_index(drop=True)
+            df.to_csv(path, index=False, date_format=ds.TIME_FMT)
+        (new_dir / "layout.json").write_text(json.dumps({"parts": N_PARTS}), encoding="utf-8")
+        old_dir = self.dir.with_name("stock_parts_old")
+        if old_dir.exists():
+            shutil.rmtree(old_dir)
+        self.dir.rename(old_dir)
+        new_dir.rename(self.dir)
+        shutil.rmtree(old_dir, ignore_errors=True)
+        _load.cache_clear()
+        return rows
 
     # ---------------------------------------------------------------- files
     def part_path(self, i: int) -> Path:
@@ -76,6 +120,8 @@ class Store:
         for t in ds.clean_tickers(tickers):
             groups.setdefault(part_of(t), []).append(t)
         self.dir.mkdir(parents=True, exist_ok=True)
+        if not (self.dir / "layout.json").exists():
+            (self.dir / "layout.json").write_text(json.dumps({"parts": N_PARTS}), encoding="utf-8")
         reports: list[ds.UpdateReport] = []
         items = sorted(groups.items())
         for n, (i, group) in enumerate(items):
@@ -113,6 +159,7 @@ class Store:
     def import_csv(self, path: Path, progress: Optional[ProgressFn] = None) -> int:
         """Split a desktop stock.csv into parts (read in pieces, so it never sits in memory whole)."""
         self.dir.mkdir(parents=True, exist_ok=True)
+        (self.dir / "layout.json").write_text(json.dumps({"parts": N_PARTS}), encoding="utf-8")
         tmp = {i: self.dir / f"import_{i:02d}.csv" for i in range(N_PARTS)}
         for p in tmp.values():
             p.unlink(missing_ok=True)

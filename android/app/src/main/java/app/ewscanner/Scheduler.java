@@ -29,10 +29,14 @@ public final class Scheduler {
         if (c != null) reschedule(c);
     }
 
+    static final String EXTRA_KIND = "kind";      // "regular" (usual universe) or "full" (every stock)
+
     static void reschedule(Context c) {
-        long at = next(c, System.currentTimeMillis());
-        set(c, 0, at);
-        log(c, at > 0 ? "next scan set for " + stamp(at) : "scheduled scans off");
+        long[] next = next(c, System.currentTimeMillis());
+        String kind = next[1] == 1 ? "full" : "regular";
+        set(c, 0, next[0], kind);
+        log(c, next[0] > 0 ? "next scan set for " + stamp(next[0]) + (next[1] == 1 ? " (weekly full scan)" : "")
+                : "scheduled scans off");
     }
 
     /** A one-off scan in `minutes` (Alerts tab: "Test with the phone locked"). */
@@ -40,7 +44,7 @@ public final class Scheduler {
         Context c = App.get();
         if (c == null) return;
         long at = System.currentTimeMillis() + minutes * 60_000L;
-        set(c, 1, at);
+        set(c, 1, at, "regular");
         log(c, "test scan set for " + stamp(at));
     }
 
@@ -48,9 +52,9 @@ public final class Scheduler {
      * Alarm-clock alarms (setAlarmClock) are the kind Android and phone makers are least likely
      * to delay or drop while the phone is locked or in deep sleep; they show the alarm icon.
      */
-    private static void set(Context c, int code, long at) {
+    private static void set(Context c, int code, long at, String kind) {
         AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
-        PendingIntent pi = PendingIntent.getBroadcast(c, code, new Intent(c, AlarmReceiver.class),
+        PendingIntent pi = PendingIntent.getBroadcast(c, code, new Intent(c, AlarmReceiver.class).putExtra(EXTRA_KIND, kind),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         am.cancel(pi);
         if (at <= 0) return;
@@ -85,35 +89,50 @@ public final class Scheduler {
     }
 
     /** Next scheduled time in milliseconds, or 0 when alerts are off. Same rule as alerts.next_runs. */
-    static long next(Context c, long now) {
+    /**
+     * {time in ms, 1 if it is the weekly full scan}, or {0, 0} when scans are off.
+     * Same rule as mobile/alerts.slots(): a full scan at the same minute replaces a regular one.
+     */
+    static long[] next(Context c, long now) {
         try {
             File f = new File(new File(c.getFilesDir(), "data"), "alert_settings.json");
-            if (!f.exists()) return 0;
+            if (!f.exists()) return new long[]{0, 0};
             JSONObject s = new JSONObject(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
-            if (!s.optBoolean("enabled", false)) return 0;
-            JSONArray days = s.getJSONArray("days"), times = s.getJSONArray("times");
-            for (int offset = 0; offset < 15; offset++) {
-                Calendar day = Calendar.getInstance();
-                day.setTimeInMillis(now);
-                day.add(Calendar.DAY_OF_YEAR, offset);
-                int iso = (day.get(Calendar.DAY_OF_WEEK) + 5) % 7 + 1;          // Monday = 1 ... Sunday = 7
-                boolean on = false;
-                for (int i = 0; i < days.length(); i++) on |= days.getInt(i) == iso;
-                if (!on) continue;
-                long best = Long.MAX_VALUE;
-                for (int i = 0; i < times.length(); i++) {
-                    String[] hm = times.getString(i).split(":");
-                    Calendar t = (Calendar) day.clone();
-                    t.set(Calendar.HOUR_OF_DAY, Integer.parseInt(hm[0]));
-                    t.set(Calendar.MINUTE, Integer.parseInt(hm[1]));
-                    t.set(Calendar.SECOND, 0);
-                    t.set(Calendar.MILLISECOND, 0);
-                    if (t.getTimeInMillis() > now) best = Math.min(best, t.getTimeInMillis());
-                }
-                if (best != Long.MAX_VALUE) return best;
+            if (!s.optBoolean("enabled", false)) return new long[]{0, 0};
+            long regular = first(now, s.optJSONArray("days"), s.optJSONArray("times"));
+            long full = s.optBoolean("full_enabled", false)
+                    ? first(now, s.optJSONArray("full_days"), s.optJSONArray("full_times")) : Long.MAX_VALUE;
+            if (full <= regular && full != Long.MAX_VALUE) return new long[]{full, 1};
+            return regular == Long.MAX_VALUE ? new long[]{0, 0} : new long[]{regular, 0};
+        } catch (Exception ignored) {
+            return new long[]{0, 0};
+        }
+    }
+
+    /** First of `times` on one of `days` (1 = Monday) after `now`, or Long.MAX_VALUE. */
+    private static long first(long now, JSONArray days, JSONArray times) throws org.json.JSONException {
+        if (days == null || times == null) return Long.MAX_VALUE;
+        for (int offset = 0; offset < 15; offset++) {
+            Calendar day = Calendar.getInstance();
+            day.setTimeInMillis(now);
+            day.add(Calendar.DAY_OF_YEAR, offset);
+            int iso = (day.get(Calendar.DAY_OF_WEEK) + 5) % 7 + 1;              // Monday = 1 ... Sunday = 7
+            boolean on = false;
+            for (int i = 0; i < days.length(); i++) on |= days.getInt(i) == iso;
+            if (!on) continue;
+            long best = Long.MAX_VALUE;
+            for (int i = 0; i < times.length(); i++) {
+                String[] hm = times.getString(i).split(":");
+                Calendar t = (Calendar) day.clone();
+                t.set(Calendar.HOUR_OF_DAY, Integer.parseInt(hm[0]));
+                t.set(Calendar.MINUTE, Integer.parseInt(hm[1]));
+                t.set(Calendar.SECOND, 0);
+                t.set(Calendar.MILLISECOND, 0);
+                if (t.getTimeInMillis() > now) best = Math.min(best, t.getTimeInMillis());
             }
-        } catch (Exception ignored) { }
-        return 0;
+            if (best != Long.MAX_VALUE) return best;
+        }
+        return Long.MAX_VALUE;
     }
 
     /** The alarm: set the next one, then run the scan in the background service. */
@@ -121,9 +140,10 @@ public final class Scheduler {
         @Override
         public void onReceive(Context c, Intent intent) {
             App.init(c);
-            log(c, "alarm fired: starting the scan");
+            String kind = intent.getStringExtra(EXTRA_KIND) == null ? "regular" : intent.getStringExtra(EXTRA_KIND);
+            log(c, "alarm fired: starting the " + ("full".equals(kind) ? "weekly full scan" : "scan"));
             reschedule(c);
-            Intent run = new Intent(c, JobService.class).setAction(JobService.ACTION_SCHEDULED);
+            Intent run = new Intent(c, JobService.class).setAction(JobService.ACTION_SCHEDULED).putExtra(EXTRA_KIND, kind);
             try {
                 if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(run); else c.startService(run);
             } catch (RuntimeException e) {

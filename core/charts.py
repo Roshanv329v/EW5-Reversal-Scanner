@@ -426,6 +426,33 @@ def alignment_breakdown(stats: pd.DataFrame, t1_label: str, t2_label: str, heigh
     return fig
 
 
+def attribute_breakdown(res: pd.DataFrame, column: str, label: str, side_col: str = "reversal_side",
+                        height: Optional[int] = None, top: int = 12) -> go.Figure:
+    """
+    Signals per value of a stock attribute (market cap, F&O, sector ...), LONG / SHORT stacked,
+    largest first; values after the `top` biggest are grouped as "other".
+    customdata of a bar = [column, value] (value "other" is not clickable).
+    """
+    counts = res.groupby([column, side_col]).size().unstack(side_col, fill_value=0)
+    counts = counts.loc[counts.sum(axis=1).sort_values(ascending=False).index]
+    if len(counts) > top:
+        rest = counts.iloc[top:].sum().to_frame("other").T
+        counts = pd.concat([counts.iloc[:top], rest])
+    counts = counts.iloc[::-1]                                       # biggest at the top of a horizontal bar chart
+    fig = go.Figure()
+    for side in [s for s in ("SHORT", "LONG") if s in counts.columns]:
+        fig.add_trace(go.Bar(
+            y=[str(v) for v in counts.index], x=counts[side], name=side, orientation="h",
+            marker_color=SIDE_COLOR.get(side, C["muted"]), marker_line=dict(color=C["surface"], width=1),
+            customdata=[[column, str(v)] for v in counts.index],
+            hovertemplate=f"{side}: %{{x}}<extra>%{{y}}</extra>"))
+    name = label if label.isupper() else label[0].lower() + label[1:]          # "market cap", but "F&O"
+    _base_layout(fig, height or max(220, 90 + 26 * len(counts)), f"Signals by {name}")
+    fig.update_layout(barmode="stack", bargap=0.3, clickmode="event+select", margin=dict(l=10, r=20, t=50, b=30))
+    fig.update_yaxes(automargin=True, showgrid=False, dtick=1)              # every value labelled
+    return fig
+
+
 def picked_bars(fig: go.Figure, points: Sequence[dict]) -> list[list]:
     """customdata of the bars named in a Streamlit plotly selection (looked up in the figure)."""
     out = []

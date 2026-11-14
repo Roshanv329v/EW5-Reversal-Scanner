@@ -160,13 +160,17 @@ def test_alert_schedule_and_settings():
     from datetime import datetime
     from mobile import alerts
     s = {**alerts.DEFAULTS}
-    assert alerts.next_runs(s, datetime(2026, 11, 13, 16, 0)) == [          # Friday after the last scan
-        "Mon 16 Nov 12:30", "Mon 16 Nov 15:45", "Tue 17 Nov 12:30"]
+    assert alerts.next_runs(s, datetime(2026, 11, 13, 16, 0)) == [          # Friday after the last F&O scan
+        "Fri 13 Nov 18:00 (All stocks)", "Mon 16 Nov 12:30 (F&O stocks)", "Mon 16 Nov 15:45 (F&O stocks)"]
+    kinds = [kind for _, kind in alerts.slots({**s, "full_times": ["15:45"]}, datetime(2026, 11, 13, 9, 0))[:2]]
+    assert kinds == ["regular", "full"]                     # same minute as a regular scan: the full one wins
+    assert alerts.next_runs({**s, "full_enabled": False}, datetime(2026, 11, 13, 16, 0))[0] == "Mon 16 Nov 12:30 (F&O stocks)"
     assert alerts.next_runs({**s, "enabled": False}) == []
     clean = alerts.clean_settings({**s, "times": ["9:5", "15:45", "25:00", "15:45"], "days": [5, 1, 9]})
     assert clean["times"] == ["09:05", "15:45"] and clean["days"] == [1, 5]
     with pytest.raises(ValueError):
-        alerts.clean_settings({**s, "times": []})
+        alerts.clean_settings({**s, "times": [], "full_enabled": False})          # no scan at all
+    assert alerts.clean_settings({**s, "times": []})["full_times"] == ["18:00"]     # only the weekly full scan
 
 
 def test_alerts_find_todays_events_and_notify_each_once(tmp_path, df):
@@ -181,6 +185,8 @@ def test_alerts_find_todays_events_and_notify_each_once(tmp_path, df):
     res = runner.run_engine(df, p, CFG["signal_indicators"], CFG["htf"])
     day = pd.Timestamp(res.loc[res["status"].eq("TRIGGERED"), "trigger_time"].max()).date()   # a day with a trigger
     alerts.save_settings(a, {**alerts.DEFAULTS, "update_data": False, "strategies": ["ew5"], "timeframes": ["1D"]})
+    pd.DataFrame({"Ticker": TICKERS[:6], "marketcapname": "Large Cap",               # the fixture's stocks are F&O
+                  "fno_enabled": "true"}).to_csv(a.cfg["tickers_file"], index=False)
 
     def scan_once() -> dict:
         alerts.run(a, "manual", today=day, notify=False)
@@ -214,13 +220,16 @@ def test_telegram_is_off_by_default_and_keeps_the_token_private(tmp_path, monkey
     assert again["settings"]["telegram_token_set"] and alerts.load_settings(a)["telegram_token"] == "123:SECRET"
 
     sent = []
-    monkeypatch.setattr(alerts, "_telegram", lambda token, method, payload: sent.append((token, method, payload)) or {"ok": True})
+    from core import alert_events
+    fake = lambda token, method, payload: sent.append((token, method, payload)) or {"ok": True}      # noqa: E731
+    monkeypatch.setattr(alert_events, "_telegram", fake)
+    monkeypatch.setattr(alerts, "_telegram", fake)
     assert alerts.telegram_test(a, {})["ok"]
     token, method, payload = sent[-1]
     assert (token, method, payload["chat_id"], payload["parse_mode"]) == ("123:SECRET", "sendMessage", "42", "HTML")
     assert "RELIANCE.NS" in payload["text"] and "Triggered today (1)" in payload["text"]
 
-    monkeypatch.setattr(alerts, "_telegram", lambda *a: {"ok": False, "description": "Unauthorized"})
+    monkeypatch.setattr(alert_events, "_telegram", lambda *a: {"ok": False, "description": "Unauthorized"})
     with pytest.raises(ValueError, match="Unauthorized"):
         alerts.telegram_test(a, {})
 
@@ -245,3 +254,35 @@ def test_telegram_message_follows_the_template():
     assert "Triggered today" not in text
     evil = dict(alerts.SAMPLE[0], ticker="<script>.NS")
     assert "&lt;script&gt;" in alerts.telegram_text("t", [evil])[0]                        # values are escaped
+
+
+def test_universes_and_attributes(tmp_path):
+    from core import universe
+    path = tmp_path / "tickers.csv"
+    path.write_text("﻿Ticker,marketcapname,cnx_sector_name,fno_enabled,macro_info,sector_info\n"
+                    "AAA.NS,Large Cap,CNX500,true,Energy,NIFTY 500\nBBB.NS,Small Cap,,false,Services,-\n", encoding="utf-8")
+    assert universe.stocks(path, "all") == ["AAA.NS", "BBB.NS"] and universe.stocks(path, "fno") == ["AAA.NS"]
+    assert universe.final_list(path, "fno")[0] == "AAA.NS" and "^NSEI" in universe.final_list(path, "fno")
+    res = pd.DataFrame({"Ticker": ["AAA.NS", "BBB.NS", "^NSEI", "ZZZ.NS"]})
+    out = universe.attach(res, universe.load_attributes(path))
+    assert out["fno_enabled"].tolist() == ["Yes", "No", "Index", "-"]
+    assert out["cnx_sector_name"].tolist() == ["CNX500", "-", "Index", "-"]
+    assert universe.mask(out, {"marketcapname": ["Small Cap"]}).tolist() == [False, True, False, False]
+    universe.write_stocks(path, ["BBB.NS", "NEW.NS"])                          # an edited list keeps the attributes
+    kept = universe.load_attributes(path)
+    assert list(kept.index) == ["BBB.NS", "NEW.NS"] and kept.loc["BBB.NS", "macro_info"] == "Services"
+    assert kept.loc["NEW.NS", "marketcapname"] == "-"
+
+
+def test_store_moves_old_16_part_data_to_the_new_layout(cfg, tmp_path, df):
+    import zlib
+    from mobile import store as store_mod
+    old_dir = tmp_path / "phone" / "stock_parts"
+    old_dir.mkdir(parents=True)
+    for i, part in df.groupby(df["Ticker"].map(lambda t: zlib.crc32(t.encode()) % 16)):  # how 1.0-1.7 stored it
+        ds.save_stock_csv(part, old_dir / f"stock_{int(i):02d}.csv", tmp_path / "b", 1)
+    st = store_mod.Store(dict(cfg, stock_csv=tmp_path / "phone" / "stock.csv"))       # migrates on start
+    assert (old_dir / "layout.json").exists()
+    moved = pd.concat(st.frames()).sort_values(ds.KEYS).reset_index(drop=True)
+    assert len(moved) == len(df) and set(moved["Ticker"]) == set(df["Ticker"])
+    assert all(store_mod.part_of(t) == int(p.stem[-2:]) for p in st.part_paths() for t in ds.load_stock_csv(p)["Ticker"].unique())

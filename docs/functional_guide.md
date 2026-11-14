@@ -347,6 +347,31 @@ description of one period, not a forecast.
 
 ---
 
+## Stock lists and attributes
+
+`data/tickers.csv` has, for every stock: `marketcapname` (Large / Mid / Small Cap),
+`cnx_sector_name`, `fno_enabled`, `macro_info` (macro sector) and `sector_info` (sector index).
+
+- **Data update** (sidebar) and **Run / Backtest** can use *All stocks* or *F&O stocks* only
+  (`fno_enabled = true`); indices and commodities are always included. The dashboard caption
+  shows which list a run used.
+- **EW5 / EW3 tabs**: a closed **Stock attributes** section under the filters holds filters for
+  the five columns (saved with *Save filters*); right below it three charts show the signals
+  by market cap, F&O and macro sector. Click a bar to narrow the signal table.
+
+## Scheduled scans on this Mac (Alerts tab)
+
+The **Alerts** tab runs scans by itself, like the phone app: usual times (default 12:30 and
+15:45, Monday to Friday) for F&O stocks and a weekly full scan of every stock (default Friday
+18:00). Each scan downloads the latest data, runs EW5 and EW3 over the last few days, saves the
+results as `backtest_auto_…` files and shows one notification with the stocks triggered or set
+up today (Telegram optional, same message layout as the phone).
+
+Press **Install schedule** to hand the times to macOS (two launch agents in
+`~/Library/LaunchAgents/com.ewscanner.scan.*`); **Remove schedule** takes them out again. The
+Mac must be on; a scan missed while it slept runs when it wakes. **Run … scan now** starts one
+in the background. From a terminal: `python scheduled_scan.py --kind regular` (or `full`).
+
 ## Trading with the higher timeframe
 
 The expensive mistake is a trade that looks right on a small chart while the bigger chart is

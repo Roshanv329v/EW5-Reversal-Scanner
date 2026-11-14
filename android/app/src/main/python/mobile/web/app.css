@@ -261,3 +261,7 @@ td.t-BEARISH { color: var(--down); }
 .tg-msg { background: var(--widget); border-radius: 12px 12px 12px 4px; padding: 9px 12px; font-size: 0.86rem; line-height: 1.45;
   margin-top: 6px; overflow-wrap: anywhere; border: 1px solid var(--border); }
 .tg-msg code { background: rgba(127,127,127,0.18); padding: 0 3px; border-radius: 3px; }
+.attr-box { margin: 10px 0; background: var(--panel); }
+.attr-box > summary { font-weight: 700; }
+.attr-charts { margin: 8px 0 4px; }
+@media (min-width: 900px) { .attr-charts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

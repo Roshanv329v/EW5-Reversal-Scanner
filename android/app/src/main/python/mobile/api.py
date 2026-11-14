@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import shutil
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
@@ -26,7 +27,7 @@ import pandas as pd
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
 import stock_data
-from core import charts, data_store as ds, htf, prefs, runner, strategies
+from core import charts, data_store as ds, htf, prefs, runner, strategies, universe
 from core.config import ROOT, load_config
 from core.strategies import Strategy
 from mobile import alerts, jobs, lwchart, resources, scan
@@ -56,8 +57,13 @@ class App:
         for d in (data, cfg["results_dir"], cfg["logs_dir"]):
             d.mkdir(parents=True, exist_ok=True)
         seed = resources.read("seed/tickers.csv")
-        if not cfg["tickers_file"].exists() and seed:
-            cfg["tickers_file"].write_bytes(seed)
+        path = cfg["tickers_file"]
+        if seed and (not path.exists() or (not universe.has_attributes(universe.load_attributes(path))
+                                           and b"fno_enabled" in seed[:300])):
+            # first start, or a list from before the attribute columns: use the bundled one (old kept)
+            if path.exists():
+                shutil.copy(path, path.with_name("tickers_before_attributes.csv"))
+            path.write_bytes(seed)
         ds.setup_logging(cfg["logs_dir"])
         self.store = Store(cfg)
         self.last_report: Optional[dict] = None
@@ -175,7 +181,18 @@ def state() -> dict:
 # Saved filters (same files and format as the desktop)
 # ----------------------------------------------------------------------------------
 def _filter_columns(S: Strategy) -> list[str]:
-    return [col for col, _ in S.filter_cols]
+    """Saved-filter columns: the strategy's filters and the stock attributes (tickers.csv)."""
+    return [col for col, _ in S.filter_cols] + list(universe.ATTR_COLS)
+
+
+@lru_cache(maxsize=2)
+def _attributes(path: str, mtime: float) -> pd.DataFrame:
+    return universe.load_attributes(Path(path))
+
+
+def attributes() -> pd.DataFrame:
+    path = _app().cfg["tickers_file"]
+    return _attributes(str(path), path.stat().st_mtime) if path.exists() else universe.load_attributes(path)
 
 
 def _prefs_path(S: Strategy) -> Path:
@@ -226,18 +243,22 @@ def dashboard(req: dict) -> dict:
              f" · contexts {', '.join(params.get('contexts', []))}" if S.key == "ew3" else "")
     out["caption"] = [f"{mode_name} · {period} · lengths {params.get('lengths', '?')} · "
                       f"horizon {params.get('horizon_bars', '?')} bars · pivot_tie {params.get('pivot_tie', '?')}",
-                      f"stages {', '.join(params.get('stages', []))}{extra}"]
+                      f"stages {', '.join(params.get('stages', []))}{extra} · "
+                      f"{universe.UNIVERSES.get(params.get('universe', 'all'), 'All stocks')}"]
     if res.empty:
         out["info"] = "This run produced no signals."
         return out
 
-    # ---- filters (same rules as _filters in app.py)
+    # ---- filters (same rules as _filters in app.py); stock attributes joined from tickers.csv
+    res = universe.attach(res, attributes())
     picks: dict[str, list] = req.get("filters") or {}
     options = {}
-    for col, _ in S.filter_cols:
+    attr_cols = [(c, universe.ATTR_LABELS[c]) for c in universe.ATTR_COLS]
+    for col, _ in [*S.filter_cols, *attr_cols]:
         present = sorted(map(str, res[col].dropna().unique())) if col in res.columns else []
         options[col] = present + [v for v in picks.get(col, []) if v not in present]
     out["options"] = options
+    out["attr_cols"] = [[c, lbl] for c, lbl in attr_cols]
     out["disabled"] = [col for col, _ in S.filter_cols if col not in res.columns]
 
     view = res
@@ -336,6 +357,16 @@ def dashboard(req: dict) -> dict:
         if bars.get("sides"):
             mask &= runner.bar_mask(filtered, S.side_col, bars["sides"])
             notes += [f"{tf} {degree} {value}" for tf, degree, value in bars["sides"]]
+    attr_figs = {}
+    for col in universe.CHART_COLS:
+        attr_figs[col] = fig_json(charts.attribute_breakdown(filtered, col, universe.ATTR_LABELS[col], S.side_col))
+    out["attr_figures"] = attr_figs
+    if bars.get("attr"):
+        picked: dict[str, list] = {}
+        for col, value in bars["attr"]:
+            picked.setdefault(col, []).append(value)
+        mask &= universe.mask(filtered, picked)
+        notes += [f"{universe.ATTR_LABELS.get(c, c)} {', '.join(v)}" for c, v in picked.items()]
     out["figures"] = figures
     out["notes"] = notes
     if notes:
@@ -458,13 +489,15 @@ def _stock_tickers(pasted: str = "") -> list[str]:
 
 def get_tickers() -> dict:
     stocks = _stock_tickers()
+    n = universe.counts(_app().cfg["tickers_file"])
     return {"text": "\n".join(stocks), "count": len(stocks), "indices": len(stock_data.indian_index),
-            "commodities": len(stock_data.commodity)}
+            "commodities": len(stock_data.commodity),
+            "universes": [[k, f"{v} ({n.get(k, 0):,} stocks)"] for k, v in universe.UNIVERSES.items()]}
 
 
 def save_tickers(text: str) -> dict:
     stocks = ds.parse_ticker_text(text)
-    ds.write_tickers(_app().cfg["tickers_file"], stocks)
+    universe.write_stocks(_app().cfg["tickers_file"], stocks)          # keeps each stock's attributes
     return {"ok": True, "count": len(stocks)}
 
 
@@ -513,14 +546,15 @@ def _report_json(report: ds.UpdateReport) -> dict:
 def start_update(req: dict) -> dict:
     a = _app()
     pasted = req.get("pasted") or ""
-    stocks = _stock_tickers(pasted)
+    scope = req.get("universe") if req.get("universe") in universe.UNIVERSES else "all"
+    stocks = ds.parse_ticker_text(pasted) if pasted.strip() else universe.stocks(a.cfg["tickers_file"], scope)
     tfs = [tf for tf in (req.get("timeframes") or a.cfg["timeframes"]) if tf in a.cfg["timeframes"]]
     if not stocks:
         raise ValueError("No stock tickers to download.")
     if not tfs:
         raise ValueError("Pick at least one timeframe.")
     if pasted.strip() and req.get("save_pasted"):
-        ds.write_tickers(a.cfg["tickers_file"], stocks)
+        universe.write_stocks(a.cfg["tickers_file"], stocks)
     tickers = stock_data.build_final_list(stocks)
     full = bool(req.get("full"))
     days = int(req.get("days") or a.cfg["incremental_days"])
@@ -604,6 +638,7 @@ def run_options() -> dict:
         "contexts": list(ew3.CONTEXTS), "default_contexts": ew3_cfg["contexts"],
         "min_retrace": float(ew3_cfg["min_retrace"]), "max_retrace": float(ew3_cfg["max_retrace"]),
         "last_run": a.last_run,
+        "universes": get_tickers()["universes"],
     })
 
 
@@ -635,7 +670,8 @@ def _params(req: dict) -> tuple[runner.RunParams, list[str]]:
         strategy=key, contexts=tuple(req.get("contexts") or ew3.DEFAULT_CONTEXTS),
         min_retrace=float(req.get("min_retrace", ew3.DEFAULT_MIN_RETRACE)),
         max_retrace=float(req.get("max_retrace", ew3.DEFAULT_MAX_RETRACE)),
-        aligned_only=bool(req.get("aligned_only")))
+        aligned_only=bool(req.get("aligned_only")),
+        universe=req.get("universe") if req.get("universe") in universe.UNIVERSES else "all")
     return p, problems
 
 
@@ -674,8 +710,10 @@ def start_run(req: dict) -> dict:
 
     def work(job: jobs.Job) -> dict:
         n = len(a.store.part_paths())
-        job.say(f"{S.name} · {runner.MODES[p.mode]} · {', '.join(p.timeframes)} · {n} parts of ~{240 // N_PARTS} tickers")
-        res = scan.run_groups(a.store.frames(), n, p, a.cfg["signal_indicators"], a.cfg["htf"],
+        job.say(f"{S.name} · {runner.MODES[p.mode]} · {', '.join(p.timeframes)} · {n} parts")
+        keep = set(universe.final_list(a.cfg["tickers_file"], p.universe))
+        frames = (f[f["Ticker"].isin(keep)] for f in a.store.frames())
+        res = scan.run_groups(frames, n, p, a.cfg["signal_indicators"], a.cfg["htf"],
                               progress=lambda i, total: job.progress(i / max(total, 1),
                                                                      f"Elliott Wave engine · part {min(i + 1, total)}/{total}"))
         saved = runner.save_results(res, p, a.cfg["results_dir"], a.store.dir)

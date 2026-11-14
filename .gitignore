@@ -9,3 +9,6 @@ logs/
 data/dashboard_filters.json
 .DS_Store
 data/dashboard_filters_ew3.json
+data/alert_settings.json
+data/alerts_*.json
+data/.scan.lock

@@ -55,6 +55,7 @@ class RunParams:
     min_retrace: float = ew3.DEFAULT_MIN_RETRACE                      # ew3 only
     max_retrace: float = ew3.DEFAULT_MAX_RETRACE                      # ew3 only
     aligned_only: bool = False                  # keep only signals ALIGNED with the higher timeframes
+    universe: str = "all"                       # stocks scanned: "all" or "fno" (core/universe.py)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)
