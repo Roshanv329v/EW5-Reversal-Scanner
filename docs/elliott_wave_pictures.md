@@ -90,7 +90,7 @@ intermediate wave 1.
 <rect x="10" y="10" width="300" height="250" rx="10" fill="none" stroke="currentColor" stroke-opacity="0.15"/>
 <rect x="330" y="10" width="300" height="250" rx="10" fill="none" stroke="currentColor" stroke-opacity="0.15"/>
 <text class="lbl" x="24" y="40">ALIGNED</text><text class="lbl" x="344" y="40">AGAINST</text>
-<text class="small" x="24" y="66">1D falling</text><text class="small" x="344" y="66">1D rising</text>
+<text class="small" x="24" y="66">1D: K below D</text><text class="small" x="344" y="66">1D: K above D</text>
 <polyline points="24,84 90,108 150,102 220,160 296,210" fill="none" stroke="#e66767" stroke-width="3"/>
 <polyline class="wave" points="150,200 175,178 187,188 212,150 226,162 246,138"/>
 <text class="small" x="120" y="246">60m: 5 waves up</text><text class="ltxt trig" x="214" y="128">SHORT ✓</text>
@@ -98,7 +98,7 @@ intermediate wave 1.
 <polyline class="wave" points="460,200 485,178 497,188 522,150 536,162 556,138"/>
 <text class="small" x="440" y="246">60m: 5 waves up</text><text class="ltxt stop" x="430" y="118">SHORT ✗</text>
 </svg>
-<figcaption>The same 60m wave-5 SHORT. On the left the daily trend is down (below its EMA 55), so the small rally was only a bounce and the reversal goes with the bigger move: ALIGNED. On the right the daily trend is up: the SHORT fights it: AGAINST.</figcaption>
+<figcaption>The same 60m wave-5 SHORT. On the left the daily trend is down (DTosc K below D), so the small rally was only a bounce and the reversal goes with the bigger move: ALIGNED. On the right the daily trend is up: the SHORT fights it: AGAINST.</figcaption>
 </figure>
 
 Each signal is tagged from the timeframes above it: 60m → 4hr and 1D, 4hr → 1D and 1W,

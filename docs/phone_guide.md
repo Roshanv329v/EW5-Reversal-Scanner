@@ -68,11 +68,15 @@ indices and commodities are always included. Each run's caption says which list 
 
 On the EW5 / EW3 tabs:
 
-- **Stock attributes** (under the filters, closed until you open it): filters for market cap,
-  CNX sector, F&O, macro sector and sector index. They are saved with *Save filters*.
-- Three charts right under the filters: signals by **market cap**, **F&O** and **macro
-  sector**, LONG / SHORT stacked. Tap a bar to narrow the signal table, as with the breakdown
-  charts. Indices and commodities show as *Index* / *Commodity*.
+- **🔎 Filters** (closed until you open it; its title lists the filters that are on): the
+  Elliott Wave filters and the stock-attribute filters (market cap, CNX sector, F&O, macro
+  sector, sector index) together, all saved with *Save filters*.
+- **📊 Charts by stock attribute** (also closed): signals by **market cap**, **F&O** and
+  **macro sector**, LONG / SHORT stacked. Indices and commodities show as *Index* / *Commodity*.
+- **Drill-down**: a tapped bar keeps only those signals for everything below it: the next
+  attribute charts, the stat cards, the breakdown charts and the table. The breakdown charts
+  drill down the same way into the charts after them and the table. *Clear chart filter*
+  starts again.
 
 When the app updates from 1.7 it brings the new tickers file (the old list is kept as
 `tickers_before_attributes.csv`) and reorganises the stored data once (about a minute) for

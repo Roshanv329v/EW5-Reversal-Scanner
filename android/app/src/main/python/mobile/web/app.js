@@ -550,9 +550,12 @@ class Dash {
     if (res.info) { root.append(note("info", res.info)); return; }
 
     root.append(this.filtersBox());
-    root.append(this.attributesBox());
-    if (res.warning) { root.append(note("warn", res.warning)); return; }
     root.append(this.attributeCharts());
+    if (res.warning) {
+      root.append(note("warn", res.warning));
+      if ((res.notes || []).length) root.append(h("button", { class: "btn small", onclick: () => this.load(true) }, "✕ Clear chart filter"));
+      return;
+    }
     root.append(res.evaluated ? this.kpiCards() : this.liveCards());
     root.append(this.breakdown());
 
@@ -588,30 +591,19 @@ class Dash {
     if (this.chartBox) this.chartBox.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  /* Stock attributes from tickers.csv: a section that opens on demand (closed by default). */
-  attributesBox() {
-    const res = this.res, s = this.state;
-    if (!res.attr_cols) return h("div");
-    const active = res.attr_cols.filter(([c]) => (s.filters[c] || []).length).length;
-    const grid = h("div", { class: "row" });
-    res.attr_cols.forEach(([col, lbl]) => grid.append(multiselect(lbl, res.options[col] || [], s.filters[col] || [],
-      (v) => { s.filters[col] = v; this.attrOpen = true; this.load(true); })));
-    const box = h("details", { class: "attr-box", open: this.attrOpen || null,
-      ontoggle: (e) => (this.attrOpen = e.target.open) },
-      h("summary", {}, `🏷️ Stock attributes${active ? ` · ${active} filter${active > 1 ? "s" : ""} on` : ""}`),
-      h("div", {}, h("div", { class: "caption" }, "Market cap, F&O, sectors from tickers.csv. Indices and commodities show as Index / Commodity."),
-        grid, active ? h("button", { class: "btn small", style: "margin-top:8px", onclick: () => {
-          res.attr_cols.forEach(([c]) => (s.filters[c] = [])); this.load(true); } }, "✕ Clear attribute filters") : null));
-    return box;
-  }
-
-  /* Signals by market cap / F&O / macro sector; a tapped bar narrows the table (like the breakdown). */
+  /* Signals by market cap / F&O / macro sector, in a section closed by default. Drill-down: a tapped
+     bar keeps only those signals for the next charts, the stat cards, the breakdown and the table. */
   attributeCharts() {
     const res = this.res, s = this.state, figs = res.attr_figures || {};
     const names = Object.keys(figs);
     if (!names.length) return h("div");
     this.plots = this.plots || {};
+    const picks = (s.bars.attr || []).length;
     const grid = h("div", { class: "charts attr-charts" });
+    const section = h("details", { class: "attr-box", open: this.chartsOpen || null },
+      h("summary", {}, `📊 Charts by stock attribute${picks ? ` · ${picks} bar${picks > 1 ? "s" : ""} picked` : ""}`),
+      h("div", {}, h("div", { class: "caption" }, "Tap a bar to drill down: the next charts, the stat cards, the breakdown and the table keep only those signals."), grid));
+    const pending = [];
     const toggle = (cd) => {
       const list = (s.bars.attr = s.bars.attr || []), k = JSON.stringify(cd);
       if (cd[1] === "other") return;
@@ -621,36 +613,56 @@ class Dash {
     };
     names.forEach((name) => {
       const sig = theme() + narrow() + JSON.stringify(figs[name]), key = `attr_${name}`, kept = this.plots[key];
-      if (kept && kept.sig === sig) { kept.div._ewHandler = toggle; grid.append(kept.div); return; }
+      if (kept && kept.sig === sig) {
+        kept.div._ewHandler = toggle;
+        grid.append(kept.div);
+        if (!kept.drawn) pending.push(kept.draw);            // made while the section was closed
+        return;
+      }
       const div = h("div", { class: "plot box", style: "padding:0;min-height:200px" });
-      this.plots[key] = { div, sig };
+      const entry = { div, sig, drawn: false };
+      entry.draw = () => { entry.drawn = true; return plot(div, figs[name], toggle).catch((e) => div.replaceWith(note("error", e.message))); };
+      this.plots[key] = entry;
       grid.append(div);
-      requestAnimationFrame(() => plot(div, figs[name], toggle).catch((e) => div.replaceWith(note("error", e.message))));
+      pending.push(entry.draw);
     });
-    return grid;
+    // charts are drawn when the section is open (a closed section has no width to draw into)
+    const draw = () => { while (pending.length) pending.shift()(); };
+    section.addEventListener("toggle", () => { this.chartsOpen = section.open; if (section.open) requestAnimationFrame(draw); });
+    if (this.chartsOpen) requestAnimationFrame(draw);
+    return section;
   }
 
+  /* Every filter (Elliott Wave columns and the stock attributes) in one section, closed by default. */
   filtersBox() {
     const res = this.res, s = this.state;
-    const box = h("div", { class: "box" });
+    const cols = [...res.filter_cols, ...(res.attr_cols || [])];
+    const on = cols.filter(([c]) => (s.filters[c] || []).length).map(([, l]) => l);
+    if (s.search.trim()) on.push("Ticker");
+    if (s.ratio.some((v) => v !== null)) on.push(res.ratio_col);
+    const inner = h("div");
+    const box = h("details", { class: "box filter-box", open: this.filtersOpen || null },
+      h("summary", {}, `🔎 Filters${on.length ? ` · ${on.length} on: ${on.join(", ")}` : " · none"}`), inner);
+    box.addEventListener("toggle", () => (this.filtersOpen = box.open));
     const grid = h("div", { class: "row" });
-    res.filter_cols.forEach(([col, lbl]) => {
+    cols.forEach(([col, lbl]) => {
       grid.append(multiselect(lbl, res.options[col] || [], s.filters[col] || [],
-        (v) => { s.filters[col] = v; this.load(true); }, res.disabled.includes(col)));
+        (v) => { s.filters[col] = v; this.load(true); }, (res.disabled || []).includes(col)));
     });
-    box.append(grid);
+    inner.append(grid, h("div", { class: "caption", style: "margin-top:6px" },
+      "Market cap, CNX sector, F&O, macro sector and sector index come from tickers.csv (indices and commodities: Index / Commodity)."));
     const row2 = h("div", { class: "row", style: "margin-top:10px" });
     let timer;
     row2.append(field("Ticker search", h("input", { type: "text", value: s.search, placeholder: "e.g. BAJ",
       oninput: (e) => { s.search = e.target.value; clearTimeout(timer); timer = setTimeout(() => this.load(true), 450); } })));
     if (res.ratio) row2.append(this.rangeWidget(res.ratio));
-    box.append(row2);
+    inner.append(row2);
     const prefsDiffer = this.saved && JSON.stringify(this.currentPrefs()) !== JSON.stringify(this.normalisedSaved());
-    box.append(h("div", { class: "row", style: "margin-top:10px" },
+    inner.append(h("div", { class: "row", style: "margin-top:10px" },
       h("button", { class: "btn primary", onclick: () => this.savePrefs() }, "💾 Save filters"),
       h("button", { class: "btn", disabled: !this.saved || null, onclick: () => { this.applyPrefs(this.saved); toast("Saved filters restored."); this.load(true); } }, "↺ Restore"),
       h("button", { class: "btn", onclick: () => { this.applyPrefs({ chart_groups: {} }); toast("Filters cleared (press Save filters to make this the default)."); this.load(true); } }, "⨯ Clear")));
-    if (prefsDiffer) box.append(h("div", { class: "caption" }, "Filters differ from the saved ones."));
+    if (prefsDiffer) inner.append(h("div", { class: "caption" }, "Filters differ from the saved ones."));
     return box;
   }
 
@@ -721,7 +733,7 @@ class Dash {
     const res = this.res, s = this.state, figs = res.figures;
     const box = h("div");
     box.append(h("h3", {}, "📊 Breakdown"));
-    box.append(h("div", { class: "caption" }, "Tap a bar to filter the signal table to the signals inside it. Tap more bars to add them."));
+    box.append(h("div", { class: "caption" }, "Tap a bar to drill down: the charts after it and the signal table keep only those signals. Tap more bars to add them."));
     const toggle = (chart) => (cd) => {
       const list = s.bars[chart], keyOf = JSON.stringify(cd);
       const i = list.findIndex((x) => JSON.stringify(x) === keyOf);

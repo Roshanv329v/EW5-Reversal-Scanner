@@ -3,12 +3,15 @@ Higher-timeframe trend for every signal, so trades can be kept in the direction 
 bigger picture.
 
 Each signal timeframe has a parent and (where there is one) a grandparent timeframe -
-`htf.ladder` in config.yaml, e.g. 60m -> 4hr -> 1D. A bar's trend comes from the EMAs
-already stored in stock.csv:
+`htf.ladder` in config.yaml, e.g. 60m -> 4hr -> 1D. A bar's trend comes from the DT
+oscillator already stored in stock.csv (`htf.trend_k`, `htf.trend_d`):
 
-    BULLISH  close > slow EMA and fast EMA > slow EMA
-    BEARISH  close < slow EMA and fast EMA < slow EMA
-    NEUTRAL  anything else            UNKNOWN  no bar / EMA not available yet
+    BULLISH  DTosc K > DTosc D
+    BEARISH  DTosc K < DTosc D
+    NEUTRAL  K = D                    UNKNOWN  no bar / DTosc not available yet
+
+(Until November 2026 the trend came from EMA 13 / 55; results files record the rule they
+were tagged with in `htf_method`, and older files are re-tagged when they are opened.)
 
 No look-ahead: a signal reads the higher-timeframe bar BEFORE the one its own bar falls
 in. That bar is always finished when the signal bar closes.
@@ -26,25 +29,26 @@ ALIGNED, MIXED, AGAINST = "ALIGNED", "MIXED", "AGAINST"
 ALIGNMENTS = (ALIGNED, MIXED, AGAINST, UNKNOWN)
 TREND_COLS = ("htf1_trend", "htf2_trend")          # parent, grandparent
 COLUMNS = ("alignment", *TREND_COLS)
+METHOD = "dtosc_k_vs_d"                             # recorded in each results file's .json
 
 
-def bar_trend(close: pd.Series, fast: pd.Series, slow: pd.Series) -> pd.Series:
-    """Trend of each bar from its close and two EMAs."""
-    out = pd.Series(NEUTRAL, index=close.index, dtype="object")
-    out[(close > slow) & (fast > slow)] = BULLISH
-    out[(close < slow) & (fast < slow)] = BEARISH
-    out[close.isna() | fast.isna() | slow.isna()] = UNKNOWN
+def bar_trend(k: pd.Series, d: pd.Series) -> pd.Series:
+    """Trend of each bar from its DT oscillator: K above D bullish, below bearish."""
+    out = pd.Series(NEUTRAL, index=k.index, dtype="object")
+    out[k > d] = BULLISH
+    out[k < d] = BEARISH
+    out[k.isna() | d.isna()] = UNKNOWN
     return out
 
 
-def completed_trend(df: pd.DataFrame, time_frame: str, fast_col: str, slow_col: str) -> pd.DataFrame:
+def completed_trend(df: pd.DataFrame, time_frame: str, k_col: str, d_col: str) -> pd.DataFrame:
     """
     Ticker, time, trend for one timeframe, where `trend` is the trend of the PREVIOUS bar:
     whoever looks up the bar that is forming at some moment gets the last finished one.
     """
-    bars = df.loc[df["time_frame"] == time_frame, ["Ticker", "time", "Close", fast_col, slow_col]]
+    bars = df.loc[df["time_frame"] == time_frame, ["Ticker", "time", k_col, d_col]]
     bars = bars.sort_values(["Ticker", "time"])
-    trend = bar_trend(bars["Close"], bars[fast_col], bars[slow_col])
+    trend = bar_trend(bars[k_col], bars[d_col])
     return pd.DataFrame({"Ticker": bars["Ticker"], "time": bars["time"],
                          "trend": trend.groupby(bars["Ticker"]).shift(1)})
 
@@ -87,8 +91,14 @@ def attach_alignment(res: pd.DataFrame, df: pd.DataFrame, side_col: str, htf_cfg
     for tf, idx in out.groupby("time_frame").groups.items():
         for col, parent in zip(TREND_COLS, htf_cfg["ladder"].get(tf, [])):
             if parent not in tables:
-                tables[parent] = completed_trend(df, parent, htf_cfg["ema_fast"], htf_cfg["ema_slow"])
+                tables[parent] = completed_trend(df, parent, htf_cfg.get("trend_k", "dtosck"),
+                                                 htf_cfg.get("trend_d", "dtoscd"))
             out.loc[idx, col] = _lookup(out.loc[idx], tables[parent])
     out["alignment"] = [alignment(side, trends)
                         for side, *trends in zip(out[side_col], *(out[c] for c in TREND_COLS))]
     return out
+
+
+def retag(res: pd.DataFrame, df: pd.DataFrame, side_col: str, htf_cfg: dict) -> pd.DataFrame:
+    """The same signals with their higher-timeframe columns worked out again (current rule)."""
+    return attach_alignment(res.drop(columns=[c for c in COLUMNS if c in res.columns]), df, side_col, htf_cfg)

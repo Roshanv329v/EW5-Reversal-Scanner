@@ -57,8 +57,8 @@ htf:
     "4hr": ["1D", "1W"]
     "1D": ["1W"]
     "1W": []
-  ema_fast: "13_ema"          # bullish: close > slow and fast > slow; bearish: both below
-  ema_slow: "55_ema"
+  trend_k: "dtosck"           # trend of the last finished higher-timeframe bar:
+  trend_d: "dtoscd"           # bullish when DTosc K > D, bearish when K < D
 
 # ---- dashboard chart ---------------------------------------------------------
 chart:

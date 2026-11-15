@@ -256,7 +256,7 @@ def save_results(res: pd.DataFrame, p: RunParams, results_dir: Path,
     out[col] = [json.dumps(list(v)) for v in out[col]]
     out.to_csv(path, index=False, date_format="%Y-%m-%d %H:%M:%S")
     meta = {"created": stamp, "rows": len(res), "stock_csv": str(stock_csv) if stock_csv else None,
-            "params": asdict(p)}
+            "params": asdict(p), "htf_method": htf.METHOD}
     path.with_suffix(".json").write_text(json.dumps(meta, indent=2))
     return path
 
@@ -289,3 +289,20 @@ def load_results(path: Path) -> tuple[pd.DataFrame, dict[str, Any]]:
     meta_path = path.with_suffix(".json")
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
     return res, meta
+
+
+def rewrite_results(path: Path, res: pd.DataFrame, meta: dict[str, Any]) -> None:
+    """Write a results file again (same name and format), e.g. after re-tagging its alignment."""
+    out = res.copy()
+    for col in LEVEL_COLS.values():
+        if col in out.columns:
+            out[col] = [json.dumps(list(v)) for v in out[col]]
+    tmp = path.with_suffix(".tmp")
+    out.to_csv(tmp, index=False, date_format="%Y-%m-%d %H:%M:%S")
+    tmp.replace(path)
+    path.with_suffix(".json").write_text(json.dumps({**meta, "htf_method": htf.METHOD}, indent=2))
+
+
+def needs_retag(res: pd.DataFrame, meta: dict[str, Any]) -> bool:
+    """Saved before the current higher-timeframe rule (and has alignment columns)."""
+    return "alignment" in res.columns and meta.get("htf_method") != htf.METHOD

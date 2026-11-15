@@ -286,3 +286,29 @@ def test_store_moves_old_16_part_data_to_the_new_layout(cfg, tmp_path, df):
     moved = pd.concat(st.frames()).sort_values(ds.KEYS).reset_index(drop=True)
     assert len(moved) == len(df) and set(moved["Ticker"]) == set(df["Ticker"])
     assert all(store_mod.part_of(t) == int(p.stem[-2:]) for p in st.part_paths() for t in ds.load_stock_csv(p)["Ticker"].unique())
+
+
+def test_charts_drill_down_into_cards_breakdown_and_table(tmp_path, df):
+    api.init(str(tmp_path / "phone"))
+    a = api._app()
+    src = tmp_path / "stock.csv"
+    ds.save_stock_csv(df, src, tmp_path / "b", 1)
+    a.store.import_csv(src)
+    pd.DataFrame({"Ticker": TICKERS[:6], "marketcapname": ["Large Cap", "Mid Cap"] * 3,
+                  "fno_enabled": "true"}).to_csv(a.cfg["tickers_file"], index=False)
+    p = runner.RunParams(mode="backtest", timeframes=("1D",), lengths=(4, 8, 16), stages=STAGES, horizon_bars=30)
+    res = runner.run_engine(df, p, CFG["signal_indicators"], CFG["htf"])
+    runner.save_results(res, p, a.cfg["results_dir"])
+    large = res[res["Ticker"].isin(TICKERS[0:6:2])]
+
+    out = api.dashboard({"key": "ew5", "bars": {"attr": [["marketcapname", "Large Cap"]]}})
+    assert out["counts"]["filtered"] == out["signals"] == len(large)                       # cards follow the chart
+    assert out["cards"][0]["count"] == int(large["status"].eq("TRIGGERED").sum())
+    assert out["counts"]["view"] == len(large) and out["notes"] == ["Market cap Large Cap"]
+    mc = out["attr_figures"]["marketcapname"]["data"]
+    assert {"Large Cap", "Mid Cap"} <= {y for t in mc for y in t["y"]}                       # first chart: all values
+
+    trig = api.dashboard({"key": "ew5", "bars": {"attr": [["marketcapname", "Large Cap"]],
+                                                  "outcome": [["1D", d, "TRIGGERED"] for d in large["degree"].unique()]}})
+    assert trig["counts"]["view"] == int(large["status"].eq("TRIGGERED").sum())             # breakdown drills the table
+    assert trig["signals"] == len(large)                                                    # cards are above it

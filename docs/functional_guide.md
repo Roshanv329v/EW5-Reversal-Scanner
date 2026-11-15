@@ -355,9 +355,14 @@ description of one period, not a forecast.
 - **Data update** (sidebar) and **Run / Backtest** can use *All stocks* or *F&O stocks* only
   (`fno_enabled = true`); indices and commodities are always included. The dashboard caption
   shows which list a run used.
-- **EW5 / EW3 tabs**: a closed **Stock attributes** section under the filters holds filters for
-  the five columns (saved with *Save filters*); right below it three charts show the signals
-  by market cap, F&O and macro sector. Click a bar to narrow the signal table.
+- **EW5 / EW3 tabs**: the **Filters** section (closed by default; its title lists the filters
+  that are on) holds the Elliott Wave filters and the five stock-attribute filters together,
+  all saved with *Save filters*. Below it, **Charts by stock attribute** (also closed) shows the
+  signals by market cap, F&O and macro sector.
+- **Drill-down**: a clicked bar keeps only those signals for everything below it. The
+  attribute charts narrow the next attribute charts, the KPI cards, the breakdown charts and
+  the table; each breakdown chart narrows the ones after it and the table. *Clear chart
+  filter* starts again.
 
 ## Scheduled scans on this Mac (Alerts tab)
 
@@ -386,11 +391,14 @@ every signal is tagged with the trend of the timeframes above it.
 
 Weekly (1W) bars are built from the stored daily bars, so nothing extra is downloaded.
 
-**Trend of a higher-timeframe bar** (from the EMA 13 and EMA 55 you already see on the chart):
+**Trend of a higher-timeframe bar** (from the DT oscillator in the indicator pane):
 
-- **BULLISH**: close above EMA 55 and EMA 13 above EMA 55.
-- **BEARISH**: close below EMA 55 and EMA 13 below EMA 55.
-- **NEUTRAL**: anything else (price and averages disagree, usually a range or a turn).
+- **BULLISH**: DTosc K above DTosc D.
+- **BEARISH**: DTosc K below DTosc D.
+- **NEUTRAL**: K equal to D (rare).
+
+(Before November 2026 the trend came from EMA 13 / 55. Results saved with that rule are
+re-tagged with the DTosc rule the first time they are opened.)
 
 **Alignment of the signal:**
 
@@ -399,7 +407,7 @@ Weekly (1W) bars are built from the stored daily bars, so nothing extra is downl
 | **ALIGNED** | Every higher timeframe points the way of the trade (LONG with bullish, SHORT with bearish). |
 | **MIXED** | The parent is neutral, or parent and grandparent disagree. |
 | **AGAINST** | The parent points the other way. This is the lower-timeframe-bullish, higher-timeframe-bearish trap. |
-| **UNKNOWN** | No higher timeframe, or not enough history for its EMA 55 yet. |
+| **UNKNOWN** | No higher timeframe, or not enough history for its DT oscillator yet. |
 
 A signal only reads a higher-timeframe bar that had already **finished** when the signal bar
 closed, so the backtest never sees the future.
@@ -438,26 +446,28 @@ closed, so the backtest never sees the future.
 
 | | Signals | Stop rate | Target 1 hit | Target 2 hit | Avg MAE |
 |---|---|---|---|---|---|
-| EW5 ALIGNED | 255 | 56.5% | 58.8% | 51.9% | 1.6% |
-| EW5 MIXED | 361 | 52.6% | 59.5% | 42.8% | 1.8% |
-| EW5 AGAINST | 2,484 | 55.0% | 51.4% | 31.8% | 1.7% |
-| EW3 ALIGNED | 441 | 62.1% | 56.1% | 12.6% | 1.8% |
-| EW3 MIXED | 181 | 66.0% | 54.6% | 9.3% | 1.8% |
-| EW3 AGAINST | 952 | 66.5% | 50.5% | 10.5% | 1.6% |
+| EW5 ALIGNED | 411 | 50.8% | 47.5% | 23.4% | 2.0% |
+| EW5 MIXED | 998 | 55.3% | 53.0% | 31.9% | 1.5% |
+| EW5 AGAINST | 1,691 | 55.5% | 54.2% | 38.8% | 1.7% |
+| EW3 ALIGNED | 509 | 60.4% | 55.1% | 8.1% | 1.8% |
+| EW3 MIXED | 467 | 68.6% | 53.1% | 14.7% | 1.4% |
+| EW3 AGAINST | 598 | 67.3% | 49.4% | 10.5% | 1.7% |
 
 Rates are out of triggered signals. Targets are W4 end and FIB 0.5 for EW5, W1 end and
 W3 1.618 for EW3.
 
-Read this honestly:
+Read this honestly (DTosc rule):
 
-- Alignment **raises the target hit rates**, most clearly for EW5: the deeper FIB 0.5 target
-  is hit 52% of the time when aligned against 32% when against.
-- Alignment does **not lower the stop rate or the average adverse move** by much in this
-  sample (EW3 improves by about four points, EW5 not at all). The stop still gets hit more
-  than half the time. Alignment improves how far winners go, not how often a trade is stopped.
-- So the loss on a single trade is still set by your stop distance and position size. The
-  alignment filter is a reason to prefer one setup over another, not a replacement for a stop.
-- Six months is one market phase. Rerun the backtest over other periods before relying on it.
+- **EW3**: ALIGNED is the better group. It is stopped less often (60% against 67% when
+  AGAINST) and reaches the wave-1 end more often (55% against 49%).
+- **EW5**: ALIGNED is stopped a little less often (51% against 56%) but reaches the targets
+  *less* often (FIB 0.5: 23% against 39%). EW5 is a reversal; when the bigger timeframe's
+  oscillator already points the trade's way, part of the move has often happened.
+- The stop is still hit about half the time or more in every group. The loss on a single
+  trade is set by the stop distance and position size; the alignment tag is a reason to
+  prefer one setup over another, not a replacement for a stop.
+- Six months is one market phase. Rerun the backtest over other periods, and compare the
+  groups with the breakdown chart, before relying on it.
 
 ---
 

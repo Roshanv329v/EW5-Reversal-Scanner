@@ -265,3 +265,5 @@ td.t-BEARISH { color: var(--down); }
 .attr-box > summary { font-weight: 700; }
 .attr-charts { margin: 8px 0 4px; }
 @media (min-width: 900px) { .attr-charts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.filter-box > summary, .attr-box > summary { font-weight: 700; padding: 2px 0; }
+.filter-box[open] > summary { margin-bottom: 8px; }

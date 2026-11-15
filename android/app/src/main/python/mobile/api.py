@@ -82,8 +82,43 @@ def warm_up() -> None:
             files = runner.list_results(a.cfg["results_dir"], key)
             if files:
                 load_results(files[0])
+        if any(runner.needs_retag(*runner.load_results(f)) for f in runner.list_results(a.cfg["results_dir"])):
+            jobs.start("retag", "Updating trend tags", lambda job: retag_old_results(job))
     except Exception:                      # only a head start; the real calls do the same work
         pass
+
+
+def retag_old_results(job: Optional[jobs.Job] = None) -> int:
+    """
+    Results saved before the DTosc trend rule get their higher-timeframe columns worked out
+    again. One pass over the data parts serves every old file. Returns the files updated.
+    """
+    a = _app()
+    todo = []
+    for f in runner.list_results(a.cfg["results_dir"]):
+        res, meta = runner.load_results(f)
+        if runner.needs_retag(res, meta):
+            todo.append((f, res, meta, strategies.get(runner.strategy_of(f)).side_col))
+    if not todo:
+        return 0
+    done: list[list[pd.DataFrame]] = [[] for _ in todo]
+    paths = a.store.part_paths()
+    for n, frame in enumerate(a.store.frames()):
+        if job:
+            job.progress(n / max(len(paths), 1), f"part {n + 1}/{len(paths)} · {len(todo)} file(s)")
+        tickers = set(frame["Ticker"].unique())
+        for i, (_, res, _, side) in enumerate(todo):
+            part = res[res["Ticker"].isin(tickers)]
+            if not part.empty:
+                done[i].append(htf.retag(part, frame, side, a.cfg["htf"]))
+    for (f, res, meta, side), parts in zip(todo, done):
+        new = pd.concat(parts) if parts else res.iloc[0:0]
+        rest = res.drop(index=new.index)                           # tickers with no stored bars any more
+        if not rest.empty:
+            rest = htf.retag(rest, ds.empty_frame().reindex(columns=ds.SCHEMA), side, a.cfg["htf"])
+        runner.rewrite_results(f, pd.concat([new, rest]).sort_index(), meta)
+    _results.cache_clear()
+    return len(todo)
 
 
 def init(root: str) -> None:
@@ -284,6 +319,25 @@ def dashboard(req: dict) -> dict:
         out["warning"] = "No signals match the filters."
         return clean(out)
 
+    # ---- drill-down 1: charts by stock attribute. Each chart shows what the charts before it
+    # left; the result feeds the stat cards, the breakdown charts and the table.
+    bars = req.get("bars") or {}
+    notes: list[str] = []
+    picked: dict[str, list] = {}
+    for col, value in bars.get("attr") or []:
+        picked.setdefault(col, []).append(value)
+    attr_figs = {}
+    for col in universe.CHART_COLS:
+        attr_figs[col] = fig_json(charts.attribute_breakdown(filtered, col, universe.ATTR_LABELS[col], S.side_col))
+        if picked.get(col):
+            filtered = filtered[universe.mask(filtered, {col: picked[col]})]
+            notes.append(f"{universe.ATTR_LABELS[col]} {', '.join(picked[col])}")
+    out["attr_figures"] = attr_figs
+    out["counts"]["filtered"] = len(filtered)
+    if filtered.empty:
+        out.update(notes=notes, figures={}, warning="No signals behind this chart selection.")
+        return clean(out)
+
     # ---- stat cards
     evaluated = runner.has_outcomes(res)
     out["evaluated"] = evaluated
@@ -323,23 +377,22 @@ def dashboard(req: dict) -> dict:
             if pick is not None:
                 view = view[view[field] == pick]
 
-    # ---- breakdown charts (a tapped bar narrows the table)
-    bars = req.get("bars") or {}
-    notes: list[str] = []
-    mask = pd.Series(True, index=filtered.index)
+    # ---- drill-down 2: breakdown charts, each on what the one before it left; the table follows
     figures: dict[str, Any] = {}
+    drill = filtered
     if evaluated:
-        figures["outcome"] = fig_json(charts.outcome_breakdown(filtered))
-        figures["mfemae"] = fig_json(charts.mfe_mae_distribution(filtered))
+        figures["outcome"] = fig_json(charts.outcome_breakdown(drill))
         if bars.get("outcome"):
-            mask &= runner.bar_mask(filtered, "status", bars["outcome"])
+            drill = drill[runner.bar_mask(drill, "status", bars["outcome"])]
             notes += [f"{tf} {degree} {value}" for tf, degree, value in bars["outcome"]]
+        if not drill.empty:
+            figures["mfemae"] = fig_json(charts.mfe_mae_distribution(drill))
         if bars.get("mfemae"):
-            mask &= runner.range_mask(filtered, bars["mfemae"])
+            drill = drill[runner.range_mask(drill, bars["mfemae"])]
             notes += [f"{'MFE' if col == 'mfe_pct' else 'MAE'} {float(low):.1f}% to {float(high):.1f}%"
                       for col, low, high in bars["mfemae"]]
-        if "alignment" in filtered.columns:
-            stats = S.alignment_stats(filtered)
+        if "alignment" in drill.columns and not drill.empty:
+            stats = S.alignment_stats(drill)
             (t1_label, _), (t2_label, _) = S.target_cards
             figures["align"] = fig_json(charts.alignment_breakdown(
                 stats, label(t1_label).split(" ", 1)[-1], label(t2_label).split(" ", 1)[-1]))
@@ -349,28 +402,17 @@ def dashboard(req: dict) -> dict:
                 "avg_mfe": "Avg MFE %", "avg_mae": "Avg MAE %"}), decimals=1)
             if bars.get("align"):
                 names = [b[0] for b in bars["align"]]
-                mask &= filtered["alignment"].isin(names)
+                drill = drill[drill["alignment"].isin(names)]
                 notes += [f"HTF {n}" for n in names]
-        out["summary_table"] = table(S.summarize(filtered))
+        out["summary_table"] = table(S.summarize(drill if not drill.empty else filtered))
     else:
-        figures["sides"] = fig_json(charts.side_breakdown(filtered, by=S.side_col))
+        figures["sides"] = fig_json(charts.side_breakdown(drill, by=S.side_col))
         if bars.get("sides"):
-            mask &= runner.bar_mask(filtered, S.side_col, bars["sides"])
+            drill = drill[runner.bar_mask(drill, S.side_col, bars["sides"])]
             notes += [f"{tf} {degree} {value}" for tf, degree, value in bars["sides"]]
-    attr_figs = {}
-    for col in universe.CHART_COLS:
-        attr_figs[col] = fig_json(charts.attribute_breakdown(filtered, col, universe.ATTR_LABELS[col], S.side_col))
-    out["attr_figures"] = attr_figs
-    if bars.get("attr"):
-        picked: dict[str, list] = {}
-        for col, value in bars["attr"]:
-            picked.setdefault(col, []).append(value)
-        mask &= universe.mask(filtered, picked)
-        notes += [f"{universe.ATTR_LABELS.get(c, c)} {', '.join(v)}" for c, v in picked.items()]
     out["figures"] = figures
     out["notes"] = notes
-    if notes:
-        view = view[mask.loc[view.index]]
+    view = view[view.index.isin(drill.index)]
     view = view.sort_values("signal_time", ascending=False, kind="stable")       # newest first
 
     # ---- signal table

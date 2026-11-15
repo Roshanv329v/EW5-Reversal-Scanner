@@ -38,11 +38,9 @@ def test_with_weekly_replaces_old_weekly_rows():
 
 
 def test_bar_trend_rules():
-    close = pd.Series([110.0, 90.0, 105.0, 95.0, 100.0])
-    fast = pd.Series([105.0, 95.0, 95.0, 105.0, float("nan")])
-    slow = pd.Series([100.0] * 5)
-    assert list(htf.bar_trend(close, fast, slow)) == [
-        htf.BULLISH, htf.BEARISH, htf.NEUTRAL, htf.NEUTRAL, htf.UNKNOWN]
+    k = pd.Series([60.0, 40.0, 50.0, float("nan")])          # DTosc K
+    d = pd.Series([55.0, 45.0, 50.0, 50.0])                  # DTosc D
+    assert list(htf.bar_trend(k, d)) == [htf.BULLISH, htf.BEARISH, htf.NEUTRAL, htf.UNKNOWN]
 
 
 @pytest.mark.parametrize("side, trends, expected", [
@@ -65,7 +63,7 @@ def test_alignment_mapping(side, trends, expected):
 def test_signal_reads_the_last_finished_weekly_bar(df):
     """A daily signal on a Wednesday must use last week's bar, not the week still forming."""
     weekly = df[(df["time_frame"] == "1W") & (df["Ticker"] == "AAA.NS")].reset_index(drop=True)
-    trend = htf.bar_trend(weekly["Close"], weekly["13_ema"], weekly["55_ema"])
+    trend = htf.bar_trend(weekly["dtosck"], weekly["dtoscd"])
     k = len(weekly) - 3
     for offset in (0, 2, 4):                                          # Monday, Wednesday, Friday
         signal = pd.DataFrame({"Ticker": ["AAA.NS"], "time_frame": ["1D"], "side": ["LONG"],

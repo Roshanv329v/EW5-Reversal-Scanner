@@ -549,18 +549,25 @@ def _filters(S: Strategy, res: pd.DataFrame) -> pd.DataFrame:
         selected = st.session_state.get(_k(S, f"f_{col}"), [])
         return present + [v for v in selected if v not in present]
 
-    picks = {col: slot.multiselect(label, options(col), key=_k(S, f"f_{col}"), disabled=col not in res.columns)
-             for slot, (col, label) in zip(st.columns(len(S.filter_cols)), S.filter_cols)}
-    # stock attributes from tickers.csv: in a section that stays closed until opened
-    attr_cols = [(c, universe.ATTR_LABELS[c]) for c in universe.ATTR_COLS]
-    active = [lbl for c, lbl in attr_cols if st.session_state.get(_k(S, f"f_{c}"))]
-    with st.expander(":material/sell: Stock attributes · market cap, F&O, sectors", expanded=False):
-        st.caption("From tickers.csv. Indices and commodities show as Index / Commodity."
-                   + (f" Filters on: {', '.join(active)}." if active else ""))
-        picks.update({col: slot.multiselect(label, options(col), key=_k(S, f"f_{col}"))
-                      for slot, (col, label) in zip(st.columns(len(attr_cols)), attr_cols)})
+    # every filter in one section (Elliott Wave columns, then the stock attributes of tickers.csv),
+    # closed by default; its title shows which filters are on
+    all_cols = [*S.filter_cols, *[(c, universe.ATTR_LABELS[c]) for c in universe.ATTR_COLS]]
+    active = [lbl for c, lbl in all_cols if st.session_state.get(_k(S, f"f_{c}"))]
+    if st.session_state.get(_k(S, "f_search"), "").strip():
+        active.append("Ticker")
+    if any(v is not None for v in st.session_state.get(_k(S, "f_ratio_pref"), [None, None])):
+        active.append(S.ratio_col)
+    title = ":material/filter_alt: Filters" + (f" · {len(active)} on: {', '.join(active)}" if active else " · none")
+    box = st.expander(title, expanded=False, key=_k(S, "filters_open"))
+    picks = {}
+    for start in range(0, len(all_cols), 6):
+        row = all_cols[start:start + 6]
+        for slot, (col, label) in zip(box.columns(6), row):
+            picks[col] = slot.multiselect(label, options(col), key=_k(S, f"f_{col}"), disabled=col not in res.columns)
+    box.caption("Market cap, CNX sector, F&O, macro sector and sector index come from tickers.csv "
+                "(indices and commodities: Index / Commodity).")
 
-    row2 = st.columns([2, 2.2, 1.3, 1.1, 0.9], vertical_alignment="bottom")
+    row2 = box.columns([2, 2.2, 1.3, 1.1, 0.9], vertical_alignment="bottom")
     search = row2[0].text_input("Ticker search", key=_k(S, "f_search"), placeholder="e.g. BAJ")
     ratio = res[S.ratio_col].dropna()
     lo, hi = (float(ratio.min()), float(ratio.max())) if len(ratio) else (0.0, 1.0)
@@ -580,9 +587,9 @@ def _filters(S: Strategy, res: pd.DataFrame) -> pd.DataFrame:
                    icon=":material/filter_alt_off:", key=_k(S, "clear_filters"))
     note = st.session_state.pop(_k(S, "prefs_note"), None)
     if note:
-        st.caption(note)
+        box.caption(note)
     elif path.exists() and _current_prefs(S) != prefs.load_prefs(path, _filter_columns(S)):
-        st.caption("Filters differ from the saved ones.")
+        box.caption("Filters differ from the saved ones.")
 
     view = res
     for col, chosen in picks.items():
@@ -781,6 +788,11 @@ def render_dashboard(S: Strategy) -> None:
     chosen = head[0].selectbox("Results file", names, key=file_key)
     path = cfg["results_dir"] / chosen
     res, meta = _load_results(str(path), path.stat().st_mtime)
+    if runner.needs_retag(res, meta):                             # tagged with the old (EMA) trend rule
+        with st.spinner("Updating this file's higher-timeframe trend to the DTosc rule (once)…"):
+            res = htf.retag(res, stock_df(), S.side_col, HTF)
+            runner.rewrite_results(path, res, meta)
+            meta = {**meta, "htf_method": htf.METHOD}
     res = universe.attach(res, attributes())                      # market cap, F&O, sectors (tickers.csv)
     params = meta.get("params", {})
     mode_name = runner.MODES.get(params.get("mode", ""), "Run")
@@ -797,8 +809,7 @@ def render_dashboard(S: Strategy) -> None:
         st.info("This run produced no signals.")
         return
 
-    with st.container(border=True):
-        filtered = _filters(S, res)
+    filtered = _filters(S, res)
     evaluated = runner.has_outcomes(res)
     stat_key = _k(S, f"stat_file_{chosen}")
     if filtered.empty:
@@ -807,39 +818,55 @@ def render_dashboard(S: Strategy) -> None:
     nonce_key = _k(S, f"chartsel_{chosen}")
     suffix = f"{S.key}_{chosen}_{len(filtered)}_{st.session_state.get(nonce_key, 0)}"
     picked_notes: list[str] = []
-    chart_mask = pd.Series(True, index=filtered.index)
 
-    # ---- signals by stock attribute, right under the filters: click a bar to narrow the table
-    attr_slots = st.columns(len(universe.CHART_COLS))
-    for slot, col in zip(attr_slots, universe.CHART_COLS):
-        picked = [(c, v) for c, v in _chart_pick(slot, charts.attribute_breakdown(
-            filtered, col, universe.ATTR_LABELS[col], S.side_col, height=320), f"attr_{col}_{suffix}") if v != "other"]
+    def key(name: str) -> str:
+        """Chart widget key: changes with every pick above it, so a drilled chart starts unselected."""
+        return f"{name}_{suffix}_{abs(hash(tuple(picked_notes))) % 10**8}"
+
+    # ---- drill-down 1: signals by stock attribute (closed section). Each chart shows what the
+    # charts before it left; the result feeds the KPI cards, the breakdown and the table.
+    n_attr = len(picked_notes)
+    attr_box = st.expander(":material/donut_small: Charts by stock attribute · market cap, F&O, macro sector",
+                           expanded=False, key=_k(S, "attr_charts_open"))
+    attr_box.caption("Click a bar to keep only those signals: the next charts, the KPI cards, the breakdown "
+                     "and the table follow. Shift-click adds bars; Clear chart filter starts again.")
+    for slot, col in zip(attr_box.columns(len(universe.CHART_COLS)), universe.CHART_COLS):
+        picked = [v for _, v in _chart_pick(slot, charts.attribute_breakdown(
+            filtered, col, universe.ATTR_LABELS[col], S.side_col, height=320), key(f"attr_{col}")) if v != "other"]
         if picked:
-            chart_mask &= universe.mask(filtered, {col: [v for _, v in picked]})
-            picked_notes.append(f"{universe.ATTR_LABELS[col]} {', '.join(v for _, v in picked)}")
+            filtered = filtered[universe.mask(filtered, {col: picked})]
+            picked_notes.append(f"{universe.ATTR_LABELS[col]} {', '.join(picked)}")
+    if len(picked_notes) > n_attr:
+        attr_box.caption(":material/filter_alt: " + " · ".join(picked_notes[n_attr:]))
+    if filtered.empty:
+        st.warning("No signals behind this chart selection.")
+        st.button("Clear chart filter", icon=":material/close:", on_click=_bump, args=(nonce_key,), key=_k(S, "clear_chart0"))
+        return
 
     view = _kpi_cards(S, filtered, stat_key) if evaluated else _live_cards(S, filtered, stat_key)
 
-    # ---- breakdown charts: click a bar to narrow the table
+    # ---- drill-down 2: breakdown charts, each on what the one before it left; the table follows
     st.markdown("#### :material/bar_chart: Breakdown")
-    st.caption("Click a bar to filter the signal table to the signals inside it. Shift-click adds more bars.")
+    st.caption("Click a bar to drill down: the charts after it and the signal table keep only those signals. "
+               "Shift-click adds more bars.")
+    drill = filtered
     if evaluated:
         left, right = st.columns(2)
-        bars = _chart_pick(left, charts.outcome_breakdown(filtered), f"outcome_{suffix}")
-        ranges = _chart_pick(right, charts.mfe_mae_distribution(filtered), f"mfemae_{suffix}")
+        bars = _chart_pick(left, charts.outcome_breakdown(drill), key("outcome"))
         if bars:
-            chart_mask &= runner.bar_mask(filtered, "status", bars)
+            drill = drill[runner.bar_mask(drill, "status", bars)]
             picked_notes += [f"{tf} {degree} {value}" for tf, degree, value in bars]
+        ranges = _chart_pick(right, charts.mfe_mae_distribution(drill), key("mfemae")) if not drill.empty else []
         if ranges:
-            chart_mask &= runner.range_mask(filtered, ranges)
+            drill = drill[runner.range_mask(drill, ranges)]
             picked_notes += [f"{'MFE' if col == 'mfe_pct' else 'MAE'} {low:.1f}% to {high:.1f}%"
                              for col, low, high in ranges]
-        if "alignment" in filtered.columns:
-            stats = S.alignment_stats(filtered)
+        if "alignment" in drill.columns and not drill.empty:
+            stats = S.alignment_stats(drill)
             left, right = st.columns(2)
             (t1_label, _), (t2_label, _) = S.target_cards
             picked_align = _chart_pick(left, charts.alignment_breakdown(
-                stats, t1_label.split(": ", 1)[-1], t2_label.split(": ", 1)[-1]), f"align_{suffix}")
+                stats, t1_label.split(": ", 1)[-1], t2_label.split(": ", 1)[-1]), key("align"))
             with right.container(border=True):
                 st.markdown("**Does trading with the higher timeframe pay?**")
                 st.caption("ALIGNED: every higher timeframe points the way of the trade · "
@@ -855,21 +882,21 @@ def render_dashboard(S: Strategy) -> None:
                         "Trigger %", "Failed %", "Target 1 %", "Target 2 %", "Stop %", "Avg MFE %", "Avg MAE %")})
             if picked_align:
                 names = [a for (a,) in picked_align]
-                chart_mask &= filtered["alignment"].isin(names)
+                drill = drill[drill["alignment"].isin(names)]
                 picked_notes += [f"HTF {a}" for a in names]
         with st.expander("Summary table (by timeframe × degree)", icon=":material/table_chart:"):
-            st.dataframe(S.summarize(filtered), hide_index=True)
+            st.dataframe(S.summarize(drill if not drill.empty else filtered), hide_index=True)
     else:
-        bars = _chart_pick(st, charts.side_breakdown(filtered, by=S.side_col), f"sides_{suffix}")
+        bars = _chart_pick(st, charts.side_breakdown(drill, by=S.side_col), key("sides"))
         if bars:
-            chart_mask &= runner.bar_mask(filtered, S.side_col, bars)
+            drill = drill[runner.bar_mask(drill, S.side_col, bars)]
             picked_notes += [f"{tf} {degree} {value}" for tf, degree, value in bars]
     if picked_notes:
         note = st.columns([5, 1], vertical_alignment="center")
         note[0].markdown(":material/filter_alt: **Chart filter:** " + " · ".join(picked_notes))
         note[1].button("Clear chart filter", width="stretch", icon=":material/close:",
                        on_click=_bump, args=(nonce_key,), key=_k(S, "clear_chart"))
-        view = view[chart_mask.loc[view.index]]
+    view = view[view.index.isin(drill.index)]
     view = view.sort_values("signal_time", ascending=False, kind="stable").reset_index(drop=True)   # newest first
 
     st.markdown("#### :material/table_rows: Signals")

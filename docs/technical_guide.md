@@ -254,8 +254,9 @@ three columns and changes nothing else; the screeners are not involved.
 | `htf2_trend` | trend of the grandparent timeframe (empty when there is none) |
 | `alignment` | `ALIGNED`, `MIXED`, `AGAINST` or `UNKNOWN` |
 
-- `bar_trend`: BULLISH when `Close > slow EMA` and `fast EMA > slow EMA`, BEARISH when both are
-  below, NEUTRAL otherwise, UNKNOWN when an EMA is missing (`htf.ema_fast`, `htf.ema_slow`).
+- `bar_trend`: BULLISH when DTosc K > D, BEARISH when K < D, NEUTRAL when equal, UNKNOWN when
+  either is missing (`htf.trend_k`, `htf.trend_d`). Results record the rule in `htf_method`;
+  older files are re-tagged (`htf.retag`, `runner.rewrite_results`) when opened.
 - `completed_trend`: per ticker, each bar carries the trend of the bar **before** it.
 - `_lookup`: `merge_asof` (backward, by ticker) from `signal_time` to the higher-timeframe bar
   that contains it. Together with the shift above, a signal reads the last higher bar that
@@ -299,7 +300,7 @@ three columns and changes nothing else; the screeners are not involved.
 | `ew3.*` | EW3 default stages, contexts and wave-2 retracement range |
 | `htf.weekly.*` | Weekly timeframe name, its source timeframe and the week end day |
 | `htf.ladder` | Parent and grandparent timeframe of each signal timeframe |
-| `htf.ema_fast`, `htf.ema_slow` | EMA columns that define the higher-timeframe trend |
+| `htf.trend_k`, `htf.trend_d` | DTosc columns that define the higher-timeframe trend (K > D bullish) |
 | `dashboard_filters_file`, `dashboard_filters_file_ew3` | Saved filters of the EW5 and EW3 tabs |
 | `chart.*`, `signal_indicators` | Chart size, EMA columns, indicators copied into results |
 
@@ -319,7 +320,7 @@ Restart the app after changing `config.yaml`, `stock_data.py` or anything under 
 ## Known limits
 
 - yfinance serves only about 730 days of 60m data, so 4hr history cannot go back further.
-- Weekly EMA 55 needs 55 weeks. With 3 years of daily data the first year of weekly trend is
+- The weekly DT oscillator needs a few months of weekly bars. With 3 years of daily data the first months of weekly trend are
   UNKNOWN; raise `full_history."1D"` for a longer weekly history.
 - Higher-timeframe lookup assumes a daily bar covers one IST calendar day. That holds for NSE.
   For the four commodity futures, which trade past midnight IST, an intraday signal between
