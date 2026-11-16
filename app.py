@@ -19,6 +19,18 @@ from core.config import ROOT, load_config, resolve
 
 st.set_page_config(page_title="Elliott Wave Scanner", page_icon="📈", layout="wide")
 
+# The app uses Streamlit 1.67 features (button width, keyed expanders, cell selection ...).
+# Started with an older Streamlit (e.g. `streamlit run app.py` from another Python), it would
+# crash on the first of them; say what to do instead.
+MIN_STREAMLIT = (1, 67)
+if tuple(int(x) for x in st.__version__.split(".")[:2]) < MIN_STREAMLIT:
+    st.error(f"This app needs Streamlit {MIN_STREAMLIT[0]}.{MIN_STREAMLIT[1]} or newer, but it was started with "
+             f"Streamlit {st.__version__} from `{sys.executable}`.")
+    st.markdown("Start it with the project's own environment instead:\n\n"
+                "```bash\ncd \"" + str(Path(__file__).resolve().parent) + "\"\n./run.sh\n```\n\n"
+                "(`run.sh` uses `.venv`, which has the right versions.)")
+    st.stop()
+
 UP, DOWN, AMBER = "#2fbf71", "#e66767", "#e0a526"                       # green / red used for sides and readings
 st.markdown("""
 <style>
@@ -953,6 +965,12 @@ with tab_ew3:
 # ----------------------------------------------------------------------------------
 # Tab - Alerts: scheduled scans on this Mac (scheduled_scan.py + macOS launchd)
 # ----------------------------------------------------------------------------------
+def _telegram_html(text: str) -> str:
+    """A Telegram message (HTML subset) as a bordered box on the page, line breaks kept."""
+    return ('<div style="border:1px solid rgba(128,128,128,.35);border-radius:10px;padding:10px 14px;'
+            'margin:6px 0;white-space:pre-wrap;line-height:1.45">' + text + "</div>")
+
+
 def _alert_times(text: str) -> list[str]:
     return [t.strip() for t in text.replace(";", ",").split(",") if t.strip()]
 
@@ -1017,6 +1035,11 @@ with tab_alerts:
                                   format_func=lambda e: "Triggered today" if e == "TRIGGERED" else "New setups today")
         f1, f2 = st.columns(2)
         v_aligned = f1.checkbox("Only signals ALIGNED with the higher timeframes", value=a_settings["aligned_only"])
+        v_split = f1.radio("Messages", ["Separate: Triggered · New setups", "One message for the day"],
+                           index=0 if a_settings.get("split_messages", True) else 1, horizontal=True,
+                           help="Separate: one notification (and Telegram message) for stocks triggered today and "
+                                "another for new setups, each sent only when it has something new. "
+                                "Leave a category out of 'Notify about' to keep only the other.")
         v_lookback = f2.number_input("Setups from the last N days can trigger today", 2, 60, int(a_settings["lookback_days"]))
         st.markdown("**Telegram** (optional)")
         t1, t2, t3 = st.columns([1, 2, 1.4])
@@ -1024,6 +1047,13 @@ with tab_alerts:
         v_token = t2.text_input("Bot token", type="password",
                                 placeholder="saved (type to replace)" if a_settings.get("telegram_token") else "123456789:AA…")
         v_chat = t3.text_input("Chat ID", a_settings.get("telegram_chat_id", ""))
+        style_names = {"cards": "Cards: a short block per stock", "compact": "Compact: one line per stock",
+                       "custom": "Custom: my own template (below)"}
+        v_style = st.radio("Message layout", list(style_names), format_func=style_names.get, horizontal=True,
+                           index=list(style_names).index(a_settings.get("telegram_style", "cards")),
+                           help="Cards and Compact list stocks new since the last scan first, then 60m → 4hr → 1D, "
+                                "aligned first; stocks already sent today follow under 'Earlier today'. "
+                                "The header and line templates below are used by Custom only.")
         v_head = st.text_input("Message header", a_settings.get("telegram_header"))
         v_line = st.text_area("One line per stock", a_settings.get("telegram_line"), height=70,
                               help="Placeholders: " + ", ".join("{" + k + "}" for k in ev.LINE_FIELDS)
@@ -1035,19 +1065,21 @@ with tab_alerts:
                     "enabled": v_enabled, "days": v_days, "times": _alert_times(v_times), "universe": v_universe,
                     "full_enabled": v_full, "full_days": v_full_days, "full_times": _alert_times(v_full_times),
                     "update_data": v_update, "strategies": v_strats, "timeframes": v_tfs, "events": v_events,
-                    "aligned_only": v_aligned, "lookback_days": v_lookback, "telegram": v_tg == "On",
+                    "aligned_only": v_aligned, "split_messages": v_split.startswith("Separate"),
+                    "lookback_days": v_lookback, "telegram": v_tg == "On",
                     "telegram_token": v_token, "telegram_chat_id": v_chat, "telegram_header": v_head,
-                    "telegram_line": v_line, "telegram_group": v_group})
+                    "telegram_line": v_line, "telegram_group": v_group, "telegram_style": v_style})
                 st.success("Saved" + (" and the schedule updated." if loaded else ". Press Install schedule to run it on this Mac."))
             except ValueError as exc:
                 st.error(str(exc))
 
     tg_cols = st.columns([1, 1, 3])
     if tg_cols[0].button("Preview Telegram message", icon=":material/visibility:", key="alerts_preview"):
-        st.code(ev.telegram_text("EW alerts today (example)", ev.SAMPLE, a_settings)[0], language=None)
+        for _title, texts in ev.preview_texts(ev.SAMPLE, a_settings, "Example · "):
+            st.markdown(_telegram_html(texts[0]), unsafe_allow_html=True)
     if tg_cols[1].button("Send test to Telegram", icon=":material/send:", key="alerts_tg_test",
                          disabled=not (a_settings.get("telegram_token") and a_settings.get("telegram_chat_id"))):
-        result = ev.send_telegram(a_settings, "EW Scanner · test alert", ev.SAMPLE)
+        result = ev.send_test(a_settings)
         (st.success if result == "sent" else st.error)(f"Telegram: {result}")
 
     last = sc._read(sc._dir(cfg) / "alerts_last_run.json", None)
@@ -1065,6 +1097,11 @@ with tab_alerts:
     if hist:
         hist_df = pd.DataFrame(hist[::-1])
         today_df = hist_df[hist_df["day"].eq(str(pd.Timestamp.now().date()))]
+        if not today_df.empty:                     # same order as the messages: triggers, then 60m → 4hr → 1D
+            order = sorted(today_df.to_dict("records"), key=lambda h: (
+                h["event"] != "TRIGGERED", ev.TF_ORDER.get(h.get("tf"), 9), ev.ALIGN_ORDER.get(h.get("alignment"), 3),
+                str(h.get("at", ""))))
+            today_df = pd.DataFrame(order)
         show = ["at", "event", "strategy", "ticker", "tf", "degree", "side", "alignment", "trigger", "stop", "file"]
         st.markdown(f"**Today ({len(today_df)})** · open the stock in the EW5 / EW3 tab with its `backtest_auto_…` file")
         st.dataframe(today_df[[c for c in show if c in today_df.columns]], hide_index=True, height=260)

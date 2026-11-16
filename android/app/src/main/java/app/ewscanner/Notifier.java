@@ -13,12 +13,17 @@ import org.json.JSONArray;
 /** The day's alert notification. Called from Python (mobile/alerts.py). */
 public final class Notifier {
     static final String CHANNEL = "alerts";
-    private static final int ID = 2;                 // one notification, updated through the day
+    private static final int ID = 2;                 // the whole day in one notification, updated through the day
     private static final int SHOWN = 7;
 
     private Notifier() { }
 
     public static void show(String title, String linesJson) {
+        show(title, linesJson, ID);
+    }
+
+    /** id: 2 the whole day, 3 Triggered, 4 New setups (separate notifications, each updated through the day). */
+    public static void show(String title, String linesJson, int id) {
         Context c = App.get();
         if (c == null) return;
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -41,9 +46,9 @@ public final class Notifier {
 
         Intent open = new Intent(c, MainActivity.class).putExtra(MainActivity.EXTRA_TAB, "alerts")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pi = PendingIntent.getActivity(c, 1, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pi = PendingIntent.getActivity(c, id, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(c, CHANNEL) : new Notification.Builder(c);
-        nm.notify(ID, b.setContentTitle(title)
+        nm.notify(id, b.setContentTitle(title)
                 .setContentText(lines.length > 0 ? lines[0] : "")
                 .setStyle(inbox)
                 .setSmallIcon(R.drawable.ic_stat)

@@ -93,12 +93,16 @@ At each time you set (default **12:30 and 15:45, Monday to Friday**, F&O stocks)
 1. the latest data is downloaded (the same incremental update as the Data tab);
 2. EW5 and EW3 run over the last few days (default 10) with the normal settings and
    higher-timeframe alignment;
-3. one notification lists every stock of the day:
+3. you are notified of every stock of the day, in two separate notifications (and two
+   Telegram messages):
    - **Triggered**: the close crossed the TRIGGER level today;
    - **New setup**: the setup appeared today.
 
-The second scan of the day only notifies stocks that are new since the first; the
-notification always lists the whole day, triggers first. Tap it to open the Alerts tab; tap
+A scan only notifies when it finds stocks that are new since the last one, and only in that
+category: a later scan with one new setup updates the *New setups* notification and leaves
+*Triggered* alone. Each notification lists that category's whole day. **Messages → One message
+for the day** puts both in one notification, triggers first. To get only one category, untick
+the other under **Notify about**. Tap it to open the Alerts tab; tap
 a row there to open that stock in its EW5 / EW3 tab, scrolled to its chart. The scans' results are also in the EW5 / EW3 tabs as
 `backtest_auto_…` files (the newest four of each are kept).
 
@@ -108,9 +112,9 @@ the full history of every stock the phone does not have yet. To spread that out,
 
 Settings: days, times (add or remove), the stocks for these scans (F&O / all), the weekly
 full scan (on / off, day, time), whether to download first, EW5 / EW3, timeframes,
-what to be notified about, *only ALIGNED* signals, and how many days back a setup may still
-trigger today. **Run now** starts a scan at once; **Test notification** shows what an alert
-looks like.
+what to be notified about, separate or one message, *only ALIGNED* signals, and how many days back a setup may still
+trigger today. **Run now** starts a scan at once; **Test notification** shows what the alerts
+look like.
 
 **Telegram (optional, off by default).** Switch *Telegram* to **On** to also get the day's
 list in a Telegram chat, with trigger and stop for each stock:
@@ -125,11 +129,23 @@ The token is kept in the app's private storage and is never shown again (leave t
 empty to keep it). For a group, add the bot to the group, write a message there and pick the
 group's chat ID. The phone notification is sent either way.
 
-**Message layout** (under Telegram) sets what the message says: a header line and one line
-per stock, written with placeholders such as `{icon} {ticker} {side}`, `{trigger}`, `{stop}`,
-`{target1}`, `{risk_pct}`, `{alignment}` or `{tradingview}` (a chart link). Tap a placeholder
-to insert it, **Preview** to see the message with today's stocks (or two examples), and
-**Default layout** to start again. `<b>`, `<i>`, `<code>` and links work as in Telegram.
+**Message layout** (under Telegram) chooses how the messages read:
+
+- **Cards** (default): a short block per stock: side and symbol with the alignment
+  (✅ aligned, ➖ mixed, ⚠️ against); timeframe, EW5 / EW3, degree and time; the levels
+  (triggered: *Entry · SL (risk %)*; new setup: *Buy above / Sell below the trigger (how far
+  away) · SL*); the targets 🎯 and a chart link.
+- **Compact**: the same, one line per stock.
+- **Custom**: your own header and line with placeholders such as `{icon} {ticker} {side}`,
+  `{trigger}`, `{stop}`, `{target1}`, `{risk_pct}`, `{alignment}` or `{tradingview}`. Tap a
+  placeholder to insert it; `<b>`, `<i>`, `<code>` and links work as in Telegram.
+
+Every message and notification lists the stocks **new since the last scan first** (under
+*🆕 New since 12:31* once earlier ones exist), each group in the order **60m → 4hr → 1D**,
+aligned before mixed and against. Stocks already sent earlier in the day follow under
+*Earlier today*, one line each. The notification title names the stocks, e.g.
+*⚡ 2 triggered today: RELIANCE, SBIN*. **Preview** shows the messages with today's stocks
+(or two examples).
 
 **Scans while the phone is locked.** Scans are set as alarm-clock alarms (you will see the
 alarm icon in the status bar), which phones keep even in deep sleep. The tab checks the

@@ -28,15 +28,27 @@ DEFAULTS: dict[str, Any] = {
     "strategies": ["ew5", "ew3"],
     "timeframes": ["1D", "4hr", "60m"],
     "events": ["TRIGGERED", "NEW"],
+    "split_messages": True,                  # a separate message for Triggered and for New setups
     "aligned_only": False,                   # notify only signals ALIGNED with the higher timeframes
     "lookback_days": 10,                     # setups from this many days back can still trigger today
     "telegram": False,                       # also send the day's list to a Telegram bot (off by default)
     "telegram_token": "",                    # from @BotFather; kept in the app's private storage only
     "telegram_chat_id": "",
+    "telegram_style": "cards",               # message layout: "cards", "compact" or "custom" (the templates below)
     "telegram_header": "<b>{title}</b>",
     "telegram_line": "{icon} {strategy} <b>{ticker}</b> {tf} {degree} {side} · {time} · {alignment} · trigger {trigger} · stop {stop}",
     "telegram_group": True,                  # "Triggered today" / "New setups today" sections
 }
+
+
+def with_defaults(saved: dict) -> dict:
+    """Saved settings filled up with the defaults. Saved before the message layouts existed:
+    an edited template keeps working as the Custom layout; an untouched one gets Cards."""
+    out = {**DEFAULTS, **{k: v for k, v in saved.items() if k in DEFAULTS}}
+    if "telegram_style" not in saved:
+        edited = (out["telegram_header"], out["telegram_line"]) != (DEFAULTS["telegram_header"], DEFAULTS["telegram_line"])
+        out["telegram_style"] = "custom" if edited else "cards"
+    return out
 
 
 def _times(values: Any) -> list[str]:
@@ -65,6 +77,7 @@ def clean_settings(values: dict, old: Optional[dict] = None) -> dict:
     out["strategies"] = [s for s in values.get("strategies", []) if s in strategies.STRATEGIES]
     out["timeframes"] = [tf for tf in values.get("timeframes", []) if tf in ("1D", "4hr", "60m", "1W")]
     out["events"] = [e for e in values.get("events", []) if e in ("TRIGGERED", "NEW")]
+    out["split_messages"] = bool(values.get("split_messages", True))
     out["aligned_only"] = bool(values.get("aligned_only"))
     out["lookback_days"] = max(2, min(60, int(values.get("lookback_days") or DEFAULTS["lookback_days"])))
     out["telegram"] = bool(values.get("telegram"))
@@ -74,6 +87,11 @@ def clean_settings(values: dict, old: Optional[dict] = None) -> dict:
     out["telegram_header"] = str(values.get("telegram_header") or DEFAULTS["telegram_header"])[:500]
     out["telegram_line"] = str(values.get("telegram_line") or DEFAULTS["telegram_line"])[:800]
     out["telegram_group"] = bool(values.get("telegram_group", True))
+    style = values.get("telegram_style")
+    if style not in ("cards", "compact", "custom"):        # settings saved before the layouts: an edited template stays
+        edited = (out["telegram_header"], out["telegram_line"]) != (DEFAULTS["telegram_header"], DEFAULTS["telegram_line"])
+        style = "custom" if edited else "cards"
+    out["telegram_style"] = style
     problems = []
     if out["telegram"] and not (out["telegram_token"] and out["telegram_chat_id"]):
         problems.append("Telegram needs a bot token and a chat ID.")

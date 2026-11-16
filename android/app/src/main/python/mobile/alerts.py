@@ -33,9 +33,9 @@ import pandas as pd
 
 from core import htf, runner, strategies, universe
 from mobile import jobs, scan
-from core.alert_settings import DAYS, DEFAULTS, _times, clean_settings, next_runs, public, slots  # noqa: F401
-from core.alert_events import (HEADER_FIELDS, LINE_FIELDS, SAMPLE, TELEGRAM_LIMIT, TELEGRAM_URL,  # noqa: F401
-                               _Fields, _event_rows, _line, _num, _telegram, line_fields, send_telegram,
+from core.alert_settings import DAYS, DEFAULTS, _times, clean_settings, next_runs, public, slots, with_defaults  # noqa: F401
+from core.alert_events import (ALIGN_ORDER, TF_ORDER, HEADER_FIELDS, LINE_FIELDS, SAMPLE, TELEGRAM_LIMIT, TELEGRAM_URL,  # noqa: F401
+                               _Fields, _event_rows, _line, _num, _telegram, line_fields, messages, notification_lines, preview_texts, send_telegram, send_test,
                                telegram_text)
 from mobile.fetch import yahoo_fetch
 
@@ -46,6 +46,10 @@ HISTORY_DAYS = 14
 # ----------------------------------------------------------------------------------
 # Files: settings (also read by the Android scheduler), sent log, history, last run
 # ----------------------------------------------------------------------------------
+# Android notification per category: separate ones stay side by side in the shade
+NOTIFY_IDS = {"ALL": 2, "TRIGGERED": 3, "NEW": 4}
+
+
 def _dir(app) -> Path:
     return app.root / "data"
 
@@ -70,7 +74,7 @@ def _write(path: Path, value: Any) -> None:
 
 def load_settings(app) -> dict:
     saved = _read(settings_path(app), {})
-    out = {**DEFAULTS, **{k: v for k, v in saved.items() if k in DEFAULTS}}
+    out = with_defaults(saved)
     if not settings_path(app).exists():
         _write(settings_path(app), out)                       # the scheduler reads this file
     return out
@@ -95,13 +99,13 @@ def save_settings(app, values: dict) -> dict:
 
 def telegram_preview(app, values: dict) -> dict:
     """The message as it would look now: today's alerts, or two examples when there are none yet."""
-    s = {**load_settings(app), **{k: v for k, v in values.items() if k.startswith("telegram_")}}
+    s = {**load_settings(app), **{k: v for k, v in values.items()
+                                  if k.startswith("telegram_") or k == "split_messages"}}
     history = _read(_dir(app) / "alerts_history.json", [])
     today = [h for h in history if h.get("day") == str(date.today())]
     events = sorted(today, key=lambda h: (h["event"] != "TRIGGERED", h["at"]))[:12] or SAMPLE
-    n_trig = sum(e["event"] == "TRIGGERED" for e in events)
-    title = f"EW alerts today: {n_trig} triggered · {len(events) - n_trig} new setups"
-    return {"messages": telegram_text(title, events, s), "example": not today,
+    texts = [t for _, msgs in preview_texts(events, s) for t in msgs]
+    return {"messages": texts, "example": not today,
             "header_fields": HEADER_FIELDS, "line_fields": LINE_FIELDS}
 
 
@@ -110,8 +114,9 @@ def telegram_test(app, values: dict) -> dict:
     saved = load_settings(app)
     s = {"telegram_token": str(values.get("telegram_token") or "").strip() or saved.get("telegram_token", ""),
          "telegram_chat_id": str(values.get("telegram_chat_id") or "").strip() or saved.get("telegram_chat_id", "")}
-    s.update({k: v for k, v in {**saved, **values}.items() if k in ("telegram_header", "telegram_line", "telegram_group")})
-    result = send_telegram(s, "EW Scanner · test alert", SAMPLE)
+    s.update({k: v for k, v in {**saved, **values}.items()
+              if k in ("telegram_header", "telegram_line", "telegram_group", "split_messages")})
+    result = send_test(s)
     if result != "sent":
         raise ValueError(f"Telegram: {result}")
     return {"ok": True, "note": "Test message sent to Telegram."}
@@ -224,13 +229,15 @@ def run(app, source: str = "schedule", today: Optional[date] = None, notify: boo
         n_trig = sum(h["event"] == "TRIGGERED" for h in todays)
         summary.update(events=len(todays), triggered=n_trig, new_setups=len(todays) - n_trig,
                        new_events=len(fresh), seconds=round(time.time() - t0, 1))
-        if fresh and notify:
-            parts = [f"{n_trig} triggered" if n_trig else "", f"{len(todays) - n_trig} new setups" if len(todays) > n_trig else ""]
-            title = f"EW alerts today: {' · '.join(p for p in parts if p)} ({len(fresh)} since last scan)"
-            todays = sorted(todays, key=lambda h: (h["event"] != "TRIGGERED", h["at"]))   # triggers first
-            summary["notified"] = _java("Notifier", "show", title, json.dumps([_line(e) for e in todays]))
-            if settings.get("telegram"):
-                summary["telegram"] = send_telegram(settings, title, todays)
+        if notify:
+            # one notification (and Telegram message) per category, or one for the whole day
+            for category, title, rows in messages(todays, fresh, settings.get("split_messages", True)):
+                shown = _java("Notifier", "show", title, json.dumps(notification_lines(rows)),
+                              NOTIFY_IDS[category])
+                summary["notified"] = summary.get("notified", True) and shown
+                if settings.get("telegram"):
+                    result = send_telegram(settings, title, rows, category)
+                    summary["telegram"] = result if summary.get("telegram", "sent") == "sent" else summary["telegram"]
         _write(_dir(app) / "alerts_last_run.json", summary)
         return summary
 
@@ -277,13 +284,17 @@ def overview(app) -> dict:
     return {"settings": public(settings), "next": next_runs(settings), "days": list(DAYS),
             "universes": [[k, f"{v} ({n.get(k, 0):,} stocks)"] for k, v in universe.UNIVERSES.items()],
             "last_run": _read(_dir(app) / "alerts_last_run.json", None),
-            "today": [h for h in history if h.get("day", h["notified"][:10]) == today][::-1],
+            "today": sorted([h for h in history if h.get("day", h["notified"][:10]) == today],   # triggers first,
+                            key=lambda h: (h["event"] != "TRIGGERED", TF_ORDER.get(h.get("tf"), 9),  # then 60m → 1D
+                                           ALIGN_ORDER.get(h.get("alignment"), 3), h.get("at", ""))),
             "history": history[::-1][:300], "timeframes": app.cfg["timeframes"], "alarm_log": alarm_log(app),
             "strategies": [[S.key, S.name] for S in strategies.STRATEGIES.values()]}
 
 
-def test_notification() -> dict:
-    ok = _java("Notifier", "show", "EW Scanner · test alert",
-               json.dumps(["EW5 EXAMPLE.NS 60m SHORT · triggered 13:15 · ALIGNED",
-                           "This is how a scheduled scan reports the day's stocks."]))
+def test_notification(app) -> dict:
+    split = load_settings(app).get("split_messages", True)
+    ok = True
+    for category, title, rows in messages(SAMPLE, SAMPLE, split):
+        ok = _java("Notifier", "show", "Test · " + title, json.dumps(notification_lines(rows)),
+                   NOTIFY_IDS[category]) and ok
     return {"ok": ok, "note": "Sent." if ok else "Notifications are sent by the phone app only."}

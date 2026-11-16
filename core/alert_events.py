@@ -3,7 +3,10 @@ Alert events and Telegram messages, shared by the phone app (mobile/alerts.py) a
 desktop's scheduled scans (scheduled_scan.py):
 
     event_rows()      today's TRIGGERED / NEW signals of a backtest result
-    telegram_text()   the day's list as Telegram messages, from the Alerts templates
+    messages()        what a scan sends: Triggered and New setups apart (or together), sorted
+                      new first, then 60m → 4hr → 1D, aligned first
+    render()          one message in the chosen layout: cards, compact, or the custom template
+    telegram_text()   the custom-template layout
     send_telegram()   send them with a bot token and chat ID
 """
 
@@ -21,6 +24,7 @@ import pandas as pd
 from core import htf
 
 TEMPLATE_DEFAULTS = {
+    "telegram_style": "cards",               # "cards" / "compact" / "custom" (the two templates below)
     "telegram_header": "<b>{title}</b>",
     "telegram_line": "{icon} {strategy} <b>{ticker}</b> {tf} {degree} {side} · {time} · {alignment} · trigger {trigger} · stop {stop}",
     "telegram_group": True,
@@ -126,10 +130,10 @@ def telegram_text(title: str, events: list[dict], settings: Optional[dict] = Non
     return messages
 
 
-def send_telegram(settings: dict, title: str, events: list[dict]) -> str:
+def send_telegram(settings: dict, title: str, events: list[dict], category: str = "ALL") -> str:
     if not (settings.get("telegram_token") and settings.get("telegram_chat_id")):
         return "not set up"
-    for text in telegram_text(title, events, settings):
+    for text in render(category, title, events, settings):
         payload = {"chat_id": settings["telegram_chat_id"], "text": text, "parse_mode": "HTML",
                    "disable_web_page_preview": True}
         r = _telegram(settings["telegram_token"], "sendMessage", payload)
@@ -194,6 +198,226 @@ def _line(e: dict) -> str:
     return f"{e['strategy'].upper()} {e['ticker']} {e['tf']} {e['side']} · {what} {e['at'][11:]}{align}"
 
 
+
+# ----------------------------------------------------------------------------------
+# One message, or one per category
+# ----------------------------------------------------------------------------------
+CATEGORIES = (("TRIGGERED", "triggered"), ("NEW", "new setups"))
+STYLES = ("cards", "compact", "custom")       # Telegram layout: blocks per stock, one line per stock, template
+TF_ORDER = {"60m": 0, "4hr": 1, "1D": 2, "1W": 3}
+ALIGN_ORDER = {htf.ALIGNED: 0, htf.MIXED: 1, htf.AGAINST: 2}
+ALIGN_ICON = {htf.ALIGNED: "✅", htf.MIXED: "➖", htf.AGAINST: "⚠️"}
+CONTEXT_TEXT = {"AFTER_ABC": "after ABC", "AFTER_WAVE5": "after wave 5"}
+
+
+def _ident(e: dict) -> str:
+    return e.get("key") or f"{e.get('strategy')}|{e.get('ticker')}|{e.get('tf')}|{e.get('at')}|{e.get('event')}"
+
+
+def sort_key(e: dict) -> tuple:
+    """New since the last scan first, then 60m → 4hr → 1D → 1W, aligned before mixed / against, then time."""
+    return (not e.get("_new", True), TF_ORDER.get(e.get("tf"), 9), ALIGN_ORDER.get(e.get("alignment"), 3),
+            str(e.get("at", "")), str(e.get("ticker", "")))
+
+
+def _symbol(e: dict) -> str:
+    t = str(e.get("ticker", ""))
+    return t[:-3] if t.endswith(".NS") else t
+
+
+def _names(rows: list[dict], most: int = 3) -> str:
+    names = list(dict.fromkeys(_symbol(e) for e in rows))
+    return ", ".join(names[:most]) + (f" +{len(names) - most}" if len(names) > most else "")
+
+
+def title_for(category: str, rows: list[dict]) -> str:
+    """Notification title: who, not just how many."""
+    if category == "TRIGGERED":
+        return f"⚡ {len(rows)} triggered today: {_names(rows)}"
+    if category == "NEW":
+        return f"👀 {len(rows)} new setup{'s' if len(rows) != 1 else ''} today: {_names(rows)}"
+    n_trig = sum(e["event"] == "TRIGGERED" for e in rows)
+    parts = [f"⚡ {n_trig} triggered" if n_trig else "", f"👀 {len(rows) - n_trig} new setups" if len(rows) > n_trig else ""]
+    return "EW alerts: " + " · ".join(p for p in parts if p)
+
+
+def messages(todays: list[dict], fresh: list[dict], split: bool) -> list[tuple[str, str, list[dict]]]:
+    """
+    What a scan sends, as (category, title, events): category "TRIGGERED" / "NEW" / "ALL".
+
+    split=True: one message for Triggered and one for New setups, each listing the whole
+    day of its category, sent only for a category with events not notified before.
+    split=False: one message listing the whole day.
+    Each event comes back as a copy with "_new" (not notified before), sorted by sort_key.
+    """
+    if not fresh:
+        return []
+    new_ids = {_ident(e) for e in fresh}
+    rows = sorted(({**h, "_new": _ident(h) in new_ids} for h in todays), key=sort_key)
+    if not split:
+        return [("ALL", title_for("ALL", rows), rows)]
+    out = []
+    for kind, _label in CATEGORIES:
+        day = [h for h in rows if h["event"] == kind]
+        if any(h["_new"] for h in day):
+            out.append((kind, title_for(kind, day), day))
+    return out
+
+
+# ---- readable layouts -------------------------------------------------------------
+def price(v: Any) -> str:
+    """1,298.5 · 1,312 · 45.20: no trailing zeros on larger prices."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return ""
+    v = float(v)
+    text = f"{v:,.2f}"
+    return text if abs(v) < 100 else text.rstrip("0").rstrip(".")
+
+
+def _pct(a: Any, b: Any) -> str:
+    try:
+        a, b = float(a), float(b)
+        return f"{abs(a - b) / abs(b) * 100:.1f}%" if b else ""
+    except (TypeError, ValueError):
+        return ""
+
+
+def _side(e: dict) -> str:
+    return {"LONG": "🟢", "SHORT": "🔴"}.get(e.get("side"), "•")
+
+
+def _align(e: dict, words: bool = True) -> str:
+    a = e.get("alignment")
+    icon = ALIGN_ICON.get(a, "")
+    return f"{icon} {str(a).lower()}" if icon and words else icon
+
+
+def _chart(e: dict) -> str:
+    t = str(e.get("ticker", ""))
+    return f'<a href="https://www.tradingview.com/chart/?symbol=NSE:{html.escape(_symbol(e))}">chart</a>' \
+        if t.endswith(".NS") else ""
+
+
+def _levels(e: dict) -> str:
+    """Triggered: entry and stop with the risk. New setup: where it triggers, how far, and the stop."""
+    stop = price(e.get("stop"))
+    if e.get("event") == "TRIGGERED":
+        entry = e.get("entry") or e.get("trigger")
+        return f"Entry {price(entry)} · SL {stop} ({_pct(entry, e.get('stop'))})"
+    verb = "Buy above" if e.get("side") == "LONG" else "Sell below"
+    away = _pct(e.get("trigger"), e.get("close"))
+    return f"{verb} {price(e.get('trigger'))}" + (f" ({away} away)" if away else "") + f" · SL {stop}"
+
+
+def card(e: dict) -> str:
+    """One stock as a short block: who and which way, what, the levels, the targets."""
+    esc = lambda v: html.escape(str(v or ""))                                          # noqa: E731
+    what = [e.get("tf"), str(e.get("strategy", "")).upper(), e.get("degree"),
+            CONTEXT_TEXT.get(e.get("context") or "", ""), f"at {str(e.get('at', ''))[11:16]}"]
+    targets = [price(e.get(k)) for k in ("target1", "target2") if price(e.get(k))]
+    last = " · ".join(x for x in ["🎯 " + " → ".join(targets) if targets else "", _chart(e)] if x)
+    lines = [f"{_side(e)} <b>{esc(e.get('side'))}  {esc(_symbol(e))}</b>  {_align(e)}",
+             esc(" · ".join(str(x) for x in what if x)), esc(_levels(e))]
+    return "\n".join(lines + ([last] if last else []))
+
+
+def compact(e: dict, mark_new: bool = False) -> str:
+    """One stock on one line."""
+    esc = lambda v: html.escape(str(v or ""))                                          # noqa: E731
+    bits = [f"{e.get('tf')} {str(e.get('strategy', '')).upper()}", _levels(e)]
+    return (("🆕 " if mark_new and e.get("_new") else "") + f"{_side(e)} <b>{esc(e.get('side'))} {esc(_symbol(e))}</b> · "
+            + esc(" · ".join(bits)) + (f" {_align(e, words=False)}" if _align(e, words=False) else ""))
+
+
+def _day(rows: list[dict]) -> str:
+    try:
+        return pd.Timestamp(str(rows[0].get("at", ""))[:10]).strftime("%a %d %b")
+    except (ValueError, IndexError):
+        return ""
+
+
+def _section(rows: list[dict], style: str) -> list[str]:
+    """New since the last scan in full; stocks already sent today, one line each."""
+    new = [e for e in rows if e.get("_new", True)]
+    old = [e for e in rows if not e.get("_new", True)]
+    blocks: list[str] = []
+    if old and new:
+        since = max(str(e.get("notified", ""))[11:16] for e in old)
+        blocks.append(f"🆕 <b>New since {since}</b>" if since else "🆕 <b>New</b>")
+    if style == "cards":
+        blocks += [card(e) for e in new]
+    elif new:
+        blocks.append("\n".join(compact(e) for e in new))
+    if old:
+        blocks.append("<b>Earlier today</b>\n" + "\n".join(compact(e) for e in old))
+    return blocks
+
+
+def _pack(head: str, blocks: list[str]) -> list[str]:
+    """Blocks into messages under Telegram's limit, never cutting a block in two."""
+    out, current = [], head
+    for block in blocks:
+        if len(current) + len(block) + 2 > TELEGRAM_LIMIT and current != head:
+            out.append(current)
+            current = head + " (continued)"
+        current += "\n\n" + block
+    out.append(current)
+    return out
+
+
+def render(category: str, title: str, rows: list[dict], settings: Optional[dict] = None) -> list[str]:
+    """The Telegram message(s) for one category ("TRIGGERED" / "NEW" / "ALL") in the chosen layout."""
+    s = {**TEMPLATE_DEFAULTS, **(settings or {})}
+    style = s.get("telegram_style", "cards")
+    rows = sorted(rows, key=sort_key)
+    if style == "custom":
+        return telegram_text(title, rows, s)
+    n_trig = sum(e.get("event") == "TRIGGERED" for e in rows)
+    day = _day(rows)
+    if category == "TRIGGERED":
+        head = f"⚡ <b>TRIGGERED</b> · {day} · {len(rows)} stock{'s' if len(rows) != 1 else ''}"
+        return _pack(head, _section(rows, style))
+    if category == "NEW":
+        head = f"👀 <b>NEW SETUPS</b> · {day} · {len(rows)} stock{'s' if len(rows) != 1 else ''}"
+        return _pack(head, _section(rows, style))
+    head = f"📋 <b>EW ALERTS</b> · {day} · {n_trig} triggered · {len(rows) - n_trig} new setups"
+    blocks = []
+    for kind, label in (("TRIGGERED", "⚡ <b>TRIGGERED</b>"), ("NEW", "👀 <b>NEW SETUPS</b>")):
+        part = [e for e in rows if e.get("event") == kind]
+        if part:
+            blocks += [f"{label} ({len(part)})"] + _section(part, style)
+    return _pack(head, blocks)
+
+
+def preview_texts(events: list[dict], settings: dict, prefix: str = "") -> list[tuple[str, list[str]]]:
+    """(title, Telegram messages) for each message a scan would send if all of events were new."""
+    return [(prefix + title, render(kind, prefix + title, rows, settings))
+            for kind, title, rows in messages(events, events, settings.get("split_messages", True))]
+
+
+def send_test(settings: dict) -> str:
+    """The two example stocks, sent as a scan would send them (one or two messages)."""
+    for kind, title, rows in messages(SAMPLE, SAMPLE, settings.get("split_messages", True)):
+        result = send_telegram(settings, "Test · " + title, rows, kind)
+        if result != "sent":
+            return result
+    return "sent"
+
+
+def notification_lines(rows: list[dict]) -> list[str]:
+    """The notification's lines; 🆕 marks the new stocks only when earlier ones are listed too."""
+    mixed = any(e.get("_new", True) for e in rows) and not all(e.get("_new", True) for e in rows)
+    return [notification_line(e if mixed else {**e, "_new": False}) for e in rows]
+
+
+def notification_line(e: dict) -> str:
+    """One stock in the phone / Mac notification: 🆕 🔴 RELIANCE SHORT 60m EW5 · SL 1,312 ✅"""
+    level = (f"SL {price(e.get('stop'))}" if e.get("event") == "TRIGGERED"
+             else f"{'above' if e.get('side') == 'LONG' else 'below'} {price(e.get('trigger'))} · SL {price(e.get('stop'))}")
+    return (("🆕 " if e.get("_new") else "") + f"{_side(e)} {_symbol(e)} {e.get('side', '')} {e.get('tf', '')} "
+            f"{str(e.get('strategy', '')).upper()} · {level}" + (f" {_align(e, False)}" if _align(e, False) else ""))
+
+
 # public names
 event_rows = _event_rows
-line = _line
+line = notification_line

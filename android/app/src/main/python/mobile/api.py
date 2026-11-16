@@ -808,6 +808,10 @@ def alerts_telegram_chat(values: dict) -> dict:
     return alerts.telegram_find_chat(_app(), values)
 
 
+def alerts_test() -> dict:
+    return alerts.test_notification(_app())
+
+
 def alerts_run() -> dict:
     out = alerts.run(_app(), source="manual")
     if "busy" in out:

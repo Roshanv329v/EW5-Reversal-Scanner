@@ -225,13 +225,71 @@ def test_telegram_is_off_by_default_and_keeps_the_token_private(tmp_path, monkey
     monkeypatch.setattr(alert_events, "_telegram", fake)
     monkeypatch.setattr(alerts, "_telegram", fake)
     assert alerts.telegram_test(a, {})["ok"]
-    token, method, payload = sent[-1]
+    assert len(sent) == 2                                             # separate messages by default
+    token, method, payload = sent[0]
     assert (token, method, payload["chat_id"], payload["parse_mode"]) == ("123:SECRET", "sendMessage", "42", "HTML")
-    assert "RELIANCE.NS" in payload["text"] and "Triggered today (1)" in payload["text"]
+    assert "<b>SHORT  RELIANCE</b>" in payload["text"] and "<b>TRIGGERED</b>" in payload["text"]
+    assert "TCS" not in payload["text"] and "<b>LONG  TCS</b>" in sent[1][2]["text"]
+    sent.clear()
+    assert alerts.telegram_test(a, {"split_messages": False})["ok"]
+    assert len(sent) == 1 and "RELIANCE" in sent[0][2]["text"] and "TCS" in sent[0][2]["text"]
 
     monkeypatch.setattr(alert_events, "_telegram", lambda *a: {"ok": False, "description": "Unauthorized"})
     with pytest.raises(ValueError, match="Unauthorized"):
         alerts.telegram_test(a, {})
+
+
+def test_triggered_and_new_setups_go_in_separate_messages():
+    from core import alert_events as ev, alert_settings as aset
+    assert aset.DEFAULTS["split_messages"] is True
+    assert aset.clean_settings({**aset.DEFAULTS, "split_messages": False})["split_messages"] is False
+    trig, new = ev.SAMPLE
+    later = dict(new, ticker="INFY.NS", key="infy")
+    day = [new, trig, later]
+    out = ev.messages(day, [trig, new, later], split=True)
+    assert [(k, [e["ticker"] for e in rows]) for k, _, rows in out] == [
+        ("TRIGGERED", ["RELIANCE.NS"]), ("NEW", ["INFY.NS", "TCS.NS"])]
+    assert out[0][1] == "⚡ 1 triggered today: RELIANCE"
+    assert out[1][1] == "👀 2 new setups today: INFY, TCS"
+    # a later scan with only a new setup: only the New setups message, listing the whole day
+    again = ev.messages(day, [later], split=True)
+    assert [(k, len(rows)) for k, _, rows in again] == [("NEW", 2)]
+    one = ev.messages(day, [later], split=False)
+    assert [(k, [e["ticker"] for e in rows]) for k, _, rows in one] == [("ALL", ["INFY.NS", "RELIANCE.NS", "TCS.NS"])]
+    assert one[0][1] == "EW alerts: ⚡ 1 triggered · 👀 2 new setups"
+    assert ev.messages(day, [], split=True) == []
+
+
+def test_alert_messages_are_sorted_and_readable():
+    from core import alert_events as ev, alert_settings as aset
+    trig, new = ev.SAMPLE
+    rows = [dict(trig, ticker="SBIN.NS", tf="1D", alignment="AGAINST", key="sbin", notified="2026-01-02T12:31:00"),
+            dict(trig, ticker="INFY.NS", tf="4hr", alignment="MIXED", key="infy"),
+            dict(trig, ticker="WIPRO.NS", tf="60m", alignment="AGAINST", key="wipro"),
+            dict(trig, key="rel")]                                                   # RELIANCE 60m ALIGNED
+    fresh = [r for r in rows if r["key"] != "sbin"]
+    (kind, title, out), = ev.messages(rows, fresh, split=True)
+    # new first; then 60m → 4hr → 1D; aligned before against
+    assert [ev._symbol(e) for e in out] == ["RELIANCE", "WIPRO", "INFY", "SBIN"]
+    assert title == "⚡ 4 triggered today: RELIANCE, WIPRO, INFY +1"
+    lines = ev.notification_lines(out)
+    assert lines[0] == "🆕 🔴 RELIANCE SHORT 60m EW5 · SL 1,312 ✅" and not lines[-1].startswith("🆕")
+    text = ev.render(kind, title, out, aset.DEFAULTS)[0]
+    assert text.index("New since 12:31") < text.index("RELIANCE") < text.index("WIPRO") < text.index("INFY")
+    assert text.index("Earlier today") < text.index("SBIN")
+    assert "Entry 1,297 · SL 1,312 (1.1%)" in text and "🎯 1,270.4 → 1,255" in text and "✅ aligned" in text
+    compact = ev.render(kind, title, out, {**aset.DEFAULTS, "telegram_style": "compact"})[0]
+    assert "🔴 <b>SHORT RELIANCE</b> · 60m EW5 · Entry 1,297 · SL 1,312 (1.1%) ✅" in compact
+    (_, _, setups), = ev.messages([new], [new], split=True)
+    assert "Buy above 3,425 (0.4% away) · SL 3,380" in ev.render("NEW", "t", setups, aset.DEFAULTS)[0]
+    # all new: no 🆕 marks and no "Earlier today"
+    (_, _, only_new), = ev.messages(fresh, fresh, split=True)
+    assert not any(line.startswith("🆕") for line in ev.notification_lines(only_new))
+    assert "Earlier today" not in ev.render("TRIGGERED", "t", only_new, aset.DEFAULTS)[0]
+    # settings saved before the layouts: an edited template stays in use as Custom
+    assert aset.with_defaults({})["telegram_style"] == "cards"
+    assert aset.with_defaults({"telegram_line": "{ticker}"})["telegram_style"] == "custom"
+    assert ev.price(1298.5) == "1,298.5" and ev.price(1312.0) == "1,312" and ev.price(45.2) == "45.20"
 
 
 def test_telegram_messages_are_split_under_the_limit():

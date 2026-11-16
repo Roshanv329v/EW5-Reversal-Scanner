@@ -369,8 +369,17 @@ description of one period, not a forecast.
 The **Alerts** tab runs scans by itself, like the phone app: usual times (default 12:30 and
 15:45, Monday to Friday) for F&O stocks and a weekly full scan of every stock (default Friday
 18:00). Each scan downloads the latest data, runs EW5 and EW3 over the last few days, saves the
-results as `backtest_auto_…` files and shows one notification with the stocks triggered or set
-up today (Telegram optional, same message layout as the phone).
+results as `backtest_auto_…` files and notifies the stocks triggered or set up today
+(Telegram optional, same message layout as the phone).
+
+**Messages**: *Separate* (the default) sends one notification, and one Telegram message, for
+stocks **triggered** today and another for **new setups**, each only when it has something new.
+*One message for the day* puts both in one. To keep only one category, leave the other out of
+**Notify about**.
+
+**Message layout**: *Cards* (a short block per stock, the default), *Compact* (one line per
+stock) or *Custom* (your own template). Stocks new since the last scan come first, then those
+already sent today under *Earlier today*; each in the order 60m → 4hr → 1D, aligned first.
 
 Press **Install schedule** to hand the times to macOS (two launch agents in
 `~/Library/LaunchAgents/com.ewscanner.scan.*`); **Remove schedule** takes them out again. The

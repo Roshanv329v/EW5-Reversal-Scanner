@@ -1148,6 +1148,9 @@ const AlertsTab = {
     box.append(field("Screeners", chips(o.strategies, f.strategies, (v) => (f.strategies = v))));
     box.append(field("Timeframes", chips(o.timeframes.map((t) => [t, t]), f.timeframes, (v) => (f.timeframes = v))));
     box.append(field("Notify about", chips([["TRIGGERED", "Triggered today (close beyond TRIGGER)"], ["NEW", "New setups today"]], f.events, (v) => (f.events = v))));
+    box.append(field("Messages", chips([[true, "Separate: Triggered · New setups"], [false, "One message for the day"]],
+      f.split_messages !== false, (v) => (f.split_messages = v), true)));
+    box.append(h("div", { class: "caption" }, "Separate: one notification (and Telegram message) for stocks triggered today and another for new setups, each sent only when it has something new. Untick a category under Notify about to keep only the other."));
     box.append(check("Only signals ALIGNED with the higher timeframes", f.aligned_only, (v) => (f.aligned_only = v)));
     box.append(h("div", { class: "row" }, field("Setups from the last N days can trigger today",
       h("input", { type: "number", min: 2, max: 60, value: f.lookback_days, onchange: (e) => (f.lookback_days = +e.target.value) }))));
@@ -1179,20 +1182,25 @@ const AlertsTab = {
         try {
           const r = await api("/api/alerts/telegram_preview", f);
           clear(preview).append(h("div", { class: "caption" }, r.example ? "Preview with two example stocks (no alerts today yet):" : "Preview with today's alerts:"),
-            ...r.messages.slice(0, 1).map((m) => h("div", { class: "tg-msg", html: tgHtml(m) })));
+            ...r.messages.slice(0, 2).map((m) => h("div", { class: "tg-msg", html: tgHtml(m) })));
           clear(fieldsBox).append(...Object.entries(r.line_fields).map(([k, d]) => h("button", { class: "chip", title: d, onclick: () => insert(k) }, `{${k}}`)),
             ...Object.entries(r.header_fields).map(([k, d]) => h("button", { class: "chip", title: d, onclick: () => insert(k) }, `{${k}}`)));
         } catch (e) { clear(preview).append(note("error", e.message)); }
       };
       const fieldsBox = h("div", { class: "radios", style: "margin:6px 0" });
-      const template = h("details", {}, h("summary", {}, "✎ Message layout"), h("div", {},
+      f.telegram_style = f.telegram_style || "cards";
+      const customBox = h("div", { style: f.telegram_style === "custom" ? "" : "display:none" },
         h("div", { class: "caption" }, "Write the message with placeholders; tap one to insert it. <b>bold</b>, <i>italic</i>, <code>code</code> and links work as in Telegram."),
         field("Header (once per message)", headIn), field("One line per stock", lineIn),
         check("Group into \"Triggered today\" and \"New setups today\"", f.telegram_group !== false, (v) => (f.telegram_group = v)),
         h("div", { class: "lbl", style: "margin-top:8px" }, "Placeholders"), fieldsBox,
-        h("div", { class: "row", style: "margin-top:6px" },
-          h("button", { class: "btn small", onclick: showPreview }, "👁 Preview"),
-          h("button", { class: "btn small", onclick: () => { f.telegram_header = ""; f.telegram_line = ""; f.telegram_group = true; drawTelegram(); } }, "↺ Default layout")),
+        h("button", { class: "btn small", style: "margin-top:6px", onclick: () => { f.telegram_header = ""; f.telegram_line = ""; f.telegram_group = true; drawTelegram(); } }, "↺ Default template"));
+      const template = h("details", {}, h("summary", {}, "✎ Message layout"), h("div", {},
+        chips([["cards", "Cards"], ["compact", "Compact"], ["custom", "Custom"]], f.telegram_style, (v) => {
+          f.telegram_style = v; customBox.style.display = v === "custom" ? "" : "none"; showPreview(); }, true),
+        h("div", { class: "caption" }, "Cards: a short block per stock. Compact: one line per stock. Both list stocks new since the last scan first, then 60m → 4hr → 1D (aligned first); stocks already sent today follow under Earlier today. Custom: your own template."),
+        customBox,
+        h("div", { class: "row", style: "margin-top:6px" }, h("button", { class: "btn small", onclick: showPreview }, "👁 Preview")),
         preview));
       template.addEventListener("toggle", () => { if (template.open && !fieldsBox.childNodes.length) showPreview(); });
       tg.append(field("Bot token", tokenIn), field("Chat ID", chatIn), template, out,
@@ -1205,7 +1213,7 @@ const AlertsTab = {
                   f.telegram_chat_id = id; chatIn.value = id; clear(out); } }, `${name || "chat"} · ${id}`))));
             } catch (e) { clear(out).append(note("error", e.message)); } } }, "🔍 Find my chat ID"),
           h("button", { class: "btn small", onclick: async () => {
-            try { const r = await api("/api/alerts/telegram_test", { telegram_token: f.telegram_token, telegram_chat_id: f.telegram_chat_id }); clear(out).append(note("ok", r.note)); }
+            try { const r = await api("/api/alerts/telegram_test", { telegram_token: f.telegram_token, telegram_chat_id: f.telegram_chat_id, split_messages: f.split_messages !== false }); clear(out).append(note("ok", r.note)); }
             catch (e) { clear(out).append(note("error", e.message)); } } }, "✈️ Send test to Telegram")),
         h("details", {}, h("summary", {}, "How to set it up"), h("div", { html: md(
           "1. In Telegram open **@BotFather**, send `/newbot` and follow the steps; it gives you the **bot token**.<br>" +

@@ -64,7 +64,7 @@ def _write(path: Path, value: Any) -> None:
 
 def load_settings(cfg: dict) -> dict:
     saved = _read(_dir(cfg) / "alert_settings.json", {})
-    return {**aset.DEFAULTS, **{k: v for k, v in saved.items() if k in aset.DEFAULTS}}
+    return aset.with_defaults(saved)
 
 
 def save_settings(cfg: dict, values: dict) -> dict:
@@ -158,12 +158,14 @@ def run(kind: str = "regular", source: str = "schedule", today: Optional[date] =
         n_trig = sum(h["event"] == "TRIGGERED" for h in todays)
         summary.update(events=len(todays), triggered=n_trig, new_setups=len(todays) - n_trig,
                        new_events=len(fresh), seconds=round(time.time() - t0, 1))
-        if fresh and notify:
-            parts = [f"{n_trig} triggered" if n_trig else "", f"{len(todays) - n_trig} new setups" if len(todays) > n_trig else ""]
-            title = f"EW alerts today: {' · '.join(p for p in parts if p)} ({len(fresh)} since last scan)"
-            summary["notified"] = notify_mac(title, "\n".join(ev.line(e) for e in todays[:4]))
-            if settings.get("telegram"):
-                summary["telegram"] = ev.send_telegram(settings, title, todays)
+        if notify:
+            # one notification (and Telegram message) per category, or one for the whole day
+            for category, title, rows in ev.messages(todays, fresh, settings.get("split_messages", True)):
+                shown = notify_mac(title, "\n".join(ev.notification_lines(rows)[:4]))
+                summary["notified"] = summary.get("notified", True) and shown
+                if settings.get("telegram"):
+                    result = ev.send_telegram(settings, title, rows, category)
+                    summary["telegram"] = result if summary.get("telegram", "sent") == "sent" else summary["telegram"]
         _write(_dir(cfg) / "alerts_last_run.json", summary)
         return summary
 
