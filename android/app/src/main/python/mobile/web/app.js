@@ -1069,7 +1069,8 @@ const RunTab = {
 function tgHtml(text) {
   return esc(text).replace(/\n/g, "<br>")
     .replace(/&lt;(\/?)(b|i|u|s|code|pre)&gt;/g, "<$1$2>")
-    .replace(/&lt;a href=&quot;(https?:[^&]*)&quot;&gt;/g, '<a href="$1">').replace(/&lt;\/a&gt;/g, "</a>");
+    .replace(/&lt;a href=&quot;(https?:.*?)&quot;&gt;/g, (_, url) => `<a href="${url.replace(/&amp;amp;/g, "&amp;")}">`)
+    .replace(/&lt;\/a&gt;/g, "</a>");
 }
 
 // ---------------------------------------------------------------- Alerts tab
@@ -1091,14 +1092,14 @@ const AlertsTab = {
     if (NATIVE && NATIVE.alertStatus) {
       let st = {};
       try { st = JSON.parse(NATIVE.alertStatus()); } catch (e) { /* older app */ }
-      const row = (ok, okText, badText, which) => h("div", { class: "row", style: "align-items:center;margin-top:6px" },
+      const row = (ok, okText, badText, which, label = "Allow") => h("div", { class: "row", style: "align-items:center;margin-top:6px" },
         h("div", { style: "flex:3 1 200px" }, ok ? `✅ ${okText}` : `⚠️ ${badText}`),
-        ok ? null : h("button", { class: "btn small", style: "flex:0 0 auto", onclick: () => { NATIVE.openSetting(which); setTimeout(() => AlertsTab.open(), 1500); } }, "Allow"));
+        ok ? null : h("button", { class: "btn small", style: "flex:0 0 auto", onclick: () => { NATIVE.openSetting(which); setTimeout(() => AlertsTab.open(), 1500); } }, label));
       status.append(row(st.notifications, "Notifications allowed", "Notifications are off for this app", "notifications"));
       status.append(row(st.exact, "Scans start on time (alarm clock)", "Exact alarms not allowed: scans may start late or not at all while locked", "exact"));
-      status.append(row(!st.battery, "Battery: unrestricted", "Battery optimisation can stop scans while the phone is locked", "battery"));
+      status.append(row(!st.battery, "Battery: unrestricted", "Battery optimisation can stop scans while the phone is locked. In App info open Battery and choose Unrestricted", "battery", "Open App info"));
       if (st.data_saver !== undefined) status.append(row(!st.data_saver, "Background data allowed", "Data Saver blocks downloads while locked", "data"));
-      if (st.autostart) status.append(row(false, "", `Auto-start (${st.maker}): allow it so scans can start while the app is closed`, "autostart"));
+      if (st.autostart) status.append(row(false, "", `Auto-start (${st.maker}): in App info switch Autostart on, so scans can start while the app is closed`, "autostart", "Open App info"));
       if (/xiaomi|redmi|poco|oppo|realme|oneplus|vivo|iqoo|huawei|honor|samsung|asus|tecno|infinix/.test(st.maker || "")) {
         status.append(h("div", { class: "caption", style: "margin-top:6px" },
           `${st.maker[0].toUpperCase() + st.maker.slice(1)} phones also have their own app battery setting: open it and choose "No restrictions" / "Unrestricted" (Samsung: remove the app from "Sleeping apps"). Don't swipe the app away from recent apps; on these phones that can cancel the schedule.`),

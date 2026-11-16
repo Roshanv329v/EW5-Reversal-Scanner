@@ -292,6 +292,28 @@ def test_alert_messages_are_sorted_and_readable():
     assert ev.price(1298.5) == "1,298.5" and ev.price(1312.0) == "1,312" and ev.price(45.2) == "45.20"
 
 
+def test_every_alert_stock_gets_a_tradingview_link_at_its_timeframe():
+    from core import alert_events as ev, alert_settings as aset
+    layout = ev._tv().get("layout")
+    base = f"https://www.tradingview.com/chart/{layout + '/' if layout else ''}"
+    assert ev.tradingview_url("YESBANK.NS", "4hr") == base + "?symbol=NSE%3AYESBANK&interval=240"
+    assert ev.tradingview_url("M&M.NS", "60m") == base + "?symbol=NSE%3AM_M&interval=60"
+    assert ev.tradingview_url("BAJAJ-AUTO.NS", "1D") == base + "?symbol=NSE%3ABAJAJ_AUTO&interval=1D"
+    assert ev.tradingview_url("^NSEI", "60m") == base + "?symbol=NSE%3ANIFTY&interval=60"
+    trig = ev.SAMPLE[0]
+    rows = [dict(trig, ticker=f"S{i}.NS", tf=tf, key=str(i), **({"notified": "2026-01-02T12:31:00"} if i % 2 else {}))
+            for i, tf in enumerate(["60m", "4hr", "1D", "60m", "4hr", "1D"])]
+    (kind, title, out), = ev.messages(rows, rows[::2], split=True)
+    for style in ("cards", "compact"):
+        text = "\n".join(ev.render(kind, title, out, {**aset.DEFAULTS, "telegram_style": style}))
+        assert text.count("<a href=") == len(rows)                     # new and earlier stocks alike
+        assert "📈 4hr chart</a>" in text and "interval=240" in text
+    many = [dict(trig, ticker=f"T{i}.NS", key=str(i), notified="2026-01-02T12:31:00") for i in range(150)]
+    parts = ev.render("TRIGGERED", "t", ev.messages(many + [dict(trig, key="x")], [dict(trig, key="x")], True)[0][2],
+                      aset.DEFAULTS)
+    assert len(parts) > 1 and all(len(p) <= 4096 for p in parts)       # long "Earlier today" lists are split too
+
+
 def test_telegram_messages_are_split_under_the_limit():
     from mobile import alerts
     many = [{"event": "NEW", "strategy": "ew3", "ticker": f"T{i}.NS", "tf": "60m", "degree": "minor", "side": "LONG",

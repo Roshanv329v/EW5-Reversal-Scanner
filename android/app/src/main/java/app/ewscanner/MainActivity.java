@@ -173,24 +173,13 @@ public class MainActivity extends Activity {
         }, "import-copy").start();
     }
 
-    /** The phone maker's own "auto-start" screen, where one exists (Xiaomi, Oppo, Vivo, ...). */
-    private Intent autostartIntent() {
-        String[][] screens = {
-                {"com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"},
-                {"com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"},
-                {"com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity"},
-                {"com.oplus.safecenter", "com.oplus.safecenter.permission.startup.StartupAppListActivity"},
-                {"com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"},
-                {"com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity"},
-                {"com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"},
-                {"com.asus.mobilemanager", "com.asus.mobilemanager.entry.FunctionActivity"},
-                {"com.letv.android.letvsafe", "com.letv.android.letvsafe.AutobootManageActivity"},
-        };
-        for (String[] s : screens) {
-            Intent i = new Intent().setComponent(new android.content.ComponentName(s[0], s[1]));
-            if (getPackageManager().resolveActivity(i, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY) != null) return i;
-        }
-        return null;
+    /** Phone makers with their own auto-start switch (in App info); nothing is looked up on the phone. */
+    private static final java.util.List<String> AUTOSTART_MAKERS = java.util.Arrays.asList(
+            "xiaomi", "redmi", "poco", "oppo", "realme", "oneplus", "vivo", "iqoo", "huawei", "honor", "asus", "letv");
+
+    private static boolean makerHasAutostart() {
+        String maker = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.toLowerCase(java.util.Locale.ROOT);
+        return AUTOSTART_MAKERS.contains(maker);
     }
 
     /** Called from the page as window.Android.* */
@@ -219,7 +208,7 @@ public class MainActivity extends Activity {
             String maker = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.toLowerCase(java.util.Locale.ROOT);
             return "{\"exact\":" + exact + ",\"battery\":" + battery + ",\"notifications\":" + notes
                     + ",\"data_saver\":" + dataSaver + ",\"maker\":\"" + maker.replaceAll("[^a-z0-9 ]", "") + "\""
-                    + ",\"autostart\":" + (autostartIntent() != null) + "}";
+                    + ",\"autostart\":" + makerHasAutostart() + "}";
         }
 
         @JavascriptInterface
@@ -229,10 +218,10 @@ public class MainActivity extends Activity {
         public void openSetting(String which) {
             Intent i;
             Uri pkg = Uri.parse("package:" + getPackageName());
-            if ("autostart".equals(which) && autostartIntent() != null) i = autostartIntent();
-            else if ("app".equals(which)) i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg);
+            // auto-start and battery live on the app's own App info page: no other app is opened directly
+            if ("app".equals(which) || "autostart".equals(which) || "battery".equals(which))
+                i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg);
             else if ("data".equals(which) && Build.VERSION.SDK_INT >= 24) i = new Intent(android.provider.Settings.ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS, pkg);
-            else if ("battery".equals(which)) i = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg);
             else if ("exact".equals(which) && Build.VERSION.SDK_INT >= 31) i = new Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg);
             else if (Build.VERSION.SDK_INT >= 26) i = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                     .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());

@@ -6,22 +6,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- scheduled scans at exact times: Android 12 asks for this one, 13+ grants USE_EXACT_ALARM -->
+    <!-- scheduled scans at exact times: the user allows it in the Alerts tab (Android 12+).
+         No USE_EXACT_ALARM (meant for alarm-clock apps) and no REQUEST_IGNORE_BATTERY_OPTIMIZATIONS:
+         Play Protect treats both as warning signs in a sideloaded app. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
-    <!-- the phone maker's auto-start screens (Alerts tab -> Allow auto-start) -->
-    <queries>
-        <package android:name="com.miui.securitycenter" />
-        <package android:name="com.coloros.safecenter" />
-        <package android:name="com.oplus.safecenter" />
-        <package android:name="com.vivo.permissionmanager" />
-        <package android:name="com.iqoo.secure" />
-        <package android:name="com.huawei.systemmanager" />
-        <package android:name="com.asus.mobilemanager" />
-        <package android:name="com.letv.android.letvsafe" />
-    </queries>
 
     <application
         android:label="@string/app_name"

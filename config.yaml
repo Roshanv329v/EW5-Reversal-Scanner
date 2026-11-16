@@ -74,3 +74,26 @@ chart:
 
 # indicator values (at the signal bar) copied into every results file
 signal_indicators: ["rsi", "dtosck", "dtoscd", "histogram", "13_ema", "21_ema", "55_ema", "atr14", "cci"]
+
+# TradingView chart links in the alerts (Telegram)
+tradingview:
+  layout: "jTwxkrUg"          # your saved chart layout (the id in its URL); "" = TradingView's default chart
+  intervals: {"60m": "60", "4hr": "240", "1D": "1D", "1W": "1W"}
+  # Yahoo tickers that are not plain NSE stocks (NSE stocks: RELIANCE.NS -> NSE:RELIANCE, M&M.NS -> NSE:M_M)
+  symbols:
+    "^NSEI": "NSE:NIFTY"
+    "^NSEBANK": "NSE:BANKNIFTY"
+    "^CNXAUTO": "NSE:CNXAUTO"
+    "^CNXPSE": "NSE:CNXPSE"
+    "^CNXFMCG": "NSE:CNXFMCG"
+    "^CNXIT": "NSE:CNXIT"
+    "^CNXPHARMA": "NSE:CNXPHARMA"
+    "^CNXPSUBANK": "NSE:CNXPSUBANK"
+    "^CNXENERGY": "NSE:CNXENERGY"
+    "^INDIAVIX": "NSE:INDIAVIX"
+    "NIFTY_FIN_SERVICE.NS": "NSE:CNXFINANCE"
+    "^BSESN": "BSE:SENSEX"
+    "NG=F": "NYMEX:NG1!"
+    "CL=F": "NYMEX:CL1!"
+    "GC=F": "COMEX:GC1!"
+    "SI=F": "COMEX:SI1!"

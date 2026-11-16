@@ -134,8 +134,13 @@ group's chat ID. The phone notification is sent either way.
 - **Cards** (default): a short block per stock: side and symbol with the alignment
   (✅ aligned, ➖ mixed, ⚠️ against); timeframe, EW5 / EW3, degree and time; the levels
   (triggered: *Entry · SL (risk %)*; new setup: *Buy above / Sell below the trigger (how far
-  away) · SL*); the targets 🎯 and a chart link.
-- **Compact**: the same, one line per stock.
+  away) · SL*); the targets 🎯 and a **📈 chart** link.
+- **Compact**: the same, one line per stock, each with its chart link.
+
+Every stock in a message, new or *Earlier today*, ends with a **📈 60m / 4hr / 1D chart** link
+that opens TradingView on that stock at the signal's timeframe (interval 60, 240 or 1D), in
+the chart layout set in `config.yaml` → `tradingview.layout`. Indices and commodities open
+their TradingView symbols (NIFTY, BANKNIFTY, gold futures …); `M&M` opens as `NSE:M_M`.
 - **Custom**: your own header and line with placeholders such as `{icon} {ticker} {side}`,
   `{trigger}`, `{stop}`, `{target1}`, `{risk_pct}`, `{alignment}` or `{tradingview}`. Tap a
   placeholder to insert it; `<b>`, `<i>`, `<code>` and links work as in Telegram.
@@ -149,11 +154,17 @@ aligned before mixed and against. Stocks already sent earlier in the day follow 
 
 **Scans while the phone is locked.** Scans are set as alarm-clock alarms (you will see the
 alarm icon in the status bar), which phones keep even in deep sleep. The tab checks the
-phone settings that can still stop them and offers an **Allow** button for each:
-notifications, exact alarms, battery optimisation, background data (Data Saver), and on
-Xiaomi, Oppo, Vivo, Huawei and similar phones the maker's **auto-start** switch. On those
-phones also set the app's battery use to *No restrictions* (Samsung: take it out of
-*Sleeping apps*), and don't swipe the app away from recent apps. **Test in 2 min** sets a
+phone settings that can still stop them and offers a button for each: **Allow** for
+notifications, exact alarms ("Alarms & reminders") and background data (Data Saver); **Open App
+info** for the battery (choose *Battery → Unrestricted*) and, on Xiaomi, Oppo, Vivo, Huawei and
+similar phones, the maker's **Autostart** switch. On those phones set the battery use to
+*No restrictions* (Samsung: take the app out of *Sleeping apps*), and don't swipe the app away
+from recent apps.
+
+Since 2.2 the app asks Android for nothing beyond what it needs: no "ignore battery
+optimisation" permission, no alarm-clock-app permission, and it no longer looks for the phone
+maker's security apps. Those three made Google Play Protect warn about the app. After the
+update, check the rows in this tab once: **Exact alarms** may need **Allow** again. **Test in 2 min** sets a
 one-off scan: lock the phone and the notification should arrive a few minutes later. The
 **Scheduler log** shows when alarms were set and when they fired. Scans are set again after
 a restart or an app update.

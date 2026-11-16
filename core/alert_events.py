@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import html
 import json
+import re
+import urllib.parse
 import urllib.error
 import urllib.request
 from datetime import date
@@ -43,7 +45,7 @@ LINE_FIELDS = {
     "htf": "higher-timeframe trends", "stage": "wave stage", "context": "EW3 context", "close": "close at the signal",
     "trigger": "TRIGGER level", "stop": "STOP level", "entry": "entry price (triggered)", "target1": "first target",
     "target2": "second target", "target1_name": "e.g. W4_END", "target2_name": "e.g. FIB_0.500",
-    "risk_pct": "trigger→stop distance in %", "tradingview": "TradingView link (NSE stocks)"}
+    "risk_pct": "trigger→stop distance in %", "tradingview": "TradingView chart link at the signal's timeframe"}
 
 
 TELEGRAM_URL = "https://api.telegram.org/bot{token}/{method}"
@@ -81,6 +83,42 @@ def _num(v: Any) -> str:
     return "" if v is None or (isinstance(v, float) and pd.isna(v)) else f"{float(v):,.2f}"
 
 
+_TV: Optional[dict] = None
+
+
+def _tv() -> dict:
+    """config.yaml's tradingview section (layout, intervals, symbols), read once."""
+    global _TV
+    if _TV is None:
+        try:
+            from core.config import load_config
+            _TV = load_config().get("tradingview") or {}
+        except Exception:                                   # no config: plain chart links
+            _TV = {}
+    return _TV
+
+
+def tradingview_url(ticker: str, tf: Optional[str] = None) -> str:
+    """The TradingView chart of a ticker at a timeframe, in the saved layout:
+    https://www.tradingview.com/chart/<layout>/?symbol=NSE%3AYESBANK&interval=240"""
+    tv = _tv()
+    t = str(ticker or "")
+    symbol = (tv.get("symbols") or {}).get(t)
+    if not symbol:
+        if t.endswith(".NS"):
+            symbol = "NSE:" + re.sub(r"[^A-Z0-9]", "_", t[:-3].upper())     # M&M -> M_M, BAJAJ-AUTO -> BAJAJ_AUTO
+        elif t.endswith(".BO"):
+            symbol = "BSE:" + re.sub(r"[^A-Z0-9]", "_", t[:-3].upper())
+        else:
+            return ""
+    intervals = tv.get("intervals") or {"60m": "60", "4hr": "240", "1D": "1D", "1W": "1W"}
+    query = {"symbol": symbol}
+    if intervals.get(tf):
+        query["interval"] = intervals[tf]
+    layout = str(tv.get("layout") or "").strip("/")
+    return f"https://www.tradingview.com/chart/{layout + '/' if layout else ''}?" + urllib.parse.urlencode(query)
+
+
 def line_fields(e: dict) -> _Fields:
     """Values for one stock's line (HTML-escaped: the template may use <b>, <i>, <code>, <a>)."""
     t = str(e.get("ticker", ""))
@@ -98,7 +136,7 @@ def line_fields(e: dict) -> _Fields:
         "target1": _num(e.get("target1")), "target2": _num(e.get("target2")),
         "target1_name": e.get("target1_name") or "", "target2_name": e.get("target2_name") or "",
         "risk_pct": f"{risk:.2f}%" if risk is not None else "",
-        "tradingview": f"https://www.tradingview.com/chart/?symbol=NSE:{symbol}" if t.endswith(".NS") else "",
+        "tradingview": tradingview_url(t, e.get("tf")),
     }
     return _Fields({k: html.escape(str(v)) for k, v in raw.items()})
 
@@ -293,9 +331,9 @@ def _align(e: dict, words: bool = True) -> str:
 
 
 def _chart(e: dict) -> str:
-    t = str(e.get("ticker", ""))
-    return f'<a href="https://www.tradingview.com/chart/?symbol=NSE:{html.escape(_symbol(e))}">chart</a>' \
-        if t.endswith(".NS") else ""
+    """📈 60m chart: opens TradingView at the signal's timeframe (every stock that TradingView has)."""
+    url = tradingview_url(e.get("ticker"), e.get("tf"))
+    return f'<a href="{html.escape(url)}">📈 {html.escape(str(e.get("tf") or ""))} chart</a>' if url else ""
 
 
 def _levels(e: dict) -> str:
@@ -326,7 +364,8 @@ def compact(e: dict, mark_new: bool = False) -> str:
     esc = lambda v: html.escape(str(v or ""))                                          # noqa: E731
     bits = [f"{e.get('tf')} {str(e.get('strategy', '')).upper()}", _levels(e)]
     return (("🆕 " if mark_new and e.get("_new") else "") + f"{_side(e)} <b>{esc(e.get('side'))} {esc(_symbol(e))}</b> · "
-            + esc(" · ".join(bits)) + (f" {_align(e, words=False)}" if _align(e, words=False) else ""))
+            + esc(" · ".join(bits)) + (f" {_align(e, words=False)}" if _align(e, words=False) else "")
+            + (f" · {_chart(e)}" if _chart(e) else ""))
 
 
 def _day(rows: list[dict]) -> str:
@@ -355,8 +394,20 @@ def _section(rows: list[dict], style: str) -> list[str]:
 
 def _pack(head: str, blocks: list[str]) -> list[str]:
     """Blocks into messages under Telegram's limit, never cutting a block in two."""
+    pieces = []
+    for block in blocks:                        # a long list of one-line stocks may itself be too long
+        if len(block) + len(head) + 20 <= TELEGRAM_LIMIT:
+            pieces.append(block)
+            continue
+        chunk = ""
+        for line in block.split("\n"):
+            if chunk and len(chunk) + len(line) + len(head) + 20 > TELEGRAM_LIMIT:
+                pieces.append(chunk)
+                chunk = ""
+            chunk = f"{chunk}\n{line}" if chunk else line
+        pieces.append(chunk)
     out, current = [], head
-    for block in blocks:
+    for block in pieces:
         if len(current) + len(block) + 2 > TELEGRAM_LIMIT and current != head:
             out.append(current)
             current = head + " (continued)"
