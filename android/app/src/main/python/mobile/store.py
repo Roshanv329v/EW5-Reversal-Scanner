@@ -23,7 +23,7 @@ from typing import Callable, Iterator, Optional, Sequence
 
 import pandas as pd
 
-from core import data_store as ds
+from core import data_store as ds, overview
 
 N_PARTS = 64                  # ~20 tickers each for ~1,300 stocks (1.0-1.7 used 16; migrate() moves old data)
 ProgressFn = Callable[[float, str], None]
@@ -205,6 +205,11 @@ class Store:
         bar_cols = sorted(c for c in out.columns if c.startswith("bars_"))
         return out[["Ticker", *bar_cols, "short_history"]]
 
+    def snapshot(self) -> pd.DataFrame:
+        """Last bar of every ticker and timeframe (from the parts' summaries, no part is read)."""
+        parts = [i["snapshot"] for i in self._infos() if not i["snapshot"].empty]
+        return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+
     def tickers(self) -> list[str]:
         return sorted({t for i in self._infos() for t in i["tickers"]})
 
@@ -268,7 +273,10 @@ def _info(path: str, mtime: float) -> dict:
              "summary": summary.assign(first_bar=summary["first_bar"].astype(str),
                                        last_bar=summary["last_bar"].astype(str)).to_dict("records"),
              "counts": {t: {tf: int(n) for tf, n in row.items()} for t, row in counts.iterrows()},
-             "last": str(df["time"].max()) if not df.empty else None}
+             "last": str(df["time"].max()) if not df.empty else None,
+             # last bar of every ticker / timeframe: the Charts tab's trend arrows
+             "snapshot": overview.snapshot(df).assign(time=lambda x: x["time"].astype(str)).to_dict("records")
+             if not df.empty else []}
     try:
         side.write_text(json.dumps(saved), encoding="utf-8")
     except OSError:
@@ -276,7 +284,7 @@ def _info(path: str, mtime: float) -> dict:
     return _info_from_json(saved, path, mtime)
 
 
-INFO_VERSION = 1
+INFO_VERSION = 2                  # 2: + snapshot (Charts tab)
 
 
 def _info_from_json(saved: dict, path: str, mtime: float) -> dict:
@@ -286,7 +294,10 @@ def _info_from_json(saved: dict, path: str, mtime: float) -> dict:
     counts = pd.DataFrame.from_dict(saved["counts"], orient="index").fillna(0).astype(int)
     counts.index.name = "Ticker"
     counts.columns.name = "time_frame"
-    return {"summary": summary, "counts": counts, "tickers": set(saved["counts"]),
+    snap = pd.DataFrame(saved.get("snapshot") or [])
+    if not snap.empty:
+        snap["time"] = pd.to_datetime(snap["time"])
+    return {"summary": summary, "counts": counts, "tickers": set(saved["counts"]), "snapshot": snap,
             "last": pd.Timestamp(saved["last"]) if saved.get("last") else None, "path": path, "mtime": mtime}
 
 

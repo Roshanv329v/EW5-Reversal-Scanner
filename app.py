@@ -13,7 +13,7 @@ import streamlit as st
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
 import stock_data
-from core import charts, data_store as ds, htf, prefs, runner, strategies, universe
+from core import charts, data_store as ds, htf, overview, prefs, runner, strategies, universe
 from core.strategies import Strategy
 from core.config import ROOT, load_config, resolve
 
@@ -157,8 +157,8 @@ if not _data_now.empty:
         f":green-badge[:material/schedule: Data to {_data_now['time'].max():%d %b %Y}] "
         f":violet-badge[:material/inventory_2: {len(runner.list_results(cfg['results_dir']))} saved runs]")
 
-tab_ew5, tab_ew3, tab_data, tab_run, tab_alerts, tab_guide = st.tabs([
-    strategies.EW5.tab, strategies.EW3.tab, ":material/database: Data",
+tab_ew5, tab_ew3, tab_charts, tab_data, tab_run, tab_alerts, tab_guide = st.tabs([
+    strategies.EW5.tab, strategies.EW3.tab, ":material/candlestick_chart: Charts", ":material/database: Data",
     ":material/query_stats: Run / Backtest", ":material/notifications: Alerts", ":material/menu_book: User Guide"])
 
 
@@ -952,11 +952,187 @@ def render_dashboard(S: Strategy) -> None:
                  hide_index=True, height=330,
                  column_config={"Price": st.column_config.NumberColumn(format="%.2f")})
 
+# ----------------------------------------------------------------------------------
+# Charts tab - stocks to trade with the trend, any timeframe, all EW signals
+# ----------------------------------------------------------------------------------
+SC = cfg["stock_charts"]
+
+
+@st.cache_data(show_spinner=False)
+def _trend_table(path: str, mtime: float, frames: tuple[str, ...]) -> pd.DataFrame:
+    return overview.trends(overview.snapshot(_load_stock(path, mtime)), frames)
+
+
+def _sc_filters_default() -> dict:
+    return overview.load_filters(cfg["stock_charts_filters_file"])
+
+
+def _sc_signal_files() -> list[tuple[Strategy, pd.DataFrame, str, dict]]:
+    """Results files whose signals are drawn: newest backtest + newest live screen of each strategy."""
+    out = []
+    with st.expander(":material/folder_open: Signals from", expanded=False, key="sc_files_open"):
+        cols = st.columns(len(strategies.STRATEGIES))
+        for col, S in zip(cols, strategies.STRATEGIES.values()):
+            files = runner.list_results(cfg["results_dir"], S.key)
+            if not files:
+                col.caption(f"No {S.name} results yet: run one in Run / Backtest.")
+                continue
+            picks = col.multiselect(f"{S.name} results files", files, overview.default_files(files),
+                                    format_func=lambda f: f.name, key=f"sc_files_{S.key}",
+                                    help="Default: the newest backtest (history with outcomes) and the newest "
+                                         "live screen (today's setups). A signal in both counts once.")
+            for pick in picks:
+                res, meta = _load_results(str(pick), pick.stat().st_mtime)
+                out.append((S, res, pick.name, meta))
+    return out
+
+
+def render_stock_charts() -> None:
+    st.markdown("### :material/candlestick_chart: Charts · trade with the trend")
+    st.caption("Stocks whose higher timeframes (" + " + ".join(SC["trend_frames"]) + ", DTosc K vs D) point one "
+               "way, with an EW5 / EW3 signal on that side and a small stop. Pick a stock to see it on "
+               "60m · 4hr · 1D · 1W candles with every signal on the chart.")
+    data = stock_df()
+    if data.empty:
+        st.info("No price data yet: download it in the Data tab.")
+        return
+    S_files = _sc_signal_files()
+    sig = overview.signals([(S, res, name) for S, res, name, _ in S_files])
+    trend = _trend_table(str(cfg["stock_csv"]), cfg["stock_csv"].stat().st_mtime, tuple(SC["trend_frames"]))
+
+    # ---- filters (one box, closed by default; its title lists what is on)
+    if "sc_filters" not in st.session_state:
+        st.session_state["sc_filters"] = _sc_filters_default()
+    f = dict(st.session_state["sc_filters"])
+    on = overview.active_filters(f)
+    with st.expander(":material/filter_alt: Stock filters" + (f" · {' · '.join(on)}" if on else ""),
+                     expanded=False, key="sc_filters_open"):
+        r1 = st.columns([2, 1.3, 1.3, 1, 1])
+        f["trend"] = r1[0].radio("Trend (" + " + ".join(SC["trend_frames"]) + ")", list(overview.TREND_CHOICES),
+                                 index=list(overview.TREND_CHOICES).index(f.get("trend", "any")),
+                                 format_func=overview.TREND_CHOICES.get, horizontal=True)
+        f["with_trend"] = r1[1].toggle("Signal with the trend", value=bool(f.get("with_trend")),
+                                       help="Only LONG signals in an uptrend and SHORT signals in a downtrend")
+        f["has_signal"] = r1[2].toggle("Only stocks with a signal", value=bool(f.get("has_signal")),
+                                       help="Off: every stock, also those without a recent signal")
+        f["days"] = int(r1[3].number_input("Signal in the last days", 1, 365, int(f.get("days") or 10)))
+        f["max_risk"] = float(r1[4].number_input("Max stop %", 0.0, 50.0, float(f.get("max_risk") or 0), 0.5,
+                                                 help="Trigger → stop distance; 0 = no limit"))
+        r2 = st.columns(5)
+        f["strategies"] = r2[0].multiselect("Strategy", list(strategies.STRATEGIES), f.get("strategies") or [],
+                                            format_func=lambda k: strategies.STRATEGIES[k].name)
+        f["timeframes"] = r2[1].multiselect("Signal timeframe", list(overview.TIMEFRAMES), f.get("timeframes") or [])
+        f["sides"] = r2[2].multiselect("Side", ["LONG", "SHORT"], f.get("sides") or [])
+        f["alignment"] = r2[3].multiselect("Alignment", list(charts.ALIGN_ORDER), f.get("alignment") or [])
+        statuses = sorted(sig["status"].dropna().astype(str).unique()) if not sig.empty else []
+        f["status"] = r2[4].multiselect("Status", statuses, [v for v in f.get("status") or [] if v in statuses])
+        attrs = attributes()
+        cols = st.columns(len(universe.ATTR_COLS) + 1)
+        picks = dict(f.get("attributes") or {})
+        for col, name in zip(cols, universe.ATTR_COLS):
+            values = sorted(set(attrs[name].astype(str))) if not attrs.empty and name in attrs else []
+            picks[name] = col.multiselect(universe.ATTR_LABELS.get(name, name), values,
+                                          [v for v in picks.get(name, []) if v in values])
+        f["attributes"] = picks
+        f["search"] = cols[-1].text_input("Search ticker", f.get("search") or "")
+        b = st.columns([1, 1, 1, 4])
+        if b[0].button("Save filters", icon=":material/save:", key="sc_save"):
+            overview.save_filters(cfg["stock_charts_filters_file"], f)
+            st.toast("Filters saved")
+        if b[1].button("Restore saved", icon=":material/restore:", key="sc_restore"):
+            st.session_state["sc_filters"] = _sc_filters_default()
+            st.rerun()
+        if b[2].button("Clear", icon=":material/filter_alt_off:", key="sc_clear"):
+            st.session_state["sc_filters"] = dict(overview.DEFAULT_FILTERS, with_trend=False, has_signal=False)
+            st.rerun()
+    st.session_state["sc_filters"] = f
+
+    rows = overview.stock_list(trend, sig, attributes(), f)
+    k = st.columns(4)
+    k[0].metric("Stocks listed", f"{len(rows):,}")
+    k[1].metric("Uptrend (LONG side)", f"{int(trend['trend_side'].eq('LONG').sum()):,}" if not trend.empty else "–")
+    k[2].metric("Downtrend (SHORT side)", f"{int(trend['trend_side'].eq('SHORT').sum()):,}" if not trend.empty else "–")
+    k[3].metric("With the trend", f"{int(rows['with_trend'].sum()):,}" if not rows.empty else "0")
+    shown = overview.table(rows, int(SC["list_rows"]))
+    st.dataframe(shown, hide_index=True, height=320, on_select="rerun", selection_mode="single-row",
+                 key="sc_table", column_config={"Stop %": st.column_config.NumberColumn(format="%.2f%%")})
+    picked = st.session_state.get("sc_table", {}).get("selection", {}).get("rows", [])
+    if picked and picked[0] < len(shown):
+        st.session_state["sc_ticker"] = shown.iloc[picked[0]]["Ticker"]
+
+    # ---- one stock
+    tickers = list(dict.fromkeys(list(shown["Ticker"]) + sorted(data["Ticker"].unique())))
+    if st.session_state.get("sc_ticker") not in tickers:
+        st.session_state["sc_ticker"] = tickers[0] if tickers else None
+    if not tickers:
+        return
+    c = st.columns([2, 3, 2])
+    ticker = c[0].selectbox("Stock", tickers, key="sc_ticker",
+                            help="Tap a row in the list, or pick any stock here")
+    bars_all = data[data["Ticker"] == ticker]
+    have = [tf for tf in SC["timeframes"] if tf in set(bars_all["time_frame"])]
+    if not have:
+        st.warning(f"No bars for {ticker}.")
+        return
+    default_tf = SC["default_timeframe"] if SC["default_timeframe"] in have else have[0]
+    tf = c[1].segmented_control("Chart timeframe", have, default=default_tf, key="sc_tf") or default_tf
+    price = bars_all[bars_all["time_frame"] == tf].sort_values("time")
+    n_bars = c[2].slider("Bars", 30, max(31, len(price)), min(int(SC["bars"].get(tf, 250)), len(price)) if len(price) > 30
+                         else len(price), key=f"sc_bars_{tf}")
+
+    t = trend.loc[ticker] if ticker in trend.index else None
+    if t is not None:
+        side = t["trend_side"]
+        colour = {"LONG": "green", "SHORT": "red"}.get(side, "gray")
+        st.markdown(f"#### {ticker} · :{colour}[{side or 'no clear trend'}] · {overview.trend_text(t)}")
+    mine = overview.ticker_signals(sig, ticker)
+    t1, t2, t3 = st.columns([1, 1, 4])
+    show_ema = t1.toggle(charts.EMA_GROUP, value=True, key="sc_ema")
+    show_ind = t2.toggle("Indicators", value=True, key="sc_ind")
+    labels = ["None (all signals as markers)"] + [overview.signal_label(r) for _, r in mine.iterrows()]
+    pick = t3.selectbox("Wave count and levels of", range(len(labels)), format_func=lambda i: labels[i],
+                        key=f"sc_hl_{ticker}")
+    highlight = None
+    if pick:
+        r = mine.iloc[pick - 1]
+        S = strategies.get(r["strategy"])
+        res, meta = next((res, meta) for SS, res, name, meta in S_files if SS.key == S.key and name == r["file"])
+        row = res.loc[int(r["id"])]
+        params = meta.get("params", {})
+        src = bars_all[bars_all["time_frame"] == row["time_frame"]]
+        overlay = (S.overlay_from_row(row) if S.overlay_from_row is not None else
+                   _overlay(str(cfg["stock_csv"]), cfg["stock_csv"].stat().st_mtime, row["Ticker"], row["time_frame"],
+                            str(row["signal_time"]), int(row["zigzag_length"]),
+                            params.get("pivot_tie", ENGINE["pivot_tie"]), params.get("hi_source", ENGINE["hi_source"]),
+                            params.get("lo_source", ENGINE["lo_source"])))
+        horizon = int(params.get("horizon_bars", ENGINE["horizon_bars"]))
+        if tf != row["time_frame"]:
+            row, overlay, horizon = charts.on_timeframe(row, overlay, src, price, tf, horizon, S.targets)
+        highlight = {"row": row, "overlay": overlay, "S": S, "groups": list(S.level_groups), "horizon": horizon}
+    chart_cfg = cfg["chart"]
+    fig = charts.stock_chart(
+        price, tf, mine, bars=n_bars, height=int(chart_cfg["height"]),
+        emas=[("EMA 13", chart_cfg["ema_fast"]), ("EMA 55", chart_cfg["ema_slow"])] if show_ema else [],
+        panes=chart_cfg["indicator_panes"] if show_ind else (), pane_height=int(chart_cfg["pane_height"]),
+        highlight=highlight, title=f"{ticker} · {tf}" + (f" · {labels[pick]}" if pick else ""))
+    st.plotly_chart(fig, theme=None, config=PLOT_CONFIG, key="sc_fig")
+    st.caption("▼ SHORT / ▲ LONG signals sit on the bar that holds them (a 60m signal on its day's 1D bar; "
+               "a 1D signal on the day's last 60m bar); ● marks the entry where one triggered. Hover for details.")
+    if not mine.empty:
+        st.markdown(f"**All signals of {ticker} ({len(mine)})**")
+        view = mine[["strategy", "time_frame", "degree", "side", "signal_time", "status", "result", "alignment",
+                     "TRIGGER", "STOP", "risk_pct", "entry_price", "trigger_time", "file"]].copy()
+        view["strategy"] = view["strategy"].str.upper()
+        st.dataframe(view.rename(columns={"risk_pct": "Stop %"}), hide_index=True, height=260)
+
+
 
 with tab_ew5:
     render_dashboard(strategies.EW5)
 with tab_ew3:
     render_dashboard(strategies.EW3)
+with tab_charts:
+    render_stock_charts()
 
 
 # ----------------------------------------------------------------------------------

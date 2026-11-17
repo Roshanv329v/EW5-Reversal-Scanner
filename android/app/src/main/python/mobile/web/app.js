@@ -5,7 +5,7 @@ const TOKEN = new URLSearchParams(location.search).get("t") || "";
 const NATIVE = window.Android || null;              // bridge from the Android app (absent on a desktop)
 const PLOT_CONFIG = { displaylogo: false, scrollZoom: false, responsive: true };
 const PAGE = 150;                                   // table rows drawn at a time
-const TABS = [["ew5", "📊 EW5"], ["ew3", "🚀 EW3"], ["data", "🗄️ Data"], ["run", "🔎 Run / Backtest"], ["alerts", "🔔 Alerts"],
+const TABS = [["ew5", "📊 EW5"], ["ew3", "🚀 EW3"], ["charts", "🕯️ Charts"], ["data", "🗄️ Data"], ["run", "🔎 Run / Backtest"], ["alerts", "🔔 Alerts"],
   ["guide", "📖 User Guide"]];
 const narrow = () => window.innerWidth < 760;
 
@@ -64,6 +64,7 @@ function setTheme(t) {
   if (btn) btn.textContent = t === "light" ? "🌙 Dark" : "☀️ Light";
   Dash.all.forEach((d) => (d.plots = {}));                 // charts are drawn again in the new colours
   if (activeTab === "ew5" || activeTab === "ew3") Dash.get(activeTab).render();
+  if (activeTab === "charts" && ChartsTab.box) ChartsTab.drawChart(false);
 }
 /* plotly.min.js (4.8 MB) and the TradingView library load once, when the first chart needs them. */
 const LIBS = {};
@@ -305,7 +306,11 @@ function tvChart(spec) {
     legend.append(item);
   });
   wrap.append(legend);
-  requestAnimationFrame(() => ts.fitContent());
+  requestAnimationFrame(() => {
+    const n = spec.candles.length;
+    if (spec.initial_bars && n > spec.initial_bars) ts.setVisibleLogicalRange({ from: n - spec.initial_bars, to: n + 3 });
+    else ts.fitContent();
+  });
   return wrap;
 }
 
@@ -419,7 +424,8 @@ function showTab(key, switchOnly) {
   activeTab = key;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.key === key));
   document.querySelectorAll(".tab").forEach((s) => s.classList.toggle("hidden", s.id !== `tab-${key}`));
-  if (!switchOnly) ({ ew5: () => Dash.get("ew5").open(), ew3: () => Dash.get("ew3").open(), data: DataTab.open, run: RunTab.open,
+  if (!switchOnly) ({ ew5: () => Dash.get("ew5").open(), ew3: () => Dash.get("ew3").open(), charts: () => ChartsTab.open(),
+    data: DataTab.open, run: RunTab.open,
     alerts: () => AlertsTab.open(), guide: Guide.open })[key]();
   window.scrollTo(0, 0);
 }
@@ -467,6 +473,7 @@ const Jobs = {
     if (activeTab === "run") RunTab.open(job);
     if (activeTab === "alerts") AlertsTab.open();
     if (activeTab === "ew5" || activeTab === "ew3") Dash.get(activeTab).open();
+    if (activeTab === "charts") ChartsTab.open();
   },
   async start(path, body) {
     try {
@@ -872,6 +879,116 @@ const Back = {
 window.appBack = () => Back.handle();
 
 // ---------------------------------------------------------------- Data tab
+// ---------------------------------------------------------------- Charts tab (trade with the trend)
+const ChartsTab = {
+  f: null, files: null, ticker: null, tf: null, pick: 0, ema: true, ind: true, filtersOpen: false, filesOpen: false,
+
+  async open() {
+    const root = clear($("tab-charts"));
+    root.append(spinner("Reading the trend of every stock…"));
+    let r;
+    try { r = await api("/api/charts/list", { filters: this.f, files: this.files }); }
+    catch (e) { clear(root).append(note("error", e.message)); return; }
+    this.r = r;
+    this.f = r.filters;
+    if (!this.files) this.files = Object.fromEntries(Object.entries(r.files).map(([k, v]) => [k, v.picked]));
+    clear(root);
+    root.append(h("h2", {}, "🕯️ Charts · trade with the trend"),
+      h("div", { class: "caption" }, `Stocks whose higher timeframes (${r.trend_frames.join(" + ")}, DTosc K vs D) point one way, with an EW5 / EW3 signal on that side and a small stop. Tap a stock to see it on 60m · 4hr · 1D · 1W candles with every signal on the chart.`));
+    root.append(this.filesBox(), this.filtersBox());
+    root.append(h("div", { class: "metrics" }, metric("Stocks listed", r.counts.listed.toLocaleString()),
+      metric("Uptrend (LONG side)", r.counts.up.toLocaleString()), metric("Downtrend (SHORT side)", r.counts.down.toLocaleString()),
+      metric("With the trend", r.counts.with_trend.toLocaleString())));
+    if (!r.table.rows.length) root.append(note("info", "No stock passes these filters. Widen them (more days, no stop limit) or switch *Only stocks with a signal* off."));
+    root.append(dataTable(r.table, { sideCol: "Trend side", selected: r.tickers.indexOf(this.ticker),
+      onRow: (id, i) => { this.ticker = r.tickers[i]; this.pick = 0; this.drawChart(true); } }));
+    const any = h("input", { type: "text", list: "sc-all", placeholder: "or type any stock, e.g. SBIN.NS" });
+    any.addEventListener("change", () => { const v = any.value.trim().toUpperCase(); if (r.all_tickers.includes(v)) { this.ticker = v; this.pick = 0; this.drawChart(true); } else toast("Not in the stored data: " + v); });
+    root.append(h("datalist", { id: "sc-all" }, r.all_tickers.map((t) => h("option", { value: t }))), field("Stock", any));
+    this.box = h("div", { class: "box" });
+    root.append(this.box);
+    if (!this.ticker || !r.all_tickers.includes(this.ticker)) this.ticker = r.tickers[0] || null;
+    if (this.ticker) this.drawChart(false);
+  },
+
+  reload() { clearTimeout(this.timer); this.timer = setTimeout(() => this.open(), 350); },
+
+  filesBox() {
+    const inner = h("div");
+    const box = h("details", { class: "box", open: this.filesOpen || null }, h("summary", {}, "📁 Signals from"), inner);
+    box.addEventListener("toggle", () => (this.filesOpen = box.open));
+    Object.entries(this.r.files).forEach(([key, v]) => inner.append(multiselect(`${v.name} results files`, v.all, this.files[key] || [],
+      (picked) => { this.files[key] = picked; this.open(); })));
+    inner.append(h("div", { class: "caption" }, "Default: the newest backtest (history with outcomes) and the newest live screen (today's setups). A signal in both counts once."));
+    return box;
+  },
+
+  filtersBox() {
+    const f = this.f, o = this.r.options;
+    const inner = h("div");
+    const box = h("details", { class: "box filter-box", open: this.filtersOpen || null },
+      h("summary", {}, `🔎 Stock filters${this.r.active.length ? " · " + this.r.active.join(" · ") : " · none"}`), inner);
+    box.addEventListener("toggle", () => (this.filtersOpen = box.open));
+    const set = (k) => (v) => { f[k] = v; this.reload(); };
+    inner.append(field(`Trend (${this.r.trend_frames.join(" + ")})`, chips(this.r.trend_choices, f.trend, set("trend"), true)),
+      check("Signal with the trend (LONG in an uptrend, SHORT in a downtrend)", f.with_trend, set("with_trend")),
+      check("Only stocks with a signal", f.has_signal, set("has_signal")));
+    const nums = h("div", { class: "row" });
+    nums.append(field("Signal in the last days", h("input", { type: "number", min: 1, max: 365, value: f.days, onchange: (e) => set("days")(Number(e.target.value) || 10) })),
+      field("Max stop % (0 = no limit)", h("input", { type: "number", min: 0, max: 50, step: 0.5, value: f.max_risk, onchange: (e) => set("max_risk")(Number(e.target.value) || 0) })));
+    inner.append(nums,
+      field("Strategy", chips(o.strategies, f.strategies, set("strategies"))),
+      field("Signal timeframe", chips(o.timeframes.map((t) => [t, t]), f.timeframes, set("timeframes"))),
+      field("Side", chips([["LONG", "LONG"], ["SHORT", "SHORT"]], f.sides, set("sides"))),
+      field("Alignment", chips(o.alignment.map((a) => [a, a]), f.alignment, set("alignment"))));
+    const grid = h("div", { class: "row" });
+    if (o.status.length) grid.append(multiselect("Status", o.status, f.status || [], set("status")));
+    f.attributes = f.attributes || {};
+    o.attributes.forEach(([col, lbl, values]) => grid.append(multiselect(lbl, values, f.attributes[col] || [],
+      (v) => { f.attributes[col] = v; this.reload(); })));
+    inner.append(grid);
+    inner.append(field("Ticker search", h("input", { type: "text", value: f.search || "", placeholder: "e.g. BAJ",
+      oninput: (e) => { f.search = e.target.value; this.reload(); } })));
+    inner.append(h("div", { class: "row", style: "margin-top:8px" },
+      h("button", { class: "btn small", onclick: async () => { try { const x = await api("/api/charts/save", { filters: f }); toast(x.note); } catch (e) { toast(e.message); } } }, "💾 Save filters"),
+      h("button", { class: "btn small", onclick: () => { this.f = null; this.open(); } }, "↺ Restore saved"),
+      h("button", { class: "btn small", onclick: () => { this.f = { trend: "any", with_trend: false, has_signal: false, days: 10, strategies: [], timeframes: [], sides: [], alignment: [], status: [], max_risk: 0, attributes: {}, search: "" }; this.open(); } }, "✕ Clear")));
+    return box;
+  },
+
+  async drawChart(scroll) {
+    const box = this.box;
+    if (!box || !this.ticker) return;
+    const seq = (this.seq = (this.seq || 0) + 1);
+    clear(box).append(spinner(`Drawing ${this.ticker}…`));
+    let c;
+    try { c = await api("/api/charts/chart", { ticker: this.ticker, tf: this.tf, pick: this.pick, ema: this.ema, ind: this.ind,
+      narrow: narrow(), files: this.files }); }
+    catch (e) { clear(box).append(note("error", e.message)); return; }
+    if (seq !== this.seq) return;
+    clear(box);
+    const sideCls = c.trend_side === "SHORT" ? "short" : c.trend_side === "LONG" ? "long" : "";
+    box.append(h("h3", { html: `🕯️ ${esc(c.ticker)} · <span class="${sideCls}">${esc(c.trend_side || "no clear trend")}</span>` }));
+    if (c.trend) box.append(h("div", { class: "caption" }, `Trend (DTosc K vs D): ${c.trend}`));
+    if (c.warning) { box.append(note("warn", c.warning)); return; }
+    this.tf = c.tf;
+    box.append(h("div", { class: "tv-tf" }, h("span", { class: "lbl" }, "Chart timeframe"),
+      chips(c.timeframes.map((t) => [t, t]), c.tf, (t) => { this.tf = t; this.drawChart(false); }, true)));
+    box.append(h("div", { class: "row" },
+      check("EMA 13 / 55", this.ema, (v) => { this.ema = v; this.drawChart(false); }),
+      check("Indicators", this.ind, (v) => { this.ind = v; this.drawChart(false); })));
+    if (c.labels.length) {
+      const sel = h("select", { onchange: (e) => { this.pick = Number(e.target.value); this.drawChart(false); } },
+        ["None (all signals as markers)", ...c.labels].map((l, i) => h("option", { value: i, selected: i === c.pick || null }, l)));
+      box.append(field("Wave count and levels of", sel));
+    }
+    if (c.tv) { await need(TVLIB); box.append(tvChart(c.tv)); }
+    box.append(h("div", { class: "caption" }, "▼ SHORT / ▲ LONG signals sit on the bar that holds them (a 60m signal on its day's 1D bar; a 1D signal on the day's last 60m bar); ● marks the entry where one triggered."));
+    if (c.signals) box.append(h("h3", {}, `All signals of ${c.ticker} (${c.signals.rows.length})`), dataTable(c.signals, { sideCol: "side" }));
+    if (scroll) box.scrollIntoView({ behavior: "smooth", block: "start" });
+  },
+};
+
 const DataTab = {
   form: null, preview: { tickers: [], timeframes: [], newest: true },
   async open(finishedJob) {

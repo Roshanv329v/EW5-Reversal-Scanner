@@ -169,11 +169,14 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
                  level_groups: Optional[dict[str, list[tuple[str, str, str]]]] = None,
                  level_labels: Optional[dict[str, str]] = None,
                  targets: Sequence[str] = EW5_TARGETS, side_col: str = "reversal_side",
-                 wave_name: str = "Impulse 1-5", title: Optional[str] = None) -> go.Figure:
+                 wave_name: str = "Impulse 1-5", title: Optional[str] = None,
+                 mark_signal: bool = True) -> go.Figure:
     """
     Candlestick for one signal. The x-axis is a category axis (one slot per bar), so
     nights, weekends and holidays leave no gaps. `panes` (keys of PANE_SERIES) are drawn
     together in ONE indicator pane below the price (0-100 scale, `pane_height` px high).
+    mark_signal=False draws a plain chart up to row["signal_time"] (no signal line, no outcome
+    markers): the Charts tab uses it for a stock without a picked signal.
     """
     level_groups = LEVEL_GROUPS if level_groups is None else level_groups
     level_labels = _LEVEL_LABEL if level_labels is None else level_labels
@@ -249,13 +252,16 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
 
     # ---- signal bar and evaluation window (category axis: positions are bar numbers)
     k_sig = i_sig - i0
-    if i1 > i_sig:
+    if not mark_signal:
+        pass
+    elif i1 > i_sig:
         fig.add_shape(type="rect", xref="x", yref="paper", x0=k_sig, x1=len(labels) - 0.5,
                       y0=0, y1=1, fillcolor=C["blue"], opacity=0.07, line_width=0, layer="below")
-    fig.add_shape(type="line", xref="x", yref="paper", x0=k_sig, x1=k_sig, y0=0, y1=1,
-                  line=dict(color=C["ink2"], width=1, dash="dot"))
-    fig.add_annotation(x=k_sig, xref="x", y=1, yref="paper", yanchor="bottom", showarrow=False,
-                       text="signal", font=dict(size=11, color=C["ink2"]))
+    if mark_signal:
+        fig.add_shape(type="line", xref="x", yref="paper", x0=k_sig, x1=k_sig, y0=0, y1=1,
+                      line=dict(color=C["ink2"], width=1, dash="dot"))
+        fig.add_annotation(x=k_sig, xref="x", y=1, yref="paper", yanchor="bottom", showarrow=False,
+                           text="signal", font=dict(size=11, color=C["ink2"]))
 
     # ---- outcome markers
     short = row.get(side_col) == "SHORT"
@@ -266,7 +272,7 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
     ]
     events += [(row.get(f"hit_{tg}_time"), row.get(tg), f"Hit {tg}", "star", C["yellow"])
                for tg in targets]
-    for when, level, name, symbol, colour in events:
+    for when, level, name, symbol, colour in (events if mark_signal else []):
         if when is None or pd.isna(when) or pd.isna(level) or pd.Timestamp(when) not in visible:
             continue
         fig.add_trace(go.Scatter(
@@ -339,6 +345,92 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
         fig.add_annotation(xref="paper", x=1, xanchor="left", yref="y", y=value, yshift=placed - pixel,
                            text=text, showarrow=False, xshift=4,
                            font=dict(size=10, color=C["ink2"]))
+    return fig
+
+
+# ----------------------------------------------------------------------------------
+# Charts tab: one stock on any timeframe with all its EW5 / EW3 signals
+# ----------------------------------------------------------------------------------
+SIGNAL_MARKS = {  # (strategy, side) -> colour; the side decides the arrow (▼ SHORT above, ▲ LONG below)
+    ("ew5", "LONG"): "#2fbf71", ("ew5", "SHORT"): "#e66767",
+    ("ew3", "LONG"): "#7fd6ff", ("ew3", "SHORT"): "#f5a623",
+}
+
+
+def stock_chart(price: pd.DataFrame, time_frame: str, sig: pd.DataFrame, bars: int, height: int,
+                emas: Sequence[tuple[str, str]] = (), panes: Sequence[str] = (), pane_height: int = 170,
+                highlight: Optional[dict] = None, title: str = "") -> go.Figure:
+    """
+    Candles of one stock on `time_frame` (the last `bars` bars) with every signal in `sig`
+    (core/overview.signals rows of this stock, any timeframe) on the bar that holds it:
+    ▼ SHORT above the bar, ▲ LONG below, labelled "EW5 60m"; ● entry where a signal triggered.
+
+    highlight = {"row", "overlay", "S", "groups", "horizon"}: one signal (already moved to
+    this timeframe with on_timeframe) with its wave count, levels and outcome markers; the
+    window is then the one around that signal, as on the EW5 / EW3 tabs.
+    """
+    from core import overview
+    p = price.sort_values("time").reset_index(drop=True)
+    if highlight:
+        S = highlight["S"]
+        fig = signal_chart(p, highlight["row"], highlight["overlay"], horizon_bars=int(highlight["horizon"]),
+                           bars_before=bars, groups=highlight["groups"], height=height, emas=emas, panes=panes,
+                           pane_height=pane_height, level_groups=S.level_groups, level_labels=S.level_labels,
+                           targets=S.targets, side_col=S.side_col, wave_name=S.wave_name, title=title)
+    else:
+        last = pd.Series({"Ticker": "", "time_frame": time_frame, "signal_time": p["time"].iloc[-1]})
+        fig = signal_chart(p, last, None, horizon_bars=0, bars_before=max(1, bars - 1), groups=(), height=height,
+                           emas=emas, panes=panes, pane_height=pane_height, title=title, mark_signal=False)
+    labels = list(fig.data[0].x)
+    shown = set(labels)
+    fmt = "%d %b %Y" if time_frame in DAY_FRAMES else "%d %b %Y %H:%M"
+    hi_lo = p.set_index(p["time"].dt.strftime(fmt))[["High", "Low"]]
+    y_lo, y_hi = fig.layout.yaxis.range or (p["Low"].min(), p["High"].max())
+    pad = (float(y_hi) - float(y_lo)) * 0.025
+
+    # one marker per (bar, strategy, side): "EW5 60m" or "EW5 60m ×3"; hover lists every signal
+    stacked: dict[tuple[str, str, str], list[pd.Series]] = {}
+    entries: list[tuple[str, float, str]] = []
+    times = p["time"]
+    for _, r in sig.sort_values("signal_time").iterrows():
+        bar = overview.bar_of(times, r["signal_time"], r["time_frame"])
+        if bar is None or bar.strftime(fmt) not in shown:
+            continue
+        stacked.setdefault((bar.strftime(fmt), str(r["strategy"]), str(r["side"])), []).append(r)
+        when = r.get("trigger_time")
+        if pd.notna(when) and pd.notna(r.get("entry_price")):
+            ebar = overview.bar_of(times, when, r["time_frame"])
+            if ebar is not None and ebar.strftime(fmt) in shown:
+                entries.append((ebar.strftime(fmt), float(r["entry_price"]),
+                                f"Entry · {overview.signal_label(r)}"))
+    groups: dict[tuple[str, str], list[tuple[str, float, str, str]]] = {}
+    for (x, strategy, side), rs in stacked.items():
+        short = side == "SHORT"
+        step = 2 if strategy == "ew3" and (x, "ew5", side) in stacked else 1      # EW3 next to EW5 on one bar
+        y = (float(hi_lo.loc[x, "High"]) + pad * step) if short else (float(hi_lo.loc[x, "Low"]) - pad * step)
+        frames = sorted({str(r["time_frame"]) for r in rs}, key=lambda tf: overview.TIMEFRAMES.index(tf)
+                        if tf in overview.TIMEFRAMES else 9)
+        text = f"{strategy.upper()} {'/'.join(frames)}" + (f" ×{len(rs)}" if len(rs) > 1 else "")
+        groups.setdefault((strategy, side), []).append(
+            (x, y, text, "<br>".join(overview.signal_label(r) for r in rs)))
+    for (strategy, side), pts in sorted(groups.items()):
+        pts.sort(key=lambda v: labels.index(v[0]))
+        colour = SIGNAL_MARKS.get((strategy, side), C["ink2"])
+        fig.add_trace(go.Scatter(
+            x=[x for x, _, _, _ in pts], y=[y for _, y, _, _ in pts], mode="markers+text",
+            name=f"{strategy.upper()} {side}", text=[t for _, _, t, _ in pts], hovertext=[h for _, _, _, h in pts],
+            textposition="top center" if side == "SHORT" else "bottom center",
+            textfont=dict(size=9, color=colour),
+            marker=dict(symbol="triangle-down" if side == "SHORT" else "triangle-up", size=12, color=colour,
+                        line=dict(color=C["surface"], width=1)),
+            hovertemplate="%{hovertext}<extra></extra>"), row=1, col=1)
+    if entries:
+        fig.add_trace(go.Scatter(
+            x=[x for x, _, _ in entries], y=[y for _, y, _ in entries], mode="markers", name="Entry",
+            hovertext=[h for _, _, h in entries], text=[""] * len(entries),           # phone: no label
+            marker=dict(symbol="circle", size=7, color=C["yellow"], line=dict(color=C["surface"], width=1)),
+            hovertemplate="%{hovertext}<br>%{y:,.2f}<extra></extra>"), row=1, col=1)
+    fig.update_yaxes(range=[float(y_lo) - pad * 2, float(y_hi) + pad * 2], row=1, col=1)
     return fig
 
 

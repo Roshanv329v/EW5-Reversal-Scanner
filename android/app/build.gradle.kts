@@ -19,8 +19,8 @@ android {
         applicationId = "app.ewscanner"
         minSdk = 24
         targetSdk = 35
-        versionCode = 14                   // raise on every release: the phone installs it as an update
-        versionName = "2.3"
+        versionCode = 15                   // raise on every release: the phone installs it as an update
+        versionName = "2.4"
         ndk { abiFilters += listOf("arm64-v8a") }     // current phones and Apple-silicon emulators
     }
     signingConfigs {
@@ -65,7 +65,7 @@ val engineFiles = listOf(
     "elliott_wave5_screener.py", "elliott_wave3_screener.py", "stock_data.py", "config.yaml",
     "core/__init__.py", "core/config.py", "core/data_store.py", "core/runner.py",
     "core/htf.py", "core/ta_lite.py", "core/charts.py", "core/strategies.py", "core/prefs.py",
-    "core/universe.py", "core/alert_events.py", "core/alert_settings.py",
+    "core/universe.py", "core/alert_events.py", "core/alert_settings.py", "core/overview.py",
 )
 val syncEngine by tasks.registering(Copy::class) {
     val project = rootDir.parentFile

@@ -27,7 +27,7 @@ import pandas as pd
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
 import stock_data
-from core import charts, data_store as ds, htf, prefs, runner, strategies, universe
+from core import overview, charts, data_store as ds, htf, prefs, runner, strategies, universe
 from core.config import ROOT, load_config
 from core.strategies import Strategy
 from mobile import alerts, jobs, lwchart, resources, scan
@@ -52,7 +52,8 @@ class App:
         cfg.update(tickers_file=data / "tickers.csv", stock_csv=data / "stock.csv",
                    backups_dir=data / "backups", results_dir=self.root / "results", logs_dir=self.root / "logs",
                    dashboard_filters_file=data / "dashboard_filters.json",
-                   dashboard_filters_file_ew3=data / "dashboard_filters_ew3.json", backups_keep=1)
+                   dashboard_filters_file_ew3=data / "dashboard_filters_ew3.json",
+                   stock_charts_filters_file=data / "stock_charts_filters.json", backups_keep=1)
         self.cfg = cfg
         for d in (data, cfg["results_dir"], cfg["logs_dir"]):
             d.mkdir(parents=True, exist_ok=True)
@@ -517,6 +518,127 @@ def chart(req: dict) -> dict:
     out["levels"] = [[n, _cell(row.get(n))] for n in level_names]
     out["live_count"] = row["live_count"] if pd.notna(row.get("live_count")) else "–"
     return clean(out)
+
+
+# ----------------------------------------------------------------------------------
+# Charts tab (render_stock_charts in app.py): stocks to trade with the trend
+# ----------------------------------------------------------------------------------
+@lru_cache(maxsize=2)
+def _trend(mtime: float, frames: tuple) -> pd.DataFrame:
+    return overview.trends(_app().store.snapshot(), frames)
+
+
+def _sc_files(req: dict) -> list[tuple[Strategy, pd.DataFrame, str, dict, list[str], list[str]]]:
+    """(Strategy, results, name, meta, all names, picked names) of every picked results file."""
+    a = _app()
+    out = []
+    wanted = req.get("files") or {}
+    for S in strategies.STRATEGIES.values():
+        files = runner.list_results(a.cfg["results_dir"], S.key)
+        names = [f.name for f in files]
+        picked = [n for n in wanted.get(S.key, []) if n in names] if S.key in wanted else \
+            [f.name for f in overview.default_files(files)]
+        if not picked:
+            out.append((S, None, "", {}, names, []))
+        for name in picked:
+            res, meta = load_results(a.cfg["results_dir"] / name)
+            out.append((S, res, name, meta, names, picked))
+    return out
+
+
+def _sc_data(req: dict):
+    a = _app()
+    sc = a.cfg["stock_charts"]
+    files = _sc_files(req)
+    sig = overview.signals([(S, res, name) for S, res, name, *_ in files if res is not None])
+    trend = _trend(a.store.mtime(), tuple(sc["trend_frames"]))
+    return a, sc, files, sig, trend
+
+
+def charts_list(req: dict) -> dict:
+    a, sc, files, sig, trend = _sc_data(req)
+    path = a.cfg["stock_charts_filters_file"]
+    f = {**overview.DEFAULT_FILTERS, **(req.get("filters") or overview.load_filters(path))}
+    rows = overview.stock_list(trend, sig, attributes(), f)
+    shown = overview.table(rows, int(sc["list_rows"]))
+    attrs = attributes()
+    return clean({
+        "filters": f, "saved": path.exists(), "active": overview.active_filters(f),
+        "trend_frames": sc["trend_frames"], "trend_choices": list(overview.TREND_CHOICES.items()),
+        "options": {
+            "strategies": [[S.key, S.name] for S in strategies.STRATEGIES.values()],
+            "timeframes": list(overview.TIMEFRAMES), "alignment": list(charts.ALIGN_ORDER),
+            "status": sorted(sig["status"].dropna().astype(str).unique()) if not sig.empty else [],
+            "attributes": [[col, universe.ATTR_LABELS.get(col, col),
+                            sorted(set(attrs[col].astype(str))) if not attrs.empty and col in attrs else []]
+                           for col in universe.ATTR_COLS]},
+        "files": {S.key: {"name": S.name, "all": names, "picked": picked}
+                  for S, _, _, _, names, picked in files},
+        "counts": {"listed": len(rows), "up": int(trend["trend_side"].eq("LONG").sum()) if not trend.empty else 0,
+                   "down": int(trend["trend_side"].eq("SHORT").sum()) if not trend.empty else 0,
+                   "with_trend": int(rows["with_trend"].sum()) if not rows.empty else 0},
+        "table": table(shown), "tickers": list(shown["Ticker"]),
+        "all_tickers": a.store.tickers(),
+    })
+
+
+def charts_save(req: dict) -> dict:
+    overview.save_filters(_app().cfg["stock_charts_filters_file"], req.get("filters") or {})
+    return {"ok": True, "note": "Saved. The Charts tab will open with these filters."}
+
+
+def charts_chart(req: dict) -> dict:
+    a, sc, files, sig, trend = _sc_data(req)
+    ticker = str(req["ticker"])
+    bars = a.store.ticker_bars(ticker)
+    have = [tf for tf in sc["timeframes"] if tf in set(bars["time_frame"])]
+    if not have:
+        return {"ticker": ticker, "warning": f"No bars for {ticker} in the stored data."}
+    tf = req.get("tf") if req.get("tf") in have else (sc["default_timeframe"] if sc["default_timeframe"] in have
+                                                     else have[0])
+    price = bars[bars["time_frame"] == tf].sort_values("time")
+    mine = overview.ticker_signals(sig, ticker)
+    labels = [overview.signal_label(r) for _, r in mine.iterrows()]
+    pick = int(req.get("pick") or 0)
+    pick = pick if 0 < pick <= len(labels) else 0
+    highlight, engine, chart_cfg = None, a.cfg["engine"], a.cfg["chart"]
+    if pick:
+        r = mine.iloc[pick - 1]
+        S = strategies.get(r["strategy"])
+        res, meta = next((res, meta) for SS, res, name, meta, *_ in files if SS.key == S.key and name == r["file"])
+        row, params = res.loc[int(r["id"])], meta.get("params", {})
+        src = bars[bars["time_frame"] == row["time_frame"]]
+        overlay = (S.overlay_from_row(row) if S.overlay_from_row is not None else
+                   _overlay(row["Ticker"], row["time_frame"], str(row["signal_time"]), int(row["zigzag_length"]),
+                            params.get("pivot_tie", engine["pivot_tie"]), params.get("hi_source", engine["hi_source"]),
+                            params.get("lo_source", engine["lo_source"]), a.store.mtime()))
+        horizon = int(params.get("horizon_bars", engine["horizon_bars"]))
+        if tf != row["time_frame"]:
+            row, overlay, horizon = charts.on_timeframe(row, overlay, src, price, tf, horizon, S.targets)
+        highlight = {"row": row, "overlay": overlay, "S": S, "groups": list(S.level_groups), "horizon": horizon}
+    small = bool(req.get("narrow"))
+    height = int(chart_cfg["overlay_height" if small else "height"])
+    pane_height = int(chart_cfg["overlay_pane_height" if small else "pane_height"])
+    fig = charts.stock_chart(
+        price, tf, mine, bars=int(sc["phone_bars"].get(tf, 500)), height=height,
+        emas=[("EMA 13", chart_cfg["ema_fast"]), ("EMA 55", chart_cfg["ema_slow"])] if req.get("ema", True) else [],
+        panes=chart_cfg["indicator_panes"] if req.get("ind", True) else (), pane_height=pane_height,
+        highlight=highlight, title=f"{ticker} · {tf}" + (f" · {labels[pick - 1]}" if pick else ""))
+    spec = lwchart.convert(fig, price, tf)
+    spec.update(height=height, pane_height=pane_height,
+                initial_bars=None if pick else int(sc["bars"].get(tf, 250)))   # opens on the recent bars
+    t = trend.loc[ticker] if ticker in trend.index else None
+    view = mine[["strategy", "time_frame", "degree", "side", "signal_time", "status", "result", "alignment",
+                 "TRIGGER", "STOP", "risk_pct", "entry_price"]].copy() if not mine.empty else pd.DataFrame()
+    if not view.empty:
+        view["strategy"] = view["strategy"].str.upper()
+        view["signal_time"] = view["signal_time"].dt.strftime("%d %b %Y %H:%M")
+        view = view.rename(columns={"risk_pct": "Stop %", "time_frame": "TF", "signal_time": "Signal"})
+    return clean({
+        "ticker": ticker, "tf": tf, "timeframes": have, "tv": spec, "labels": labels, "pick": pick,
+        "trend_side": "" if t is None else t["trend_side"], "trend": "" if t is None else overview.trend_text(t),
+        "signals": table(view) if not view.empty else None,
+    })
 
 
 # ----------------------------------------------------------------------------------

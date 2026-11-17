@@ -347,6 +347,47 @@ description of one period, not a forecast.
 
 ---
 
+## Charts tab: trade with the trend
+
+The **Charts** tab (next to EW3) is for picking stocks to trade **with the trend**, with a small
+stop, and for looking at any of them on every timeframe.
+
+**The trend.** For each stock the tab reads DTosc K against D on the newest bar of 60m, 4hr,
+1D and 1W (▲ K above D, ▼ below, the same rule as the higher-timeframe alignment). The
+**trend side** comes from the trend timeframes (`config.yaml` → `stock_charts.trend_frames`,
+default 1D + 1W): **LONG** when all of them are ▲, **SHORT** when all are ▼, otherwise no clear
+trend. The newest bar may still be forming.
+
+**The list.** One row per stock: the trend arrows, the trend side, the newest EW5 / EW3 signal
+that passes the filters (side, timeframe, time, alignment, status, trigger, stop and **Stop %**,
+the trigger → stop distance), how many signals it has and the stock's attributes. Stocks whose
+signal is on the trend side come first (✅ *With trend*), then the newest signals, then the
+smallest stop. The default filters show exactly that: signals of the last 10 days on the
+trend side.
+
+**Filters** (one box, closed until opened; its title lists what is on): trend (any / uptrend /
+downtrend), *Signal with the trend*, *Only stocks with a signal*, how many days back, **Max
+stop %**, strategy, signal timeframe, side, alignment, status, the stock attributes and a
+ticker search. *Save filters* keeps them for the next start.
+
+**Signals from** (a closed box above the filters): by default the newest backtest of each
+strategy (history with outcomes) and the newest live screen (today's setups); pick other
+results files there. A signal that is in both counts once.
+
+**The chart.** Tap a row (or pick any stock) and choose **60m · 4hr · 1D · 1W**. Every signal of
+the stock, from both strategies and every timeframe, is on the chart: ▼ SHORT above the bar,
+▲ LONG below it, labelled *EW5 60m* (several on one bar: *EW5 60m/4hr ×2*); ● marks the entry
+where a signal triggered. A signal sits on the bar that holds it: a 60m signal on its day's
+1D bar, a 1D signal on that day's last 60m bar. EMA 13 / 55 and the indicators switch on and
+off as on the other charts. **Wave count and levels of** picks one signal to show its wave
+count, trigger, stop and targets as well (on any of the four timeframes). Under the chart:
+every signal of the stock.
+
+**A way to use it.** Uptrend, then: an EW3 LONG (wave 3 starting) or an EW5 LONG (end of a fall
+inside the uptrend) with a stop of 1-2 %, checked on the 60m and 4hr charts for a clean wave
+count. Mirror it for a downtrend. Signals against the trend are still on the chart, so you can
+see how they did.
+
 ## Stock lists and attributes
 
 `data/tickers.csv` has, for every stock: `marketcapname` (Large / Mid / Small Cap),
@@ -378,7 +419,7 @@ stocks **triggered** today and another for **new setups**, each only when it has
 **Notify about**.
 
 **Message layout**: *Cards* (a short block per stock, the default), *Compact* (one line per
-stock) or *Custom* (your own template). Stocks new since the last scan come first, then those
+stock) or *Custom* (your own template). A line like ═══ 60m ═══ starts each timeframe. Stocks new since the last scan come first, then those
 already sent today under *Earlier today*; each in the order 60m → 4hr → 1D, aligned first.
 
 Press **Install schedule** to hand the times to macOS (two launch agents in

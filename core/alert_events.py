@@ -375,6 +375,22 @@ def _day(rows: list[dict]) -> str:
         return ""
 
 
+def splitter(tf: Any) -> str:
+    """The line between timeframes in a message: ═══════ 60m ═══════"""
+    return f"═══════ <b>{html.escape(str(tf or '?'))}</b> ═══════"
+
+
+def _by_timeframe(rows: list[dict]) -> list[tuple[Any, list[dict]]]:
+    """Consecutive runs of one timeframe (rows are already sorted 60m → 4hr → 1D → 1W)."""
+    out: list[tuple[Any, list[dict]]] = []
+    for e in rows:
+        if out and out[-1][0] == e.get("tf"):
+            out[-1][1].append(e)
+        else:
+            out.append((e.get("tf"), [e]))
+    return out
+
+
 def _section(rows: list[dict], style: str) -> list[str]:
     """New since the last scan in full; stocks already sent today, one line each."""
     new = [e for e in rows if e.get("_new", True)]
@@ -384,11 +400,15 @@ def _section(rows: list[dict], style: str) -> list[str]:
         since = max(str(e.get("notified", ""))[11:16] for e in old)
         blocks.append(f"🆕 <b>New since {since}</b>" if since else "🆕 <b>New</b>")
     if style == "cards":
-        blocks += [card(e) for e in new]
+        for tf, part in _by_timeframe(new):
+            blocks.append(splitter(tf))
+            blocks += [card(e) for e in part]
     elif new:
-        blocks.append("\n".join(compact(e) for e in new))
+        blocks.append("\n".join(splitter(tf) + "\n" + "\n".join(compact(e) for e in part)
+                                for tf, part in _by_timeframe(new)))
     if old:
-        blocks.append("<b>Earlier today</b>\n" + "\n".join(compact(e) for e in old))
+        blocks.append("<b>Earlier today</b>\n" + "\n".join(
+            splitter(tf) + "\n" + "\n".join(compact(e) for e in part) for tf, part in _by_timeframe(old)))
     return blocks
 
 

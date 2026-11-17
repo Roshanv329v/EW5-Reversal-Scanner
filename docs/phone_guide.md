@@ -2,7 +2,7 @@
 
 The Android app runs the same scanner as the desktop, entirely on the phone. No computer
 or server is involved; only the price download needs internet. The tabs match the desktop:
-**EW5**, **EW3**, **Data**, **Run / Backtest** and **User Guide**.
+**EW5**, **EW3**, **Charts**, **Data**, **Run / Backtest**, **Alerts** and **User Guide**.
 
 ### First start
 
@@ -58,6 +58,20 @@ Same as the desktop:
   indicator values.
 - **Back button** closes an open overlay or list first.
 - **Share results CSV** (Run tab) sends a results file to any app.
+
+### Charts tab: trade with the trend
+
+Same as the desktop's Charts tab (see *How to use it*): the list of stocks whose 1D and 1W
+trend (DTosc K vs D) point one way with an EW5 / EW3 signal on that side, sorted with the
+trend first and the smallest stop next; the filters (trend, *with the trend*, days, **max stop
+%**, strategy, timeframe, side, alignment, attributes) with *Save filters*. Tap a stock for its
+chart on **60m · 4hr · 1D · 1W** with every signal of both strategies on it (▼ SHORT, ▲ LONG,
+● entry). The chart opens on the recent bars; pinch out to see further back. *Wave count and
+levels of* draws one signal's waves and levels too. *Or type any stock* opens a stock that is
+not in the list.
+
+The trend arrows come from small summaries of the stored data; after the update to 2.4 they
+are built once (the first open of the tab takes a little longer).
 
 ### Stocks: all, or F&O only
 
@@ -137,7 +151,8 @@ group's chat ID. The phone notification is sent either way.
   away) · SL*); the targets 🎯 and a **📈 chart** link.
 - **Compact**: the same, one line per stock, each with its chart link.
 
-Every stock in a message, new or *Earlier today*, ends with a **📈 60m / 4hr / 1D chart** link
+Within each part of a message a splitter line, e.g. ═══════ **60m** ═══════, starts every
+timeframe. Every stock in a message, new or *Earlier today*, ends with a **📈 60m / 4hr / 1D chart** link
 that opens TradingView on that stock at the signal's timeframe (interval 60, 240 or 1D), in
 the chart layout set in `config.yaml` → `tradingview.layout`. Indices and commodities open
 their TradingView symbols (NIFTY, BANKNIFTY, gold futures …); `M&M` opens as `NSE:M_M`.

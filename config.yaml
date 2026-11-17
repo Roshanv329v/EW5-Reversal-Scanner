@@ -9,6 +9,7 @@ logs_dir: logs
 backups_keep: 3               # stock.csv is large once 60m bars are stored
 dashboard_filters_file: data/dashboard_filters.json       # saved EW5 dashboard filters
 dashboard_filters_file_ew3: data/dashboard_filters_ew3.json   # saved EW3 dashboard filters
+stock_charts_filters_file: data/stock_charts_filters.json    # saved Charts tab filters
 
 # ---- data download -----------------------------------------------------------
 timeframes: ["1D", "4hr", "60m"]   # 4hr and 60m come from one 60m download
@@ -97,3 +98,12 @@ tradingview:
     "CL=F": "NYMEX:CL1!"
     "GC=F": "COMEX:GC1!"
     "SI=F": "COMEX:SI1!"
+
+# Charts tab: every stock on 60m / 4hr / 1D / 1W with all EW5 / EW3 signals
+stock_charts:
+  trend_frames: ["1D", "1W"]  # trend side: LONG when DTosc K > D on all of these, SHORT when K < D on all
+  timeframes: ["60m", "4hr", "1D", "1W"]
+  default_timeframe: "1D"
+  bars: {"60m": 350, "4hr": 300, "1D": 250, "1W": 156}   # bars shown (the slider goes up to all of them)
+  phone_bars: {"60m": 700, "4hr": 600, "1D": 500, "1W": 260}   # bars sent to the phone chart (pinch to see them)
+  list_rows: 300              # stocks shown in the list (best first)

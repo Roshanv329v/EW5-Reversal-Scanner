@@ -392,3 +392,38 @@ def test_charts_drill_down_into_cards_breakdown_and_table(tmp_path, df):
                                                   "outcome": [["1D", d, "TRIGGERED"] for d in large["degree"].unique()]}})
     assert trig["counts"]["view"] == int(large["status"].eq("TRIGGERED").sum())             # breakdown drills the table
     assert trig["signals"] == len(large)                                                    # cards are above it
+
+
+def test_charts_tab_on_the_phone(tmp_path, df):
+    api.init(str(tmp_path / "phone"))
+    a = api._app()
+    src = tmp_path / "stock.csv"
+    ds.save_stock_csv(df, src, tmp_path / "b", 1)
+    a.store.import_csv(src)
+    p = runner.RunParams(mode="backtest", timeframes=("1D",), lengths=(4, 8, 16), stages=STAGES, horizon_bars=30)
+    res = runner.run_engine(df, p, CFG["signal_indicators"], CFG["htf"])
+    runner.save_results(res, p, a.cfg["results_dir"])
+    assert set(a.store.snapshot()["Ticker"]) == set(df["Ticker"])          # trend from the parts' summaries
+    out = api.charts_list({"filters": {"has_signal": True, "with_trend": False, "days": 3650}})
+    assert out["counts"]["listed"] == res["Ticker"].nunique() and out["table"]["columns"][:2] == ["Ticker", "Trend"]
+    ticker = out["tickers"][0]
+    chart = api.charts_chart({"ticker": ticker, "tf": "1W"})
+    assert chart["tf"] == "1W" and chart["tv"]["candles"] and chart["labels"]
+    assert any(m["name"].startswith("EW5") for m in chart["tv"]["markers"])
+    picked = api.charts_chart({"ticker": ticker, "tf": "1D", "pick": 1})
+    assert picked["pick"] == 1 and picked["tv"]["levels"]                    # the picked signal's levels
+    api.charts_save({"filters": {"max_risk": 2.5}})
+    assert api.charts_list({})["filters"]["max_risk"] == 2.5
+
+
+def test_telegram_messages_split_by_timeframe():
+    from core import alert_events as ev, alert_settings as aset
+    trig = ev.SAMPLE[0]
+    rows = [dict(trig, ticker=t, tf=tf, key=t) for t, tf in (("AAA.NS", "1D"), ("BBB.NS", "60m"),
+                                                                ("CCC.NS", "60m"), ("DDD.NS", "4hr"))]
+    (kind, title, out), = ev.messages(rows, rows, split=True)
+    for style in ("cards", "compact"):
+        text = ev.render(kind, title, out, {**aset.DEFAULTS, "telegram_style": style})[0]
+        assert text.count("═══════") == 6                                   # one splitter line per timeframe
+        assert text.index("<b>60m</b>") < text.index("BBB") < text.index("<b>4hr</b>") < text.index("DDD") \
+            < text.index("<b>1D</b>") < text.index("AAA")

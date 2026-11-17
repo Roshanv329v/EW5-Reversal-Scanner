@@ -23,7 +23,7 @@ import pandas as pd
 
 # Plotly dash name -> Lightweight Charts LineStyle (0 solid, 1 dotted, 2 dashed, 3 large dashed)
 DASH = {"solid": 0, None: 0, "dot": 1, "dash": 2, "dashdot": 3, "longdash": 3}
-SHAPE = {"triangle-up": "arrowUp", "triangle-down": "arrowDown", "x": "square", "star": "circle"}
+SHAPE = {"triangle-up": "arrowUp", "triangle-down": "arrowDown", "x": "square", "star": "circle", "circle": "circle"}
 SHORT = [(r"^STOP / W\d_END", "STOP"), (r"^W0_START.*", "W0"), (r"^TRIGGER", "TRIG"),
          (r"^W(\d)_END", r"W\1"), (r"^FIB_0(\.\d+)", r"F\1"), (r"^W\d_TGT_(\d\.\d+)xW1", r"T\1"),
          (r"^W2_RET_0(\.\d+)", r"R\1")]
@@ -89,13 +89,17 @@ def convert(fig, price: pd.DataFrame, time_frame: str) -> dict:
                     "labels": [{"time": p["time"], "price": p["value"], "text": str(text),
                                 "position": "atPriceTop" if str(pos).startswith("top") else "atPriceBottom"}
                                for p, text, pos in zip(pts, labels, where) if str(text)]})
-            else:                                                 # entry / stop / target hits
+            else:                                 # entry / stop / target hits; Charts tab: every signal
                 symbol = tr.marker.symbol
                 name = str(tr.name)
                 text = ("Entry" if name.startswith("Trigger") else "Stop" if name.startswith("Stop")
                         else "Hit " + short_level(name[4:]) if name.startswith("Hit ") else name)
-                for p in pts:
-                    out["markers"].append({"time": p["time"], "price": p["value"], "name": name, "text": text,
+                each = list(tr.text) if isinstance(tr.text, (list, tuple)) else None    # one label per point
+                for i, (t, v) in enumerate(zip(times(tr.x), tr.y)):
+                    if not t or _num(v) is None:
+                        continue
+                    out["markers"].append({"time": t, "price": _num(v), "name": name,
+                                           "text": str(each[i]) if each and i < len(each) else text,
                                            "shape": SHAPE.get(symbol, "circle"), "color": tr.marker.color})
 
     # ---- horizontal lines (levels on the price pane, 30 / 50 / 70 on the indicator pane)
