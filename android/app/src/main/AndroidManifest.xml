@@ -34,11 +34,19 @@
             android:name=".JobService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <!-- EW5 / EW3 engine workers: one process each, so a run uses several cores (mobile/workers.py) -->
+        <service android:name=".EngineWorker$W0" android:process=":w0" android:exported="false" />
+        <service android:name=".EngineWorker$W1" android:process=":w1" android:exported="false" />
+        <service android:name=".EngineWorker$W2" android:process=":w2" android:exported="false" />
+        <service android:name=".EngineWorker$W3" android:process=":w3" android:exported="false" />
+        <service android:name=".EngineWorker$W4" android:process=":w4" android:exported="false" />
+        <service android:name=".EngineWorker$W5" android:process=":w5" android:exported="false" />
         <receiver android:name=".Scheduler$AlarmReceiver" android:exported="false" />
         <receiver android:name=".Scheduler$BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
         <provider

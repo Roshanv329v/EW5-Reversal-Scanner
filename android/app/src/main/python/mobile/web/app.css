@@ -267,3 +267,11 @@ td.t-BEARISH { color: var(--down); }
 @media (min-width: 900px) { .attr-charts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .filter-box > summary, .attr-box > summary { font-weight: 700; padding: 2px 0; }
 .filter-box[open] > summary { margin-bottom: 8px; }
+
+/* F&O 5-day grade */
+.g-A { color: #2fbf71; font-weight: 700; }
+.g-B { color: #e3a008; font-weight: 700; }
+.g-none { color: var(--muted, #898781); }
+
+/* "Open in TradingView" above the charts */
+.tv-open { display: inline-block; margin: 6px 0; text-decoration: none; }

@@ -52,8 +52,10 @@ def load_filters(path: Path) -> dict:
         saved = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         saved = {}
-    return {**DEFAULT_FILTERS, **{k: v for k, v in (saved if isinstance(saved, dict) else {}).items()
-                                  if k in DEFAULT_FILTERS}}
+    out = {**DEFAULT_FILTERS, **{k: v for k, v in (saved if isinstance(saved, dict) else {}).items()
+                                 if k in DEFAULT_FILTERS}}
+    out["attributes"] = {col: universe.migrate_picks(col, v) for col, v in (out.get("attributes") or {}).items()}
+    return out
 
 
 def save_filters(path: Path, filters: dict) -> dict:
@@ -151,7 +153,7 @@ def signals(results: Sequence[tuple[Any, pd.DataFrame, str]]) -> pd.DataFrame:
             "entry_price": get("entry_price"), "stop_time": pd.to_datetime(get("stop_time")),
             "TRIGGER": res["TRIGGER"], "STOP": res["STOP"], "target1": get(t1), "target2": get(t2),
             "target1_name": t1, "target2_name": t2, "alignment": get("alignment").fillna(htf.UNKNOWN),
-            "close": get("close"), "file": file, "id": res.index})
+            "close": get("close"), "fno5": get("fno5"), "file": file, "id": res.index})
         parts.append(part)
     if not parts:
         return pd.DataFrame(columns=["strategy", "Ticker", "time_frame", "signal_time", "side", "risk_pct"])
@@ -217,7 +219,7 @@ def stock_list(trend: pd.DataFrame, sig: pd.DataFrame, attrs: pd.DataFrame, filt
     counts = matched.groupby("Ticker").size() if not matched.empty else pd.Series(dtype=int)
     base["signals"] = counts.reindex(base.index).fillna(0).astype(int)
     cols = ["strategy", "time_frame", "degree", "side", "signal_time", "status", "alignment", "TRIGGER", "STOP",
-            "risk_pct", "target1"]
+            "risk_pct", "target1", "fno5"]
     for col in cols:
         base[f"sig_{col}"] = newest[col].reindex(base.index) if not newest.empty and col in newest else pd.NA
     if f.get("has_signal"):
@@ -249,6 +251,7 @@ def table(rows: pd.DataFrame, limit: Optional[int] = None) -> pd.DataFrame:
         for _, r in rows.iterrows()]
     out["Signal time"] = pd.to_datetime(rows["sig_signal_time"]).dt.strftime("%d %b %H:%M")
     out["With trend"] = rows["with_trend"].map({True: "✅", False: ""})
+    out["F&O 5-day"] = rows["sig_fno5"].fillna("")
     out["Alignment"] = rows["sig_alignment"]
     out["Status"] = rows["sig_status"]
     out["Trigger"] = pd.to_numeric(rows["sig_TRIGGER"], errors="coerce").round(2)

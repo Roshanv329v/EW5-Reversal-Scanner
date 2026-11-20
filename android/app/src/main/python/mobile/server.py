@@ -53,7 +53,7 @@ POST: dict[str, Callable[[dict], Any]] = {
     "/api/charts/save": api.charts_save,
     "/api/charts/chart": api.charts_chart,
     "/api/alerts/settings": api.alerts_save,
-    "/api/alerts/run": lambda b: api.alerts_run(),
+    "/api/alerts/run": lambda b: api.alerts_run(b.get("kind", "regular")),
     "/api/alerts/test": lambda b: api.alerts_test(),
     "/api/alerts/telegram_test": api.alerts_telegram_test,
     "/api/alerts/telegram_chat": api.alerts_telegram_chat,

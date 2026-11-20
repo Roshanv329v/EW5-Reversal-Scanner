@@ -42,6 +42,7 @@ public class MainActivity extends Activity {
     static final String EXTRA_TAB = "open_tab";
     private static final int PICK_STOCK_CSV = 41;
     private String pendingTab;
+    private String pendingRun;                       // a scheduled scan to start (tap on "scan is due")
     private boolean pageReady;
     private static final String BG = "#0e1117";
     private WebView web;
@@ -53,6 +54,7 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         App.init(getApplicationContext());
         pendingTab = getIntent().getStringExtra(EXTRA_TAB);
+        pendingRun = getIntent().getStringExtra(Notifier.EXTRA_RUN);
         getWindow().setStatusBarColor(Color.parseColor(BG));
         getWindow().setNavigationBarColor(Color.parseColor(BG));
 
@@ -132,6 +134,7 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         String tab = intent.getStringExtra(EXTRA_TAB);
+        if (intent.getStringExtra(Notifier.EXTRA_RUN) != null) pendingRun = intent.getStringExtra(Notifier.EXTRA_RUN);
         if (tab != null) { pendingTab = tab; if (pageReady) openPendingTab(); }
     }
 
@@ -140,6 +143,17 @@ public class MainActivity extends Activity {
         String tab = pendingTab.replaceAll("[^a-z0-9]", "");
         pendingTab = null;
         web.evaluateJavascript("window.showTab && showTab('" + tab + "')", null);
+        if (pendingRun != null) {
+            String kind = "full".equals(pendingRun) ? "full" : "regular";
+            pendingRun = null;
+            web.evaluateJavascript("window.runScheduledScan && runScheduledScan('" + kind + "')", null);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Scheduler.reschedule(this);                  // back from the settings: exact alarm again if now allowed
     }
 
     @Override

@@ -347,6 +347,53 @@ description of one period, not a forecast.
 
 ---
 
+## F&O 5-day grade (EW5 / EW3 tabs, Charts tab, alerts)
+
+Every signal gets a grade for an **F&O trade of at most 5 trading days**:
+
+| Grade | EW5 | EW3 |
+|---|---|---|
+| **A · eligible** | major wave 5, stop ≤ 2 %, not against the higher timeframes | wave-1 target ≥ 2× the risk, stop ≤ 3 %, price within 3 % of the 55 EMA, not against the higher timeframes |
+| **B · possible** | major wave 5, stop ≤ 3 % | – |
+| **–** | anything else, or not an F&O stock (`fno_enabled = false`) | |
+
+**The trade behind it.** Enter at the trigger, stop at STOP, take profit at the first target
+(EW5 W4 end, EW3 W1 end); if neither is hit, exit at the close of the 5th trading day (the
+trigger day is day 1). Every triggered signal of the 11 May - 11 Nov 2026 backtests was played
+this way on 60m bars, and only rules that made money in **both** halves of that period are used:
+
+| | Trades | Avg per trade | Won | 1st half | 2nd half |
+|---|---|---|---|---|---|
+| EW5 A | 63 | +0.61R | 52 % | +0.82R | +0.40R |
+| EW5 B | 105 | +0.37R | 52 % | +0.55R | +0.25R |
+| EW3 A | 66 | +0.28R | 35 % (winners ≥ 2R) | +0.34R | +0.22R |
+| all other signals | ~2,500 | about 0R | | | |
+
+R = profit or loss in multiples of the entry → stop distance. What did not help over five days:
+minor-degree EW5 waves, EW3 with a target under 2× the risk, very tight stops under 1 % (hit by
+noise), and the 1D / 1W trend on its own.
+
+**Where you see it.**
+- EW5 / EW3 tabs: columns `fno5` (A / B / –), `fno5_stop_pct`, `fno5_rr` (target in × risk) and
+  `fno5_reason` (why it is or is not eligible); the **F&O 5-day** filter; the line under a
+  signal's heading, with *exit by the close of …* once it has triggered; the *F&O 5-day grades*
+  button explains the rules.
+- Charts tab: the **F&O 5-day** column of the stock list.
+- Alerts: ⭐A / ☆B next to the stock, a line *F&O 5-day A: exit by the close of Tue 24 Nov*, graded
+  stocks first within each timeframe, the count in the notification title, and the option **Only
+  F&O 5-day eligible signals**.
+
+The thresholds are in `config.yaml` → `fno_5day`. It is a six-month backtest: about one trade
+in two still loses, so the stop and the position size decide the loss. Re-check the grades
+after a new backtest.
+
+## Open a stock in TradingView
+
+Above every candlestick chart (EW5, EW3, the Charts tab and the chart pop-up) the button
+**Open … in TradingView** opens that stock on tradingview.com at the chart's timeframe, e.g.
+`https://www.tradingview.com/chart/?symbol=NSE%3AYESBANK&interval=240`. The alert messages use
+the same link. A saved TradingView layout can be added in `config.yaml` → `tradingview.layout`.
+
 ## Charts tab: trade with the trend
 
 The **Charts** tab (next to EW3) is for picking stocks to trade **with the trend**, with a small
@@ -392,6 +439,11 @@ see how they did.
 
 `data/tickers.csv` has, for every stock: `marketcapname` (Large / Mid / Small Cap),
 `cnx_sector_name`, `fno_enabled`, `macro_info` (macro sector) and `sector_info` (sector index).
+The filters offer these values exactly as written in the file: `fno_enabled` is `true` /
+`false`, an empty cell shows as *(blank)*, and `sector_info`'s own `-` stays `-`. Indices and
+commodities are not in `tickers.csv`, so they have no attribute values: they are never a filter
+option, an attribute filter leaves them out, and the attribute charts show them as *not in
+tickers.csv*.
 
 - **Data update** (sidebar) and **Run / Backtest** can use *All stocks* or *F&O stocks* only
   (`fno_enabled = true`); indices and commodities are always included. The dashboard caption
@@ -418,11 +470,25 @@ stocks **triggered** today and another for **new setups**, each only when it has
 *One message for the day* puts both in one. To keep only one category, leave the other out of
 **Notify about**.
 
+**What to scan and report**:
+
+| Stocks | Default | Why |
+|---|---|---|
+| **F&O** (`fno_enabled = true`; indices and commodities too) | Bullish (LONG) and bearish (SHORT) | futures / options can be sold short |
+| **Cash** (`fno_enabled = false`) | Bullish (LONG) only | a cash (delivery) stock cannot be held short |
+
+The weekday scans cover the F&O stocks, so they report both ways; the weekly full scan covers
+every stock: F&O both ways, cash stocks LONG only. Set them with *Signals · F&O stocks* and
+*Signals · cash stocks*. *Timeframes (weekday scans)* and *Full scan timeframes* are also
+separate, so e.g. the weekday scans can watch 60m + 4hr and the Friday full scan 1D + 1W.
+
 **Message layout**: *Cards* (a short block per stock, the default), *Compact* (one line per
 stock) or *Custom* (your own template). A line like ═══ 60m ═══ starts each timeframe. Stocks new since the last scan come first, then those
 already sent today under *Earlier today*; each in the order 60m → 4hr → 1D, aligned first.
 
-Press **Install schedule** to hand the times to macOS (two launch agents in
+**Nothing runs by itself until you press Install schedule**: saving the settings alone does not
+schedule anything (the tab shows a red warning while the schedule is not installed). After
+changing the times press **Save settings**, then **Update schedule**. Press **Install schedule** to hand the times to macOS (two launch agents in
 `~/Library/LaunchAgents/com.ewscanner.scan.*`); **Remove schedule** takes them out again. The
 Mac must be on; a scan missed while it slept runs when it wakes. **Run … scan now** starts one
 in the background. From a terminal: `python scheduled_scan.py --kind regular` (or `full`).

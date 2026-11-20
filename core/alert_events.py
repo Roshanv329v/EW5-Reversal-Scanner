@@ -45,7 +45,8 @@ LINE_FIELDS = {
     "htf": "higher-timeframe trends", "stage": "wave stage", "context": "EW3 context", "close": "close at the signal",
     "trigger": "TRIGGER level", "stop": "STOP level", "entry": "entry price (triggered)", "target1": "first target",
     "target2": "second target", "target1_name": "e.g. W4_END", "target2_name": "e.g. FIB_0.500",
-    "risk_pct": "trigger→stop distance in %", "tradingview": "TradingView chart link at the signal's timeframe"}
+    "risk_pct": "trigger→stop distance in %", "fno5": "F&O 5-day grade A / B / –",
+    "fno5_reason": "why that grade", "exit_by": "last day of a 5-day trade (triggered)", "tradingview": "TradingView chart link at the signal's timeframe"}
 
 
 TELEGRAM_URL = "https://api.telegram.org/bot{token}/{method}"
@@ -137,6 +138,7 @@ def line_fields(e: dict) -> _Fields:
         "target1_name": e.get("target1_name") or "", "target2_name": e.get("target2_name") or "",
         "risk_pct": f"{risk:.2f}%" if risk is not None else "",
         "tradingview": tradingview_url(t, e.get("tf")),
+        "fno5": e.get("fno5") or "–", "fno5_reason": e.get("fno5_reason") or "", "exit_by": e.get("exit_by") or "",
     }
     return _Fields({k: html.escape(str(v)) for k, v in raw.items()})
 
@@ -188,20 +190,34 @@ SAMPLE = [{"event": "TRIGGERED", "strategy": "ew5", "ticker": "RELIANCE.NS", "tf
            "side": "SHORT", "at": "2026-01-02 13:15", "signal_time": "2026-01-02 11:15", "alignment": "ALIGNED",
            "htf": "BEARISH · BEARISH", "stage": "WAVE5_IN_PROGRESS", "close": 1301.2, "trigger": 1298.5,
            "stop": 1312.0, "entry": 1297.0, "target1": 1270.4, "target2": 1255.0,
-           "target1_name": "W4_END", "target2_name": "FIB_0.500"},
+           "target1_name": "W4_END", "target2_name": "FIB_0.500", "fno5": "A",
+           "fno5_reason": "major wave 5, stop ≤ 2%, not against the higher timeframes", "exit_by": "Thu 08 Jan"},
           {"event": "NEW", "strategy": "ew3", "ticker": "TCS.NS", "tf": "4hr", "degree": "intermediate",
            "side": "LONG", "at": "2026-01-02 09:15", "signal_time": "2026-01-02 09:15", "alignment": "MIXED",
            "htf": "NEUTRAL · BULLISH", "stage": "WAVE2_COMPLETED", "context": "AFTER_ABC", "close": 3410.0,
            "trigger": 3425.0, "stop": 3380.0, "entry": None, "target1": 3502.0, "target2": 3610.0,
-           "target1_name": "W1_END", "target2_name": "W3_TGT_1.618xW1"}]
+           "target1_name": "W1_END", "target2_name": "W3_TGT_1.618xW1", "fno5": "–",
+           "fno5_reason": "target 1.7× risk < 2.0×", "exit_by": None}]
 
 
 # ----------------------------------------------------------------------------------
 # One scheduled run
 # ----------------------------------------------------------------------------------
-def _event_rows(res: pd.DataFrame, S, today: date, wanted: list[str], aligned_only: bool, file: str) -> list[dict]:
+def _event_rows(res: pd.DataFrame, S, today: date, wanted: list[str], aligned_only: bool, file: str,
+                grade_cfg: Optional[dict] = None, attrs: Optional[pd.DataFrame] = None,
+                fno5_only: bool = False, sides: Optional[Any] = None) -> list[dict]:
+    """
+    Today's TRIGGERED / NEW rows; with grade_cfg each gets its F&O 5-day grade (fno5_only: A / B only).
+    sides: {"fno": [...], "cash": [...]} = the sides kept for F&O stocks (fno_enabled = true; indices
+    and commodities count as F&O) and for cash stocks (fno_enabled = false); a plain list = all stocks.
+    """
     if res.empty:
         return []
+    from core import eligibility, universe
+    if attrs is not None or grade_cfg is not None:
+        res = universe.attach(res, attrs if attrs is not None else pd.DataFrame())
+    if grade_cfg is not None:
+        res = eligibility.assess(res, S, grade_cfg)
     side = S.side_col
     rows = []
     trig = res["status"].eq("TRIGGERED") & (pd.to_datetime(res["trigger_time"]).dt.date == today)
@@ -212,6 +228,15 @@ def _event_rows(res: pd.DataFrame, S, today: date, wanted: list[str], aligned_on
         part = res[mask]
         if aligned_only and "alignment" in part.columns:
             part = part[part["alignment"].eq(htf.ALIGNED)]
+        if fno5_only and "fno5" in part.columns:
+            part = part[part["fno5"].isin(["A", "B"])]
+        if isinstance(sides, dict):                 # F&O stocks both ways, cash stocks e.g. LONG only
+            cash = part["fno_enabled"].astype(str).eq("false") if "fno_enabled" in part.columns else \
+                pd.Series(False, index=part.index)
+            keep = (~cash & part[side].isin(sides.get("fno", []))) | (cash & part[side].isin(sides.get("cash", [])))
+            part = part[keep]
+        elif sides:
+            part = part[part[side].isin(sides)]
         (t1_name, t2_name) = [lvl for _, lvl in S.target_cards]
         for idx, r in part.iterrows():
             at = r["trigger_time"] if event == "TRIGGERED" else r["signal_time"]
@@ -226,8 +251,16 @@ def _event_rows(res: pd.DataFrame, S, today: date, wanted: list[str], aligned_on
                 "degree": r["degree"], "side": r[side], "alignment": r.get("alignment"),
                 "at": str(pd.Timestamp(at))[:16], "signal_time": str(pd.Timestamp(r["signal_time"]))[:16],
                 "trigger": round(float(r["TRIGGER"]), 2), "stop": round(float(r["STOP"]), 2),
-                "close": round(float(r["close"]), 2), "file": file, "id": int(idx)})
+                "close": round(float(r["close"]), 2), "file": file, "id": int(idx),
+                "fno5": r.get("fno5"), "fno5_reason": r.get("fno5_reason"),
+                "exit_by": _exit_by(r["trigger_time"], grade_cfg) if event == "TRIGGERED" else None})
     return rows
+
+
+def _exit_by(when: Any, grade_cfg: Optional[dict]) -> Optional[str]:
+    from core import eligibility
+    end = eligibility.exit_by(when, int((grade_cfg or {}).get("max_days", 5)))
+    return f"{end:%a %d %b}" if end is not None else None
 
 
 def _line(e: dict) -> str:
@@ -244,8 +277,11 @@ CATEGORIES = (("TRIGGERED", "triggered"), ("NEW", "new setups"))
 STYLES = ("cards", "compact", "custom")       # Telegram layout: blocks per stock, one line per stock, template
 TF_ORDER = {"60m": 0, "4hr": 1, "1D": 2, "1W": 3}
 ALIGN_ORDER = {htf.ALIGNED: 0, htf.MIXED: 1, htf.AGAINST: 2}
+GRADE_ORDER = {"A": 0, "B": 1}                   # F&O 5-day grade (core/eligibility.py)
+GRADE_ICON = {"A": "⭐A", "B": "☆B"}
 ALIGN_ICON = {htf.ALIGNED: "✅", htf.MIXED: "➖", htf.AGAINST: "⚠️"}
 CONTEXT_TEXT = {"AFTER_ABC": "after ABC", "AFTER_WAVE5": "after wave 5"}
+FNO5_DAYS = 5
 
 
 def _ident(e: dict) -> str:
@@ -253,9 +289,10 @@ def _ident(e: dict) -> str:
 
 
 def sort_key(e: dict) -> tuple:
-    """New since the last scan first, then 60m → 4hr → 1D → 1W, aligned before mixed / against, then time."""
-    return (not e.get("_new", True), TF_ORDER.get(e.get("tf"), 9), ALIGN_ORDER.get(e.get("alignment"), 3),
-            str(e.get("at", "")), str(e.get("ticker", "")))
+    """New since the last scan first, then 60m → 4hr → 1D → 1W, F&O 5-day A, B, then the rest,
+    aligned before mixed / against, then time."""
+    return (not e.get("_new", True), TF_ORDER.get(e.get("tf"), 9), GRADE_ORDER.get(e.get("fno5"), 2),
+            ALIGN_ORDER.get(e.get("alignment"), 3), str(e.get("at", "")), str(e.get("ticker", "")))
 
 
 def _symbol(e: dict) -> str:
@@ -268,12 +305,17 @@ def _names(rows: list[dict], most: int = 3) -> str:
     return ", ".join(names[:most]) + (f" +{len(names) - most}" if len(names) > most else "")
 
 
+def _stars(rows: list[dict]) -> str:
+    n = sum(e.get("fno5") in GRADE_ORDER for e in rows)
+    return f" ({n} ⭐ F&O 5-day)" if n else ""
+
+
 def title_for(category: str, rows: list[dict]) -> str:
     """Notification title: who, not just how many."""
     if category == "TRIGGERED":
-        return f"⚡ {len(rows)} triggered today: {_names(rows)}"
+        return f"⚡ {len(rows)} triggered today{_stars(rows)}: {_names(rows)}"
     if category == "NEW":
-        return f"👀 {len(rows)} new setup{'s' if len(rows) != 1 else ''} today: {_names(rows)}"
+        return f"👀 {len(rows)} new setup{'s' if len(rows) != 1 else ''} today{_stars(rows)}: {_names(rows)}"
     n_trig = sum(e["event"] == "TRIGGERED" for e in rows)
     parts = [f"⚡ {n_trig} triggered" if n_trig else "", f"👀 {len(rows) - n_trig} new setups" if len(rows) > n_trig else ""]
     return "EW alerts: " + " · ".join(p for p in parts if p)
@@ -354,8 +396,13 @@ def card(e: dict) -> str:
             CONTEXT_TEXT.get(e.get("context") or "", ""), f"at {str(e.get('at', ''))[11:16]}"]
     targets = [price(e.get(k)) for k in ("target1", "target2") if price(e.get(k))]
     last = " · ".join(x for x in ["🎯 " + " → ".join(targets) if targets else "", _chart(e)] if x)
-    lines = [f"{_side(e)} <b>{esc(e.get('side'))}  {esc(_symbol(e))}</b>  {_align(e)}",
+    lines = [f"{_side(e)} <b>{esc(e.get('side'))}  {esc(_symbol(e))}</b>  {_align(e)}"
+             + (f"  <b>{GRADE_ICON[e['fno5']]}</b>" if e.get("fno5") in GRADE_ICON else ""),
              esc(" · ".join(str(x) for x in what if x)), esc(_levels(e))]
+    if e.get("fno5") in GRADE_ICON:
+        hold = (f"exit by the close of {e['exit_by']}" if e.get("exit_by")
+                else f"hold ≤ {FNO5_DAYS} trading days after the trigger")
+        lines.append(esc(f"F&O 5-day {e['fno5']}: {hold}"))
     return "\n".join(lines + ([last] if last else []))
 
 
@@ -365,6 +412,7 @@ def compact(e: dict, mark_new: bool = False) -> str:
     bits = [f"{e.get('tf')} {str(e.get('strategy', '')).upper()}", _levels(e)]
     return (("🆕 " if mark_new and e.get("_new") else "") + f"{_side(e)} <b>{esc(e.get('side'))} {esc(_symbol(e))}</b> · "
             + esc(" · ".join(bits)) + (f" {_align(e, words=False)}" if _align(e, words=False) else "")
+            + (f" <b>{GRADE_ICON[e['fno5']]}</b>" if e.get("fno5") in GRADE_ICON else "")
             + (f" · {_chart(e)}" if _chart(e) else ""))
 
 
@@ -486,7 +534,8 @@ def notification_line(e: dict) -> str:
     level = (f"SL {price(e.get('stop'))}" if e.get("event") == "TRIGGERED"
              else f"{'above' if e.get('side') == 'LONG' else 'below'} {price(e.get('trigger'))} · SL {price(e.get('stop'))}")
     return (("🆕 " if e.get("_new") else "") + f"{_side(e)} {_symbol(e)} {e.get('side', '')} {e.get('tf', '')} "
-            f"{str(e.get('strategy', '')).upper()} · {level}" + (f" {_align(e, False)}" if _align(e, False) else ""))
+            f"{str(e.get('strategy', '')).upper()} · {level}" + (f" {_align(e, False)}" if _align(e, False) else "")
+            + (f" {GRADE_ICON[e['fno5']]}" if e.get("fno5") in GRADE_ICON else ""))
 
 
 # public names

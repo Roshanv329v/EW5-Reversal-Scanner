@@ -27,10 +27,10 @@ import pandas as pd
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
 import stock_data
-from core import overview, charts, data_store as ds, htf, prefs, runner, strategies, universe
+from core import alert_events, charts, data_store as ds, eligibility, htf, overview, prefs, runner, strategies, universe
 from core.config import ROOT, load_config
 from core.strategies import Strategy
-from mobile import alerts, jobs, lwchart, resources, scan
+from mobile import alerts, jobs, lwchart, resources, scan, workers
 from mobile.fetch import yahoo_fetch
 from mobile.store import N_PARTS, Store
 
@@ -287,14 +287,19 @@ def dashboard(req: dict) -> dict:
 
     # ---- filters (same rules as _filters in app.py); stock attributes joined from tickers.csv
     res = universe.attach(res, attributes())
+    res = eligibility.assess(res, S, a.cfg["fno_5day"])          # F&O 5-day grade (config: fno_5day)
     picks: dict[str, list] = req.get("filters") or {}
     options = {}
     attr_cols = [(c, universe.ATTR_LABELS[c]) for c in universe.ATTR_COLS]
     for col, _ in [*S.filter_cols, *attr_cols]:
-        present = sorted(map(str, res[col].dropna().unique())) if col in res.columns else []
+        if col in universe.ATTR_COLS:                 # as written in tickers.csv (indices / commodities: none)
+            present = universe.options(res[col]) if col in res.columns else []
+        else:
+            present = sorted(map(str, res[col].dropna().unique())) if col in res.columns else []
         options[col] = present + [v for v in picks.get(col, []) if v not in present]
     out["options"] = options
     out["attr_cols"] = [[c, lbl] for c, lbl in attr_cols]
+    out["fno5_help"] = eligibility.summary(a.cfg["fno_5day"])
     out["disabled"] = [col for col, _ in S.filter_cols if col not in res.columns]
 
     view = res
@@ -459,6 +464,7 @@ def chart(req: dict) -> dict:
         "heading": [row["Ticker"], row["time_frame"], row["degree"], row[S.side_col]],
         "dialog_title": f"{S.key.upper()} · {row['Ticker']} · {row['time_frame']} · {row['degree']} · {row[S.side_col]}",
         "htf": _htf_note(row), "alignment": row.get("alignment"),
+        "tradingview": alert_events.tradingview_url(row["Ticker"], row["time_frame"]),
     }
     facts = [("Signal", pd.Timestamp(row["signal_time"]).strftime("%d %b %Y %H:%M")),
              ("Close", f"{row['close']:,.2f}"),
@@ -467,6 +473,16 @@ def chart(req: dict) -> dict:
         facts.append(("Outcome", row["status"] if pd.isna(row.get("result")) else f"{row['status']} · {row['result']}"))
     if out["htf"]:
         facts.append(("Higher timeframes", out["htf"]))
+    graded = eligibility.assess(universe.attach(res.loc[[int(req["id"])]], attributes()), S, a.cfg["fno_5day"]).iloc[0]
+    out["fno5"] = graded["fno5"]
+    hold = ""
+    if graded["fno5"] in eligibility.GRADES:
+        end = eligibility.exit_by(row.get("trigger_time"), int(a.cfg["fno_5day"].get("max_days", 5))) \
+            if pd.notna(row.get("trigger_time")) else None
+        hold = (f" · exit by the close of {end:%a %d %b}" if end is not None
+                else f" · hold at most {a.cfg['fno_5day'].get('max_days', 5)} trading days after the trigger")
+    out["fno5_note"] = (f"{eligibility.LABEL.get(graded['fno5'], graded['fno5'])} — {graded['fno5_reason']} · stop "
+                        f"{graded['fno5_stop_pct']:.1f}% · target {graded['fno5_rr']:.1f}× risk{hold}")
     out["facts"] = facts
 
     bars = a.store.ticker_bars(row["Ticker"])
@@ -542,6 +558,7 @@ def _sc_files(req: dict) -> list[tuple[Strategy, pd.DataFrame, str, dict, list[s
             out.append((S, None, "", {}, names, []))
         for name in picked:
             res, meta = load_results(a.cfg["results_dir"] / name)
+            res = eligibility.assess(universe.attach(res, attributes()), S, a.cfg["fno_5day"])
             out.append((S, res, name, meta, names, picked))
     return out
 
@@ -570,7 +587,7 @@ def charts_list(req: dict) -> dict:
             "timeframes": list(overview.TIMEFRAMES), "alignment": list(charts.ALIGN_ORDER),
             "status": sorted(sig["status"].dropna().astype(str).unique()) if not sig.empty else [],
             "attributes": [[col, universe.ATTR_LABELS.get(col, col),
-                            sorted(set(attrs[col].astype(str))) if not attrs.empty and col in attrs else []]
+                            universe.options(attrs[col]) if not attrs.empty and col in attrs else []]
                            for col in universe.ATTR_COLS]},
         "files": {S.key: {"name": S.name, "all": names, "picked": picked}
                   for S, _, _, _, names, picked in files},
@@ -636,6 +653,7 @@ def charts_chart(req: dict) -> dict:
         view = view.rename(columns={"risk_pct": "Stop %", "time_frame": "TF", "signal_time": "Signal"})
     return clean({
         "ticker": ticker, "tf": tf, "timeframes": have, "tv": spec, "labels": labels, "pick": pick,
+        "tradingview": alert_events.tradingview_url(ticker, tf),
         "trend_side": "" if t is None else t["trend_side"], "trend": "" if t is None else overview.trend_text(t),
         "signals": table(view) if not view.empty else None,
     })
@@ -876,10 +894,11 @@ def start_run(req: dict) -> dict:
         n = len(a.store.part_paths())
         job.say(f"{S.name} · {runner.MODES[p.mode]} · {', '.join(p.timeframes)} · {n} parts")
         keep = set(universe.final_list(a.cfg["tickers_file"], p.universe))
-        frames = (f[f["Ticker"].isin(keep)] for f in a.store.frames())
-        res = scan.run_groups(frames, n, p, a.cfg["signal_indicators"], a.cfg["htf"],
-                              progress=lambda i, total: job.progress(i / max(total, 1),
-                                                                     f"Elliott Wave engine · part {min(i + 1, total)}/{total}"))
+        res = workers.run_parts(a.store.part_paths(), [(S.key, p)], keep, a.cfg["signal_indicators"], a.cfg["htf"],
+                                int(a.cfg.get("phone", {}).get("engine_workers", 4)), a.root / "work",
+                                progress=lambda i, total: job.progress(
+                                    i / max(total, 1), f"Elliott Wave engine · part {min(i + 1, total)}/{total}"),
+                                log=job.say)[S.key]
         saved = runner.save_results(res, p, a.cfg["results_dir"], a.store.dir)
         a.last_run = saved.name
         job.say(f"{len(res)} signal(s) saved to results/{saved.name}")
@@ -934,8 +953,8 @@ def alerts_test() -> dict:
     return alerts.test_notification(_app())
 
 
-def alerts_run() -> dict:
-    out = alerts.run(_app(), source="manual")
+def alerts_run(kind: str = "regular") -> dict:
+    out = alerts.run(_app(), source="manual", kind="full" if kind == "full" else "regular")
     if "busy" in out:
         raise RuntimeError(out["busy"])
     return out

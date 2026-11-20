@@ -249,7 +249,7 @@ def test_triggered_and_new_setups_go_in_separate_messages():
     out = ev.messages(day, [trig, new, later], split=True)
     assert [(k, [e["ticker"] for e in rows]) for k, _, rows in out] == [
         ("TRIGGERED", ["RELIANCE.NS"]), ("NEW", ["INFY.NS", "TCS.NS"])]
-    assert out[0][1] == "⚡ 1 triggered today: RELIANCE"
+    assert out[0][1] == "⚡ 1 triggered today (1 ⭐ F&O 5-day): RELIANCE"
     assert out[1][1] == "👀 2 new setups today: INFY, TCS"
     # a later scan with only a new setup: only the New setups message, listing the whole day
     again = ev.messages(day, [later], split=True)
@@ -271,9 +271,9 @@ def test_alert_messages_are_sorted_and_readable():
     (kind, title, out), = ev.messages(rows, fresh, split=True)
     # new first; then 60m → 4hr → 1D; aligned before against
     assert [ev._symbol(e) for e in out] == ["RELIANCE", "WIPRO", "INFY", "SBIN"]
-    assert title == "⚡ 4 triggered today: RELIANCE, WIPRO, INFY +1"
+    assert title == "⚡ 4 triggered today (4 ⭐ F&O 5-day): RELIANCE, WIPRO, INFY +1"
     lines = ev.notification_lines(out)
-    assert lines[0] == "🆕 🔴 RELIANCE SHORT 60m EW5 · SL 1,312 ✅" and not lines[-1].startswith("🆕")
+    assert lines[0] == "🆕 🔴 RELIANCE SHORT 60m EW5 · SL 1,312 ✅ ⭐A" and not lines[-1].startswith("🆕")
     text = ev.render(kind, title, out, aset.DEFAULTS)[0]
     assert text.index("New since 12:31") < text.index("RELIANCE") < text.index("WIPRO") < text.index("INFY")
     assert text.index("Earlier today") < text.index("SBIN")
@@ -345,13 +345,19 @@ def test_universes_and_attributes(tmp_path):
     assert universe.final_list(path, "fno")[0] == "AAA.NS" and "^NSEI" in universe.final_list(path, "fno")
     res = pd.DataFrame({"Ticker": ["AAA.NS", "BBB.NS", "^NSEI", "ZZZ.NS"]})
     out = universe.attach(res, universe.load_attributes(path))
-    assert out["fno_enabled"].tolist() == ["Yes", "No", "Index", "-"]
-    assert out["cnx_sector_name"].tolist() == ["CNX500", "-", "Index", "-"]
+    # values exactly as in the file; an empty cell is "(blank)"; tickers not in the file have none
+    assert out["fno_enabled"].tolist() == ["true", "false", "", ""]
+    assert out["cnx_sector_name"].tolist() == ["CNX500", "(blank)", "", ""]
+    assert out["sector_info"].tolist() == ["NIFTY 500", "-", "", ""]                   # "-" is written in the file
+    assert universe.options(out["fno_enabled"]) == ["false", "true"]                    # no Yes / No / Index
+    assert universe.mask(out, {"fno_enabled": ["true"]}).tolist() == [True, False, False, False]
+    assert universe.migrate_picks("fno_enabled", ["Yes", "Index", "No"]) == ["true", "false"]
     assert universe.mask(out, {"marketcapname": ["Small Cap"]}).tolist() == [False, True, False, False]
     universe.write_stocks(path, ["BBB.NS", "NEW.NS"])                          # an edited list keeps the attributes
     kept = universe.load_attributes(path)
     assert list(kept.index) == ["BBB.NS", "NEW.NS"] and kept.loc["BBB.NS", "macro_info"] == "Services"
-    assert kept.loc["NEW.NS", "marketcapname"] == "-"
+    assert kept.loc["NEW.NS", "marketcapname"] == "(blank)"                             # written as an empty cell
+    assert "-" not in path.read_text(encoding="utf-8-sig").splitlines()[2]
 
 
 def test_store_moves_old_16_part_data_to_the_new_layout(cfg, tmp_path, df):
@@ -427,3 +433,35 @@ def test_telegram_messages_split_by_timeframe():
         assert text.count("═══════") == 6                                   # one splitter line per timeframe
         assert text.index("<b>60m</b>") < text.index("BBB") < text.index("<b>4hr</b>") < text.index("DDD") \
             < text.index("<b>1D</b>") < text.index("AAA")
+
+
+def test_engine_on_worker_processes_gives_the_same_rows(cfg, tmp_path, df):
+    from mobile import workers
+    store = Store(cfg)
+    store.update(TICKERS, ["1D", "4hr", "60m"], 30, False, FakeFetch(days=60))
+    runs = [(key, runner.RunParams(mode="backtest", strategy=key, timeframes=("1D", "4hr", "60m"), lengths=(4, 8),
+                                   stages=STAGES if key == "ew5" else ("WAVE2_COMPLETED",), horizon_bars=20))
+            for key in ("ew5", "ew3")]
+    one_by_one = {k: scan.run_groups(store.frames(), len(store.part_paths()), p, CFG["signal_indicators"], CFG["htf"])
+                  for k, p in runs}
+    said = []
+    par = workers.run_parts(store.part_paths(), runs, None, CFG["signal_indicators"], CFG["htf"], 3, tmp_path / "w",
+                            local=True, log=said.append)
+    assert said == ["Engine on 3 worker processes"]
+    for k, _ in runs:
+        pd.testing.assert_frame_equal(par[k].reset_index(drop=True), one_by_one[k].reset_index(drop=True))
+    # no worker can start (not on the phone, local=False): everything runs here, same rows
+    said.clear()
+    alone = workers.run_parts(store.part_paths(), runs, None, CFG["signal_indicators"], CFG["htf"], 3, tmp_path / "w",
+                              local=False, log=said.append)
+    assert said == ["Worker processes not available: one part after the other"]
+    pd.testing.assert_frame_equal(alone["ew5"].reset_index(drop=True), one_by_one["ew5"].reset_index(drop=True))
+    assert not list((tmp_path / "w").iterdir())                          # task folders are removed
+
+
+def test_parts_update_in_parallel_like_one_by_one(cfg, tmp_path):
+    a, b = dict(cfg, phone={"update_parallel_parts": 1}), dict(cfg, phone={"update_parallel_parts": 4})
+    a["stock_csv"], b["stock_csv"] = tmp_path / "a" / "stock.csv", tmp_path / "b" / "stock.csv"
+    one = Store(a).update(TICKERS, ["1D", "4hr", "60m"], 30, False, FakeFetch(days=40))
+    many = Store(b).update(TICKERS, ["1D", "4hr", "60m"], 30, False, FakeFetch(days=40))
+    assert one.rows_after == many.rows_after > 0

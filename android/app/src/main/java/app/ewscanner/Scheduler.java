@@ -31,11 +31,19 @@ public final class Scheduler {
 
     static final String EXTRA_KIND = "kind";      // "regular" (usual universe) or "full" (every stock)
 
+    private static long lastAt = -1;
+    private static boolean lastExact;
+
     static void reschedule(Context c) {
         long[] next = next(c, System.currentTimeMillis());
         String kind = next[1] == 1 ? "full" : "regular";
         set(c, 0, next[0], kind);
+        boolean exact = exactAllowed(c);
+        if (next[0] == lastAt && exact == lastExact) return;     // same alarm again (app resumed): no log line
+        lastAt = next[0];
+        lastExact = exact;
         log(c, next[0] > 0 ? "next scan set for " + stamp(next[0]) + (next[1] == 1 ? " (weekly full scan)" : "")
+                + (exactAllowed(c) ? "" : "  [Alarms & reminders NOT allowed: Android may delay or block it]")
                 : "scheduled scans off");
     }
 
@@ -66,6 +74,11 @@ public final class Scheduler {
         } else {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi);          // may run a few minutes late
         }
+    }
+
+    static boolean exactAllowed(Context c) {
+        AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        return Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms();
     }
 
     static String stamp(long at) {
@@ -147,7 +160,11 @@ public final class Scheduler {
             try {
                 if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(run); else c.startService(run);
             } catch (RuntimeException e) {
-                log(c, "could not start the scan: " + e);
+                // Android 12+ blocks a background start unless the alarm was exact (Alarms & reminders
+                // allowed) or the app's battery use is unrestricted: ask the user to start it instead
+                log(c, "Android did not let the scan start in the background (" + e.getClass().getSimpleName()
+                        + "): allow Alarms & reminders and set Battery to Unrestricted. Notification sent.");
+                Notifier.scanDue(c, kind);
             }
         }
     }

@@ -78,7 +78,7 @@ signal_indicators: ["rsi", "dtosck", "dtoscd", "histogram", "13_ema", "21_ema", 
 
 # TradingView chart links in the alerts (Telegram)
 tradingview:
-  layout: "jTwxkrUg"          # your saved chart layout (the id in its URL); "" = TradingView's default chart
+  layout: ""                  # "" = a plain chart link (opens fine); or your saved layout's id from its URL
   intervals: {"60m": "60", "4hr": "240", "1D": "1D", "1W": "1W"}
   # Yahoo tickers that are not plain NSE stocks (NSE stocks: RELIANCE.NS -> NSE:RELIANCE, M&M.NS -> NSE:M_M)
   symbols:
@@ -107,3 +107,38 @@ stock_charts:
   bars: {"60m": 350, "4hr": 300, "1D": 250, "1W": 156}   # bars shown (the slider goes up to all of them)
   phone_bars: {"60m": 700, "4hr": 600, "1D": 500, "1W": 260}   # bars sent to the phone chart (pinch to see them)
   list_rows: 300              # stocks shown in the list (best first)
+
+# F&O 5-day eligibility (core/eligibility.py): EW5 / EW3 signals worth an F&O trade of at most
+# 5 trading days. Trade: entry, STOP, first target (EW5 W4_END, EW3 W1_END), else exit at the
+# close of day 5. Measured on every triggered signal of 11 May - 11 Nov 2026 (60m bars); only
+# rules that gained in both halves of the period are used. R = result in multiples of the risk.
+# Every other signal averaged about 0R (EW5 +0.02R, EW3 -0.11R) on such a trade.
+fno_5day:
+  fno_only: true              # only stocks with fno_enabled = true in tickers.csv
+  max_days: 5
+  ew5:
+    A:
+      degree: ["major"]
+      max_stop_pct: 2.0
+      not_alignment: ["AGAINST"]
+      why: "major wave 5, stop ≤ 2%, not against the higher timeframes"
+      backtest: "63 trades, avg +0.61R, 52% won (+0.82R / +0.40R in the two halves)"
+    B:
+      degree: ["major"]
+      max_stop_pct: 3.0
+      why: "major wave 5, stop ≤ 3%"
+      backtest: "105 trades, avg +0.37R, 52% won (+0.55R / +0.25R)"
+  ew3:
+    A:
+      not_alignment: ["AGAINST"]
+      min_rr: 2.0
+      max_stop_pct: 3.0
+      max_ema55_gap_pct: 3.0
+      why: "wave-1 target ≥ 2× the risk, stop ≤ 3%, price within 3% of the 55 EMA, not against the higher timeframes"
+      backtest: "66 trades, avg +0.28R, 35% won but winners ≥ 2R (+0.34R / +0.22R)"
+
+# Android: use several cores (an 8-core phone with 8 GB)
+phone:
+  update_parallel_parts: 4    # data update: parts updated at the same time (downloads overlap the indicator work)
+  engine_workers: 4           # EW5 / EW3 runs: separate worker processes, each with its own Python (≈250 MB each);
+                              # 0 or 1 = one part after the other in the app's own process

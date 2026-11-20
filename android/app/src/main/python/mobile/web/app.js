@@ -372,6 +372,7 @@ function cellClass(col, value, sideCol) {
     return v < -20 ? "h-good" : v > 20 ? "h-bad" : "";
   }
   if (col === "alignment") return `a-${value}`;
+  if (col === "fno5" || col === "F&O 5-day") return value === "A" || value === "B" ? `g-${value}` : "";
   if (col === "htf1_trend" || col === "htf2_trend") return `t-${value}`;
   return "";
 }
@@ -414,6 +415,11 @@ function dataTable(t, opts = {}) {
   add();
   holder.append(more);
   return holder;
+}
+
+/* "Open in TradingView" (the app hands the link to the browser / TradingView app). */
+function tvLink(url, text) {
+  return url ? h("a", { class: "btn small tv-open", href: url, rel: "noopener" }, `↗ ${text || "Open in TradingView"}`) : null;
 }
 
 function metric(k, v) { return h("div", { class: "metric" }, h("div", { class: "k" }, k), h("div", { class: "v" }, v)); }
@@ -657,7 +663,10 @@ class Dash {
         (v) => { s.filters[col] = v; this.load(true); }, (res.disabled || []).includes(col)));
     });
     inner.append(grid, h("div", { class: "caption", style: "margin-top:6px" },
-      "Market cap, CNX sector, F&O, macro sector and sector index come from tickers.csv (indices and commodities: Index / Commodity)."));
+      "Market cap, CNX sector, F&O, macro sector and sector index come from tickers.csv, exactly as written there (F&O: true / false; an empty cell: (blank)). Indices and commodities are not in tickers.csv, so an attribute filter leaves them out."));
+    if (res.fno5_help) inner.append(h("details", { style: "margin-top:6px" }, h("summary", {}, "ⓘ F&O 5-day grades"),
+      h("div", { class: "caption" }, "For an F&O trade of at most 5 trading days: entry at the trigger, stop at STOP, exit at the first target, otherwise at the close of day 5. A = eligible, B = possible, – = not eligible (fno5_reason says why). Measured on every triggered signal of 11 May – 11 Nov 2026; every other signal averaged about 0R."),
+      ...res.fno5_help.map((l) => h("div", { class: "caption" }, "• " + l))));
     const row2 = h("div", { class: "row", style: "margin-top:10px" });
     let timer;
     row2.append(field("Ticker search", h("input", { type: "text", value: s.search, placeholder: "e.g. BAJ",
@@ -822,6 +831,8 @@ class Dash {
     const [ticker, tf, degree, side] = c.heading;
     box.append(h("h3", { html: `🕯️ ${esc(ticker)} · ${esc(tf)} · ${esc(degree)} · <span class="${side === "SHORT" ? "short" : "long"}">${esc(side)}</span>` }));
     if (c.htf) box.append(h("div", { html: `<b>Higher timeframes:</b> <span class="a-${esc(c.alignment)}">${esc(c.htf)}</span>` }));
+    if (c.fno5_note) box.append(h("div", { html: `<b>F&amp;O 5-day:</b> <span class="g-${esc(c.fno5 === "–" ? "none" : c.fno5)}">${esc(c.fno5_note)}</span>` }));
+    box.append(tvLink(c.tradingview, `Open ${ticker.replace(/\.NS$/, "")} in TradingView · ${tf}`));
     box.append(this.tfButtons(c, (tf) => { s.chartTf.tf = tf; this.drawChart(); }));
     box.append(this.chartToggles(s.groups, () => this.drawChart()));
     if (c.warning) box.append(note("warn", c.warning));
@@ -972,6 +983,7 @@ const ChartsTab = {
     if (c.trend) box.append(h("div", { class: "caption" }, `Trend (DTosc K vs D): ${c.trend}`));
     if (c.warning) { box.append(note("warn", c.warning)); return; }
     this.tf = c.tf;
+    box.append(tvLink(c.tradingview, `Open ${c.ticker.replace(/\.NS$/, "")} in TradingView · ${c.tf}`));
     box.append(h("div", { class: "tv-tf" }, h("span", { class: "lbl" }, "Chart timeframe"),
       chips(c.timeframes.map((t) => [t, t]), c.tf, (t) => { this.tf = t; this.drawChart(false); }, true)));
     box.append(h("div", { class: "row" },
@@ -1202,6 +1214,17 @@ const AlertsTab = {
     const f = AlertsTab.form;
     root.append(h("div", { class: "caption" }, "At the times below the phone downloads the latest data, runs EW5 and EW3 and sends one notification with every stock triggered or set up today. It works with the app closed and the screen off."));
 
+    // ---- a scan that was due today but did not run, and what keeps scans from starting by themselves
+    if (o.missed) root.append(h("div", { class: "note warn" },
+      `⏰ The ${o.missed.kind === "full" ? "weekly full scan" : "scan"} due at ${o.missed.at} today did not run. `,
+      h("button", { class: "btn small primary", onclick: () => runScheduledScan(o.missed.kind) }, "▶ Run it now")));
+    if (o.settings.enabled && NATIVE && NATIVE.alertStatus) {
+      let st0 = {};
+      try { st0 = JSON.parse(NATIVE.alertStatus()); } catch (e) { /* older app */ }
+      if (st0.exact === false && st0.battery) root.append(h("div", { class: "note error" },
+        "Scans cannot start by themselves yet: Android blocks them in the background. Tap **Allow** next to *Scans start on time* (Alarms & reminders), or set Battery to *Unrestricted* with **Open App info**."));
+    }
+
     // ---- schedule status and phone permissions
     const status = h("div", { class: "box" });
     status.append(h("b", {}, o.settings.enabled ? "Scheduled" : "Alerts are off"));
@@ -1259,17 +1282,24 @@ const AlertsTab = {
       (f.full_times = f.full_times && f.full_times.length ? f.full_times : ["18:00"]).forEach((t, i) => ft.append(h("span", { class: "time-item" },
         h("input", { type: "time", value: t, style: "width:auto", onchange: (e) => (f.full_times[i] = e.target.value) }))));
       full.append(field("Time", ft));
+      f.full_timeframes = f.full_timeframes && f.full_timeframes.length ? f.full_timeframes : [...f.timeframes];
+      full.append(field("Timeframes of the full scan", chips(o.timeframes.map((t) => [t, t]), f.full_timeframes, (v) => (f.full_timeframes = v))));
     };
     drawFull();
     box.append(full);
     box.append(check("Download the latest data first", f.update_data, (v) => (f.update_data = v)));
     box.append(field("Screeners", chips(o.strategies, f.strategies, (v) => (f.strategies = v))));
-    box.append(field("Timeframes", chips(o.timeframes.map((t) => [t, t]), f.timeframes, (v) => (f.timeframes = v))));
+    box.append(field("Timeframes (weekday scans)", chips(o.timeframes.map((t) => [t, t]), f.timeframes, (v) => (f.timeframes = v))));
+    const sideChips = [["LONG", "🟢 Bullish (LONG)"], ["SHORT", "🔴 Bearish (SHORT)"]];
+    box.append(field("Signals · F&O stocks (indices, commodities too)", chips(sideChips, f.sides_fno || ["LONG", "SHORT"], (v) => (f.sides_fno = v))));
+    box.append(field("Signals · cash stocks (not F&O)", chips(sideChips, f.sides_cash || ["LONG"], (v) => (f.sides_cash = v))));
+    box.append(h("div", { class: "caption" }, "Cash stocks (fno_enabled = false) are scanned when a scan covers all stocks, i.e. the weekly full scan; the weekday scans of F&O stocks report both ways."));
     box.append(field("Notify about", chips([["TRIGGERED", "Triggered today (close beyond TRIGGER)"], ["NEW", "New setups today"]], f.events, (v) => (f.events = v))));
     box.append(field("Messages", chips([[true, "Separate: Triggered · New setups"], [false, "One message for the day"]],
       f.split_messages !== false, (v) => (f.split_messages = v), true)));
     box.append(h("div", { class: "caption" }, "Separate: one notification (and Telegram message) for stocks triggered today and another for new setups, each sent only when it has something new. Untick a category under Notify about to keep only the other."));
     box.append(check("Only signals ALIGNED with the higher timeframes", f.aligned_only, (v) => (f.aligned_only = v)));
+    box.append(check("Only F&O 5-day eligible signals (⭐A / ☆B)", f.fno5_only, (v) => (f.fno5_only = v)));
     box.append(h("div", { class: "row" }, field("Setups from the last N days can trigger today",
       h("input", { type: "number", min: 2, max: 60, value: f.lookback_days, onchange: (e) => (f.lookback_days = +e.target.value) }))));
     // ---- Telegram (optional, off by default)
@@ -1349,7 +1379,7 @@ const AlertsTab = {
       h("button", { class: "btn primary", onclick: async () => {
         try { const r = await api("/api/alerts/settings", f); AlertsTab.form = Object.assign(r.settings, { telegram_token: "" }); toast(r.next.length ? `Saved. Next scan: ${r.next[0]}` : "Saved. Scheduled scans are off."); AlertsTab.open(); }
         catch (e) { clear(msg).append(note("error", e.message)); } } }, "💾 Save"),
-      h("button", { class: "btn", onclick: async () => { if (await Jobs.start("/api/alerts/run", {})) toast("Scanning now… the notification comes when it finishes."); } }, "▶ Run now"),
+      h("button", { class: "btn", onclick: () => runScheduledScan("regular") }, "▶ Run now"),
       h("button", { class: "btn", onclick: async () => { try { const r = await api("/api/alerts/test", {}); toast(r.note); } catch (e) { toast(e.message); } } }, "🔔 Test notification")));
     root.append(box);
     AlertsTab.jobBox = h("div");
@@ -1402,6 +1432,31 @@ const Guide = {
 };
 
 // ---------------------------------------------------------------- start
+/* A scheduled scan started by hand ("Run now", a missed scan, the "scan is due" notification). */
+async function runScheduledScan(kind) {
+  if (await Jobs.start("/api/alerts/run", { kind: kind || "regular" })) toast("Scanning now… the notification comes when it finishes.");
+}
+window.runScheduledScan = runScheduledScan;
+
+/* Alerts on but Android may not start scans by themselves: ask once per app start. */
+function askForAlarms() {
+  if (!NATIVE || !NATIVE.alertStatus) return;
+  api("/api/alerts").then((o) => {
+    let st = {};
+    try { st = JSON.parse(NATIVE.alertStatus()); } catch (e) { return; }
+    if (!o.settings.enabled || st.exact !== false) return;
+    const close = () => back.remove();
+    const back = h("div", { class: "sheet-back", onclick: (e) => { if (e.target === back) close(); } },
+      h("div", { class: "sheet" },
+        h("header", {}, "⏰ Scheduled scans need one permission", h("button", { class: "btn small", onclick: close }, "✕")),
+        h("div", { style: "padding:12px 14px", html: md("Your alert scans are set, but **Alarms & reminders** is not allowed for this app, so Android delays them or blocks them in the background. Allow it on the next screen and come back; also set Battery to *Unrestricted* in the Alerts tab.") }),
+        h("footer", {},
+          h("button", { class: "btn", onclick: close }, "Later"),
+          h("button", { class: "btn primary wide", onclick: () => { close(); NATIVE.openSetting("exact"); } }, "Allow"))));
+    $("layer").append(back);
+  }).catch(() => {});
+}
+
 function boot() {
   const nav = $("tabs");
   TABS.forEach(([key, text]) => nav.append(h("button", { "data-key": key, onclick: () => showTab(key) }, text)));
@@ -1410,6 +1465,7 @@ function boot() {
   new Dash("ew5"); new Dash("ew3");
   refreshHeader();
   showTab("ew5");
+  setTimeout(askForAlarms, 1500);
   let w = window.innerWidth;
   window.addEventListener("resize", () => {
     if (Math.abs(window.innerWidth - w) < 80) return;          // keyboard / toolbar changes

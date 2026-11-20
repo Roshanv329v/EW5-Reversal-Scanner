@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import json
 import shutil
+import threading
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Iterator, Optional, Sequence
@@ -122,19 +124,33 @@ class Store:
         self.dir.mkdir(parents=True, exist_ok=True)
         if not (self.dir / "layout.json").exists():
             (self.dir / "layout.json").write_text(json.dumps({"parts": N_PARTS}), encoding="utf-8")
-        reports: list[ds.UpdateReport] = []
         items = sorted(groups.items())
-        for n, (i, group) in enumerate(items):
+        done: dict[int, float] = {}                      # part -> share finished (0..1), for the progress bar
+        lock = threading.Lock()
+
+        def one_part(item: tuple[int, list[str]]) -> ds.UpdateReport:
+            i, group = item
             cfg = dict(self.cfg, stock_csv=self.part_path(i), backups_dir=self.dir / "backups" / f"{i:02d}")
             self.drop_live_rows(i)
 
-            def step(done: int, total: int, msg: str, n: int = n) -> None:
+            def step(d: int, total: int, msg: str) -> None:
+                with lock:
+                    done[i] = d / max(total, 1)
+                    finished = sum(done.values())
                 if progress:
-                    progress((n + done / max(total, 1)) / len(items), f"part {n + 1}/{len(items)} · {msg}")
+                    progress(finished / len(items), f"{int(finished)}/{len(items)} parts · {msg}")
 
-            reports.append(ds.update_data(cfg, group, timeframes, incremental_days, full=full,
-                                          progress=step, fetch=fetch))
-            _load.cache_clear()
+            report = ds.update_data(cfg, group, timeframes, incremental_days, full=full, progress=step, fetch=fetch)
+            with lock:
+                done[i] = 1.0
+            return report
+
+        # Parts are independent files: several update at once, so the downloads of one overlap the
+        # indicator work of another (fetch.py caps the requests in flight for all of them together).
+        workers = max(1, int(self.cfg.get("phone", {}).get("update_parallel_parts", 4)))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            reports = list(pool.map(one_part, items))
+        _load.cache_clear()
         return _combine(reports)
 
     def drop_live_rows(self, i: int) -> int:

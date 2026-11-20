@@ -31,6 +31,10 @@ def load_prefs(path: Path, columns: Sequence[str] = FILTER_COLUMNS) -> dict[str,
         if "ratio" not in saved and "w5_vs_w1" in saved:        # files written before EW3 existed
             saved["ratio"] = saved["w5_vs_w1"]
         prefs.update({k: v for k, v in saved.items() if k in prefs})
+        from core import universe                                  # attribute values saved in the old form
+        for col in universe.ATTR_COLS:
+            if isinstance(prefs.get(col), list):
+                prefs[col] = universe.migrate_picks(col, prefs[col])
     return prefs
 
 

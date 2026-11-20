@@ -10,6 +10,7 @@ so core/data_store.update_data does the merging, 4hr, 1W and indicators as on th
 from __future__ import annotations
 
 import json
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -22,6 +23,9 @@ import pandas as pd
 USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Mobile Safari/537.36"
 CHART_URL = "https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?{query}"
 WORKERS = 6                 # parallel requests; Yahoo starts refusing (HTTP 429) well above this
+# one limit for the whole app: several parts download at once (store.update), but never more
+# than WORKERS requests are in flight together
+_GATE = threading.BoundedSemaphore(WORKERS)
 ATTEMPTS = 3
 
 
@@ -29,7 +33,7 @@ def _get(url: str) -> dict:
     for attempt in range(1, ATTEMPTS + 1):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(req, timeout=40) as resp:
+            with _GATE, urllib.request.urlopen(req, timeout=40) as resp:
                 return json.load(resp)
         except urllib.error.HTTPError as exc:
             if exc.code == 404:

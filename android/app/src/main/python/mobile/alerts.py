@@ -32,8 +32,8 @@ from typing import Any, Optional
 import pandas as pd
 
 from core import htf, runner, strategies, universe
-from mobile import jobs, scan
-from core.alert_settings import DAYS, DEFAULTS, _times, clean_settings, next_runs, public, slots, with_defaults  # noqa: F401
+from mobile import jobs, scan, workers
+from core.alert_settings import DAYS, DEFAULTS, _times, clean_settings, missed, next_runs, public, side_rules, slots, timeframes_for, with_defaults  # noqa: F401
 from core.alert_events import (ALIGN_ORDER, TF_ORDER, HEADER_FIELDS, LINE_FIELDS, SAMPLE, TELEGRAM_LIMIT, TELEGRAM_URL,  # noqa: F401
                                _Fields, _event_rows, _line, _num, _telegram, line_fields, messages, notification_lines, preview_texts, send_telegram, send_test,
                                telegram_text)
@@ -186,26 +186,35 @@ def run(app, source: str = "schedule", today: Optional[date] = None, notify: boo
         engine, ew3_cfg = app.cfg["engine"], app.cfg["ew3"]
         start = today - timedelta(days=int(settings["lookback_days"]))
         events: list[dict] = []
+        runs = []
         for key in settings["strategies"]:
-            S = strategies.get(key)
             p = runner.RunParams(
-                mode="backtest", timeframes=tuple(settings["timeframes"]), lengths=tuple(engine["lengths"]),
+                mode="backtest", timeframes=tuple(timeframes_for(settings, kind)), lengths=tuple(engine["lengths"]),
                 stages=tuple(ew3_cfg["stages"] if key == "ew3" else engine["stages"]),
                 horizon_bars=int(engine["horizon_bars"]), min_bars=int(app.cfg["min_bars"]),
                 pivot_tie=engine["pivot_tie"], hi_source=engine["hi_source"], lo_source=engine["lo_source"],
                 min_w5_vs_w1=float(engine["min_w5_vs_w1"]), start=str(start), end=str(today), strategy=key,
                 contexts=tuple(ew3_cfg["contexts"]), min_retrace=float(ew3_cfg["min_retrace"]),
                 max_retrace=float(ew3_cfg["max_retrace"]), universe=scope)
-            n = len(app.store.part_paths())
-            job.say(f"{S.name}: {universe.UNIVERSES[scope]}, setups since {start}")
-            keep = set(tickers)
-            res = scan.run_groups((f[f["Ticker"].isin(keep)] for f in app.store.frames()), n, p,
-                                  app.cfg["signal_indicators"], app.cfg["htf"],
-                                  progress=lambda i, total, d=done: job.progress(
-                                      (d + i / max(total, 1)) / steps, f"{key.upper()} · part {min(i + 1, total)}/{total}"))
+            runs.append((key, p))
+        # EW5 and EW3 in one pass over the parts (each part is read once), on several cores
+        names = " + ".join(strategies.get(k).name for k, _ in runs)
+        job.say(f"{names}: {universe.UNIVERSES[scope]}, setups since {start}")
+        n_steps_left = steps - done
+        by_key = workers.run_parts(
+            app.store.part_paths(), runs, set(tickers), app.cfg["signal_indicators"], app.cfg["htf"],
+            int(app.cfg.get("phone", {}).get("engine_workers", 4)), app.root / "work",
+            progress=lambda i, total, d=done: job.progress(
+                (d + n_steps_left * i / max(total, 1)) / steps, f"{names} · part {min(i + 1, total)}/{total}"),
+            log=job.say)
+        for key, p in runs:
+            S = strategies.get(key)
+            res = by_key[key]
             saved = runner.save_results(res, p, app.cfg["results_dir"], app.store.dir,
                                         stamp="auto_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
-            found = _event_rows(res, S, today, settings["events"], settings["aligned_only"], saved.name)
+            found = _event_rows(res, S, today, settings["events"], settings["aligned_only"], saved.name,
+                                grade_cfg=app.cfg["fno_5day"], attrs=universe.load_attributes(app.cfg["tickers_file"]),
+                                fno5_only=settings.get("fno5_only", False), sides=side_rules(settings))
             summary["runs"][key] = {"file": saved.name, "setups": len(res), "today": len(found)}
             events += found
             done += 1
@@ -284,10 +293,11 @@ def overview(app) -> dict:
     return {"settings": public(settings), "next": next_runs(settings), "days": list(DAYS),
             "universes": [[k, f"{v} ({n.get(k, 0):,} stocks)"] for k, v in universe.UNIVERSES.items()],
             "last_run": _read(_dir(app) / "alerts_last_run.json", None),
+            "missed": missed(settings, (_read(_dir(app) / "alerts_last_run.json", None) or {}).get("started")),
             "today": sorted([h for h in history if h.get("day", h["notified"][:10]) == today],   # triggers first,
                             key=lambda h: (h["event"] != "TRIGGERED", TF_ORDER.get(h.get("tf"), 9),  # then 60m → 1D
                                            ALIGN_ORDER.get(h.get("alignment"), 3), h.get("at", ""))),
-            "history": history[::-1][:300], "timeframes": app.cfg["timeframes"], "alarm_log": alarm_log(app),
+            "history": history[::-1][:300], "timeframes": ["60m", "4hr", "1D", "1W"], "alarm_log": alarm_log(app),
             "strategies": [[S.key, S.name] for S in strategies.STRATEGIES.values()]}
 
 

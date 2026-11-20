@@ -44,14 +44,46 @@ _LABEL_GAP_PX = 12                      # minimum vertical distance between leve
 DAY_FRAMES = ("1D", "1W")               # bars without a time of day
 
 
+# ----------------------------------------------------------------------------------
+# Light palette (desktop web app). The phone keeps the dark one and recolours on its side.
+# ----------------------------------------------------------------------------------
+DARK = dict(C)
+LIGHT = {**DARK, "surface": "#ffffff", "ink": "#1f2937", "ink2": "#4b5563", "muted": "#6b7280",
+         "grid": "#edf0f5", "axis": "#d5dae3", "yellow": "#b7791f"}
+NIGHT = {**DARK, "surface": "#111a2e", "ink": "#e6e9f2", "ink2": "#b6bfd2", "muted": "#8a94ab",
+         "grid": "#1d2740", "axis": "#2b3654"}                     # desktop web app: deep navy cards
+THEME = {"name": "dark", "template": "plotly_dark", "hover": "#0d0d0d", "note_bg": "rgba(26,26,25,0.75)"}
+PALETTES = {"dark": DARK, "light": LIGHT, "night": NIGHT}
+
+
+def use_palette(name: str) -> None:
+    """Switch every chart to the "dark", "night" or "light" palette (levels of both strategies included)."""
+    target = PALETTES.get(name, DARK)
+    mapping = {C[k]: target[k] for k in C if C[k] != target[k]}
+    C.update(target)
+    global EMA_COLOURS
+    EMA_COLOURS = ("#d99a00", C["magenta"]) if name == "light" else ("#fab219", C["magenta"])
+    THEME.update(name=name, template="plotly_white" if name == "light" else "plotly_dark",
+                 hover={"light": "#ffffff", "night": "#0b1222"}.get(name, "#0d0d0d"),
+                 note_bg={"light": "rgba(255,255,255,0.85)", "night": "rgba(11,18,34,0.8)"}.get(name, "rgba(26,26,25,0.75)"))
+
+    def recolour(groups: dict) -> None:
+        for g, items in groups.items():
+            groups[g] = [(n, mapping.get(c, c), d) for n, c, d in items]
+    recolour(LEVEL_GROUPS)
+    from core import strategies                          # their level groups were built with the old colours
+    for S in strategies.STRATEGIES.values():
+        recolour(S.level_groups)
+
+
 def _base_layout(fig: go.Figure, height: int, title: str = "") -> go.Figure:
     fig.update_layout(
-        template="plotly_dark", paper_bgcolor=C["surface"], plot_bgcolor=C["surface"],
+        template=THEME["template"], paper_bgcolor=C["surface"], plot_bgcolor=C["surface"],
         font=dict(color=C["ink2"], size=12), height=height,
         title=dict(text=title, font=dict(color=C["ink"], size=15), x=0.01, xanchor="left"),
         legend=dict(orientation="h", yanchor="bottom", y=1.01, xanchor="right", x=1,
                     font=dict(color=C["ink2"])),
-        margin=dict(l=50, r=30, t=60, b=40), hoverlabel=dict(bgcolor="#0d0d0d"),
+        margin=dict(l=50, r=30, t=60, b=40), hoverlabel=dict(bgcolor=THEME["hover"], font=dict(color=C["ink"])),
     )
     fig.update_xaxes(gridcolor=C["grid"], linecolor=C["axis"], zeroline=False)
     fig.update_yaxes(gridcolor=C["grid"], linecolor=C["axis"], zeroline=False)
@@ -315,7 +347,7 @@ def signal_chart(price: pd.DataFrame, row: pd.Series, overlay: Optional[dict], h
                          fixedrange=True, showgrid=False, row=2, col=1)
         fig.add_annotation(xref="paper", x=0.004, xanchor="left", yref="y2 domain", y=0.98,
                            yanchor="top", showarrow=False, text="  ·  ".join(readings),
-                           font=dict(size=11, color=C["ink2"]), bgcolor="rgba(26,26,25,0.75)")
+                           font=dict(size=11, color=C["ink2"]), bgcolor=THEME["note_bg"])
 
     if title is None:
         title = (f"{row['Ticker']} · {row['time_frame']} · {row.get('degree', '')} · "
@@ -518,6 +550,9 @@ def alignment_breakdown(stats: pd.DataFrame, t1_label: str, t2_label: str, heigh
     return fig
 
 
+NOT_IN_FILE = "not in tickers.csv"            # indices and commodities in the attribute charts
+
+
 def attribute_breakdown(res: pd.DataFrame, column: str, label: str, side_col: str = "reversal_side",
                         height: Optional[int] = None, top: int = 12) -> go.Figure:
     """
@@ -534,7 +569,7 @@ def attribute_breakdown(res: pd.DataFrame, column: str, label: str, side_col: st
     fig = go.Figure()
     for side in [s for s in ("SHORT", "LONG") if s in counts.columns]:
         fig.add_trace(go.Bar(
-            y=[str(v) for v in counts.index], x=counts[side], name=side, orientation="h",
+            y=[str(v) or NOT_IN_FILE for v in counts.index], x=counts[side], name=side, orientation="h",
             marker_color=SIDE_COLOR.get(side, C["muted"]), marker_line=dict(color=C["surface"], width=1),
             customdata=[[column, str(v)] for v in counts.index],
             hovertemplate=f"{side}: %{{x}}<extra>%{{y}}</extra>"))

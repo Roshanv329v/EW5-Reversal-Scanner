@@ -13,7 +13,7 @@ import streamlit as st
 import elliott_wave3_screener as ew3
 import elliott_wave5_screener as ew
 import stock_data
-from core import charts, data_store as ds, htf, overview, prefs, runner, strategies, universe
+from core import alert_events as ev, charts, data_store as ds, eligibility, htf, overview, prefs, runner, strategies, universe
 from core.strategies import Strategy
 from core.config import ROOT, load_config, resolve
 
@@ -32,18 +32,70 @@ if tuple(int(x) for x in st.__version__.split(".")[:2]) < MIN_STREAMLIT:
     st.stop()
 
 UP, DOWN, AMBER = "#2fbf71", "#e66767", "#e0a526"                       # green / red used for sides and readings
+charts.use_palette("night")                                              # charts match the navy page
 st.markdown("""
 <style>
+/* ---- page: deep navy with soft indigo / teal / rose glows that stay put while scrolling */
+.stApp {
+  background:
+    radial-gradient(1100px 620px at -5% -12%, rgba(99,102,241,0.30) 0%, rgba(99,102,241,0) 60%),
+    radial-gradient(900px 520px at 105% -6%, rgba(20,184,166,0.20) 0%, rgba(20,184,166,0) 58%),
+    radial-gradient(1000px 700px at 50% 115%, rgba(236,72,153,0.13) 0%, rgba(236,72,153,0) 60%),
+    linear-gradient(180deg, #090e1c 0%, #0c1328 45%, #0a0f1f 100%);
+  background-attachment: fixed;
+}
+[data-testid="stHeader"] {background: transparent;}
 .block-container {padding-top: 2.2rem;}
-/* centred, pill-like tabs */
-.stTabs [role="tablist"] {justify-content: center; gap: 0.5rem;}
-.stTabs [role="tab"] {padding: 0.65rem 1.4rem; border-radius: 12px 12px 0 0;}
-.stTabs [role="tab"] p {font-size: 1.02rem; font-weight: 600;}
-.stTabs [role="tab"][aria-selected="true"] {background: rgba(57,135,229,0.14);}
-/* cards */
-[data-testid="stMetric"] {border-radius: 14px;}
-[data-testid="stMetricValue"] {font-weight: 700; letter-spacing: -0.01em;}
-[data-testid="stMetricLabel"] p {font-weight: 600; opacity: 0.85;}
+h1, h2, h3, h4 {color: #f1f3fa; letter-spacing: -0.01em;}
+
+/* ---- sidebar */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, rgba(20,27,52,0.96) 0%, rgba(12,17,34,0.96) 100%);
+  border-right: 1px solid rgba(148,163,184,0.14);
+}
+
+/* ---- tabs: one glassy bar, the open tab filled */
+.stTabs [role="tablist"] {
+  justify-content: center; gap: 0.35rem; padding: 0.35rem; margin-bottom: 0.6rem;
+  background: rgba(21,28,49,0.72); border: 1px solid rgba(148,163,184,0.16); border-radius: 16px;
+  backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+.stTabs [role="tab"] {padding: 0.55rem 1.25rem; border-radius: 12px; border: none;}
+.stTabs [role="tab"] p {font-size: 1.0rem; font-weight: 600; color: #aab3c8;}
+.stTabs [role="tab"]:hover p {color: #e6e9f2;}
+.stTabs [role="tab"][aria-selected="true"] {background: linear-gradient(135deg, #5b5ff0 0%, #8b5cf6 100%);
+  box-shadow: 0 6px 18px rgba(99,102,241,0.35);}
+.stTabs [role="tab"][aria-selected="true"] p {color: #ffffff;}
+.stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {display: none;}
+
+/* ---- cards: glassy navy boxes for expanders, bordered blocks, metrics, charts and tables */
+[data-testid="stExpander"] details,
+[data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]) {
+  background: rgba(19,26,46,0.72) !important; border-radius: 16px !important;
+  border-color: rgba(148,163,184,0.16) !important; backdrop-filter: blur(6px);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.30);
+}
+[data-testid="stMetric"] {
+  background: linear-gradient(160deg, rgba(30,38,68,0.85) 0%, rgba(17,24,43,0.85) 100%);
+  border: 1px solid rgba(148,163,184,0.16); border-radius: 16px; padding: 0.8rem 1rem;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.30); border-top: 3px solid #7c83ff;
+}
+[data-testid="stMetricValue"] {font-weight: 700; letter-spacing: -0.01em; color: #ffffff;}
+[data-testid="stMetricLabel"] p {font-weight: 600; color: #9aa4bb;}
+[data-testid="stPlotlyChart"] {
+  background: #111a2e; border-radius: 16px; padding: 6px; border: 1px solid rgba(148,163,184,0.14);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.32);
+}
+[data-testid="stDataFrame"] {border-radius: 12px; overflow: hidden; border: 1px solid rgba(148,163,184,0.14);}
+
+/* ---- buttons */
+.stButton button[kind="primary"], .stFormSubmitButton button[kind="primaryFormSubmit"] {
+  background: linear-gradient(135deg, #5b5ff0 0%, #8b5cf6 100%); border: none;
+  box-shadow: 0 6px 18px rgba(99,102,241,0.30);
+}
+.stLinkButton a {border-radius: 10px; border-color: rgba(124,131,255,0.45); color: #c7cbff;
+  background: rgba(99,102,241,0.14);}
+.stLinkButton a:hover {background: rgba(99,102,241,0.26); border-color: #7c83ff; color: #ffffff;}
 </style>
 """, unsafe_allow_html=True)
 cfg = load_config()
@@ -557,7 +609,10 @@ def _clear_filters(S: Strategy) -> None:
 def _filters(S: Strategy, res: pd.DataFrame) -> pd.DataFrame:
     def options(col: str) -> list:
         """Values in this file plus whatever is already selected, so a saved filter never breaks."""
-        present = sorted(res[col].dropna().unique()) if col in res.columns else []
+        if col in universe.ATTR_COLS:                 # as written in tickers.csv (indices / commodities: none)
+            present = universe.options(res[col]) if col in res.columns else []
+        else:
+            present = sorted(res[col].dropna().unique()) if col in res.columns else []
         selected = st.session_state.get(_k(S, f"f_{col}"), [])
         return present + [v for v in selected if v not in present]
 
@@ -577,7 +632,8 @@ def _filters(S: Strategy, res: pd.DataFrame) -> pd.DataFrame:
         for slot, (col, label) in zip(box.columns(6), row):
             picks[col] = slot.multiselect(label, options(col), key=_k(S, f"f_{col}"), disabled=col not in res.columns)
     box.caption("Market cap, CNX sector, F&O, macro sector and sector index come from tickers.csv "
-                "(indices and commodities: Index / Commodity).")
+                "exactly as written there (F&O: true / false; an empty cell: (blank)). Indices and commodities "
+                "are not in tickers.csv, so an attribute filter leaves them out.")
 
     row2 = box.columns([2, 2.2, 1.3, 1.1, 0.9], vertical_alignment="bottom")
     search = row2[0].text_input("Ticker search", key=_k(S, "f_search"), placeholder="e.g. BAJ")
@@ -687,6 +743,19 @@ def _signal_chart(S: Strategy, row: pd.Series, params: dict[str, Any], prefix: s
                    "The engine has no wave count at this bar, so only price and levels are shown.")
 
 
+def _fno5_note(row: pd.Series) -> str:
+    """'F&O 5-day: A · eligible — major wave 5 … · stop 1.4% · target 1.8× risk · hold until Mon 24 Nov'"""
+    grade = row.get("fno5", eligibility.NOT)
+    colour = {"A": "green", "B": "orange"}.get(grade, "gray")
+    start = row.get("trigger_time") if pd.notna(row.get("trigger_time")) else None
+    end = eligibility.exit_by(start, int(cfg["fno_5day"].get("max_days", 5))) if start is not None else None
+    hold = (f" · exit by the close of {end:%a %d %b}" if end is not None
+            else f" · hold at most {cfg['fno_5day'].get('max_days', 5)} trading days after the trigger")
+    return (f":material/verified: **F&O 5-day:** :{colour}[{eligibility.LABEL.get(grade, grade)}] — "
+            f"{row.get('fno5_reason', '')} · stop {row.get('fno5_stop_pct', float('nan')):.1f}% · target "
+            f"{row.get('fno5_rr', float('nan')):.1f}× risk" + (hold if grade in eligibility.GRADES else ""))
+
+
 def _htf_note(row: pd.Series) -> str:
     """e.g. 'ALIGNED · 4hr BULLISH · 1D BULLISH' (empty for results saved before this existed)."""
     if pd.isna(row.get("alignment")):
@@ -694,6 +763,14 @@ def _htf_note(row: pd.Series) -> str:
     parents = HTF["ladder"].get(row["time_frame"], [])
     trends = [f"{tf} {row[col]}" for tf, col in zip(parents, htf.TREND_COLS) if pd.notna(row.get(col))]
     return " · ".join([str(row["alignment"]), *trends])
+
+
+def _tradingview_button(ticker: str, time_frame: str, key: str, slot=None) -> None:
+    """'Open in TradingView' for a stock at a timeframe (nothing for symbols TradingView does not have)."""
+    url = ev.tradingview_url(ticker, time_frame)
+    if url:
+        (slot or st).link_button(f"Open {ticker.removesuffix('.NS')} in TradingView · {time_frame}", url,
+                                 icon=":material/open_in_new:", help=url)
 
 
 def _open_chart_overlay(S: Strategy, row: pd.Series, params: dict[str, Any]) -> None:
@@ -710,6 +787,7 @@ def _open_chart_overlay(S: Strategy, row: pd.Series, params: dict[str, Any]) -> 
         if _htf_note(row):
             facts.append(("Higher timeframes", _htf_note(row)))
         st.caption("  |  ".join(f"**{label}** {value}" for label, value in facts))
+        _tradingview_button(row["Ticker"], row["time_frame"], "dlg")
         _signal_chart(S, row, params, prefix="dlg", compact=True)
 
     st.dialog(title, width="large")(body)()
@@ -806,6 +884,7 @@ def render_dashboard(S: Strategy) -> None:
             runner.rewrite_results(path, res, meta)
             meta = {**meta, "htf_method": htf.METHOD}
     res = universe.attach(res, attributes())                      # market cap, F&O, sectors (tickers.csv)
+    res = eligibility.assess(res, S, cfg["fno_5day"])                # F&O 5-day grade (config: fno_5day)
     params = meta.get("params", {})
     mode_name = runner.MODES.get(params.get("mode", ""), "Run")
     period = (params.get("as_of") or
@@ -822,6 +901,14 @@ def render_dashboard(S: Strategy) -> None:
         return
 
     filtered = _filters(S, res)
+    with st.popover(":material/verified: F&O 5-day grades", help="How the F&O 5-day column is decided"):
+        st.markdown("Graded for an **F&O trade of at most 5 trading days**: entry at the trigger, stop at STOP, "
+                    "exit at the first target, otherwise at the close of day 5 (the trigger day is day 1). "
+                    "**A** = eligible, **B** = possible, **–** = not eligible (the reason column says why).")
+        for line in eligibility.summary(cfg["fno_5day"]):
+            st.markdown(f"- {line}")
+        st.caption("Measured on every triggered signal of 11 May - 11 Nov 2026; every other signal averaged about "
+                   "0R on such a trade. Thresholds: config.yaml → fno_5day. A backtest, not a promise.")
     evaluated = runner.has_outcomes(res)
     stat_key = _k(S, f"stat_file_{chosen}")
     if filtered.empty:
@@ -939,6 +1026,9 @@ def render_dashboard(S: Strategy) -> None:
     if _htf_note(row):
         align_colour = {htf.ALIGNED: "green", htf.AGAINST: "red", htf.MIXED: "orange"}.get(row["alignment"], "gray")
         st.markdown(f":material/stacked_line_chart: **Higher timeframes:** :{align_colour}[{_htf_note(row)}]")
+    if "fno5" in row.index:
+        st.markdown(_fno5_note(row))
+    _tradingview_button(row["Ticker"], row["time_frame"], "grp")
     _signal_chart(S, row, params, prefix="grp")
 
     st.markdown("#### :material/info: Signal details")
@@ -983,6 +1073,7 @@ def _sc_signal_files() -> list[tuple[Strategy, pd.DataFrame, str, dict]]:
                                          "live screen (today's setups). A signal in both counts once.")
             for pick in picks:
                 res, meta = _load_results(str(pick), pick.stat().st_mtime)
+                res = eligibility.assess(universe.attach(res, attributes()), S, cfg["fno_5day"])
                 out.append((S, res, pick.name, meta))
     return out
 
@@ -1030,7 +1121,7 @@ def render_stock_charts() -> None:
         cols = st.columns(len(universe.ATTR_COLS) + 1)
         picks = dict(f.get("attributes") or {})
         for col, name in zip(cols, universe.ATTR_COLS):
-            values = sorted(set(attrs[name].astype(str))) if not attrs.empty and name in attrs else []
+            values = universe.options(attrs[name]) if not attrs.empty and name in attrs else []
             picks[name] = col.multiselect(universe.ATTR_LABELS.get(name, name), values,
                                           [v for v in picks.get(name, []) if v in values])
         f["attributes"] = picks
@@ -1085,6 +1176,7 @@ def render_stock_charts() -> None:
         side = t["trend_side"]
         colour = {"LONG": "green", "SHORT": "red"}.get(side, "gray")
         st.markdown(f"#### {ticker} · :{colour}[{side or 'no clear trend'}] · {overview.trend_text(t)}")
+    _tradingview_button(ticker, tf, "sc")
     mine = overview.ticker_signals(sig, ticker)
     t1, t2, t3 = st.columns([1, 1, 4])
     show_ema = t1.toggle(charts.EMA_GROUP, value=True, key="sc_ema")
@@ -1177,6 +1269,10 @@ with tab_alerts:
                          key="alerts_uninstall"):
             sc.uninstall()
             st.rerun()
+        if not loaded and a_settings.get("enabled"):
+            st.error("**Nothing runs by itself yet.** The times below are only used once you press **Install "
+                     "schedule** (it hands them to macOS). After changing the times, press **Save settings**, then "
+                     "**Update schedule**.", icon=":material/warning:")
         st.caption("The Mac must be on: a scan missed while it slept runs as soon as it wakes. "
                    "Notifications come from Script Editor / osascript; allow them in System Settings → Notifications.")
         run_cols = st.columns(2)
@@ -1202,15 +1298,26 @@ with tab_alerts:
         v_full_days = f2.multiselect("Full scan day", list(range(1, 8)), default=a_settings.get("full_days", [5]),
                                      format_func=lambda d: aset.DAYS[d - 1])
         v_full_times = f3.text_input("Full scan time", ", ".join(a_settings.get("full_times", ["18:00"])))
+        v_full_tfs = f2.multiselect("Full scan timeframes", list(aset.TIMEFRAMES),
+                                    default=aset.timeframes_for(a_settings, "full"))
         v_update = f3.checkbox("Download the latest data first", value=a_settings["update_data"])
         f1, f2, f3 = st.columns(3)
         v_strats = f1.multiselect("Screeners", list(strategies.STRATEGIES), default=a_settings["strategies"],
                                   format_func=lambda k: strategies.STRATEGIES[k].name)
-        v_tfs = f2.multiselect("Timeframes", ["1D", "4hr", "60m", "1W"], default=a_settings["timeframes"])
+        v_tfs = f2.multiselect("Timeframes (weekday scans)", list(aset.TIMEFRAMES), default=a_settings["timeframes"])
         v_events = f3.multiselect("Notify about", ["TRIGGERED", "NEW"], default=a_settings["events"],
                                   format_func=lambda e: "Triggered today" if e == "TRIGGERED" else "New setups today")
         f1, f2 = st.columns(2)
+        v_sides_fno = f2.multiselect("Signals · F&O stocks", list(aset.SIDES),
+                                     default=a_settings.get("sides_fno", ["LONG", "SHORT"]), format_func=aset.SIDES.get,
+                                     help="fno_enabled = true (indices and commodities too): trade both ways")
+        v_sides_cash = f2.multiselect("Signals · cash stocks (not F&O)", list(aset.SIDES),
+                                      default=a_settings.get("sides_cash", ["LONG"]), format_func=aset.SIDES.get,
+                                      help="fno_enabled = false: cash delivery, so bullish only by default. These "
+                                           "stocks are scanned when a scan covers all stocks (the weekly full scan).")
         v_aligned = f1.checkbox("Only signals ALIGNED with the higher timeframes", value=a_settings["aligned_only"])
+        v_fno5 = f1.checkbox("Only F&O 5-day eligible signals (⭐A / ☆B)", value=a_settings.get("fno5_only", False),
+                             help="Grades from the backtest: " + " | ".join(eligibility.summary(cfg["fno_5day"])))
         v_split = f1.radio("Messages", ["Separate: Triggered · New setups", "One message for the day"],
                            index=0 if a_settings.get("split_messages", True) else 1, horizontal=True,
                            help="Separate: one notification (and Telegram message) for stocks triggered today and "
@@ -1240,8 +1347,9 @@ with tab_alerts:
                 sc.save_settings(cfg, {
                     "enabled": v_enabled, "days": v_days, "times": _alert_times(v_times), "universe": v_universe,
                     "full_enabled": v_full, "full_days": v_full_days, "full_times": _alert_times(v_full_times),
-                    "update_data": v_update, "strategies": v_strats, "timeframes": v_tfs, "events": v_events,
-                    "aligned_only": v_aligned, "split_messages": v_split.startswith("Separate"),
+                    "update_data": v_update, "strategies": v_strats, "timeframes": v_tfs, "full_timeframes": v_full_tfs, "sides_fno": v_sides_fno, "sides_cash": v_sides_cash,
+                    "events": v_events,
+                    "aligned_only": v_aligned, "fno5_only": v_fno5, "split_messages": v_split.startswith("Separate"),
                     "lookback_days": v_lookback, "telegram": v_tg == "On",
                     "telegram_token": v_token, "telegram_chat_id": v_chat, "telegram_header": v_head,
                     "telegram_line": v_line, "telegram_group": v_group, "telegram_style": v_style})

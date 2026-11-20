@@ -79,9 +79,12 @@ def save_settings(cfg: dict, values: dict) -> dict:
 # One scan
 # ----------------------------------------------------------------------------------
 def notify_mac(title: str, text: str) -> bool:
-    script = f"display notification {json.dumps(text)} with title {json.dumps(title)} sound name \"default\""
+    # title and text go in as arguments, never into the script text: emoji and quotes stay safe
+    script = ["-e", "on run argv", "-e",
+              'display notification (item 2 of argv) with title (item 1 of argv) sound name "default"',
+              "-e", "end run"]
     try:
-        return subprocess.run(["osascript", "-e", script], capture_output=True, timeout=20).returncode == 0
+        return subprocess.run(["osascript", *script, title, text], capture_output=True, timeout=20).returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
 
@@ -127,7 +130,7 @@ def run(kind: str = "regular", source: str = "schedule", today: Optional[date] =
         for key in settings["strategies"]:
             S = strategies.get(key)
             p = runner.RunParams(
-                mode="backtest", timeframes=tuple(settings["timeframes"]), lengths=tuple(engine["lengths"]),
+                mode="backtest", timeframes=tuple(aset.timeframes_for(settings, kind)), lengths=tuple(engine["lengths"]),
                 stages=tuple(ew3_cfg["stages"] if key == "ew3" else engine["stages"]),
                 horizon_bars=int(engine["horizon_bars"]), min_bars=int(cfg["min_bars"]),
                 pivot_tie=engine["pivot_tie"], hi_source=engine["hi_source"], lo_source=engine["lo_source"],
@@ -137,7 +140,9 @@ def run(kind: str = "regular", source: str = "schedule", today: Optional[date] =
             res = runner.run_engine(df, p, cfg["signal_indicators"], cfg["htf"])
             saved = runner.save_results(res, p, cfg["results_dir"], cfg["stock_csv"],
                                         stamp="auto_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
-            found = ev.event_rows(res, S, today, settings["events"], settings["aligned_only"], saved.name)
+            found = ev.event_rows(res, S, today, settings["events"], settings["aligned_only"], saved.name,
+                                  grade_cfg=cfg["fno_5day"], attrs=universe.load_attributes(cfg["tickers_file"]),
+                                  fno5_only=settings.get("fno5_only", False), sides=aset.side_rules(settings))
             summary["runs"][key] = {"file": saved.name, "setups": len(res), "today": len(found)}
             events += found
         _prune(cfg["results_dir"])

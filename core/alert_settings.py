@@ -14,6 +14,8 @@ from core.alert_events import TEMPLATE_DEFAULTS  # noqa: F401  (the Telegram lay
 
 
 DAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+TIMEFRAMES = ("60m", "4hr", "1D", "1W")
+SIDES = {"LONG": "Bullish (LONG)", "SHORT": "Bearish (SHORT)"}
 
 
 DEFAULTS: dict[str, Any] = {
@@ -26,10 +28,14 @@ DEFAULTS: dict[str, Any] = {
     "full_times": ["18:00"],                 # after the close: the week's final bars
     "update_data": True,
     "strategies": ["ew5", "ew3"],
-    "timeframes": ["1D", "4hr", "60m"],
+    "timeframes": ["1D", "4hr", "60m"],      # timeframes of the weekday scans
+    "full_timeframes": ["1D", "4hr", "60m"], # timeframes of the weekly full scan
+    "sides_fno": ["LONG", "SHORT"],          # F&O stocks (fno_enabled = true, indices, commodities): both ways
+    "sides_cash": ["LONG"],                  # cash stocks (fno_enabled = false): bullish only (no shorting)
     "events": ["TRIGGERED", "NEW"],
     "split_messages": True,                  # a separate message for Triggered and for New setups
     "aligned_only": False,                   # notify only signals ALIGNED with the higher timeframes
+    "fno5_only": False,                      # notify only F&O 5-day eligible signals (grade A / B)
     "lookback_days": 10,                     # setups from this many days back can still trigger today
     "telegram": False,                       # also send the day's list to a Telegram bot (off by default)
     "telegram_token": "",                    # from @BotFather; kept in the app's private storage only
@@ -45,6 +51,10 @@ def with_defaults(saved: dict) -> dict:
     """Saved settings filled up with the defaults. Saved before the message layouts existed:
     an edited template keeps working as the Custom layout; an untouched one gets Cards."""
     out = {**DEFAULTS, **{k: v for k, v in saved.items() if k in DEFAULTS}}
+    if "sides_fno" not in saved and saved.get("sides"):                  # 2.8 had one list for all stocks
+        out["sides_fno"] = [x for x in saved["sides"] if x in SIDES]
+    if "full_timeframes" not in saved and saved.get("timeframes"):       # before 2.8: one list for both
+        out["full_timeframes"] = list(saved["timeframes"])
     if "telegram_style" not in saved:
         edited = (out["telegram_header"], out["telegram_line"]) != (DEFAULTS["telegram_header"], DEFAULTS["telegram_line"])
         out["telegram_style"] = "custom" if edited else "cards"
@@ -75,10 +85,15 @@ def clean_settings(values: dict, old: Optional[dict] = None) -> dict:
     out["full_times"] = _times(values.get("full_times", ["18:00"]))
     out["update_data"] = bool(values.get("update_data", True))
     out["strategies"] = [s for s in values.get("strategies", []) if s in strategies.STRATEGIES]
-    out["timeframes"] = [tf for tf in values.get("timeframes", []) if tf in ("1D", "4hr", "60m", "1W")]
+    out["timeframes"] = [tf for tf in values.get("timeframes", []) if tf in TIMEFRAMES]
+    out["full_timeframes"] = [tf for tf in values.get("full_timeframes", values.get("timeframes", []))
+                              if tf in TIMEFRAMES]
+    out["sides_fno"] = [x for x in values.get("sides_fno", DEFAULTS["sides_fno"]) if x in SIDES]
+    out["sides_cash"] = [x for x in values.get("sides_cash", DEFAULTS["sides_cash"]) if x in SIDES]
     out["events"] = [e for e in values.get("events", []) if e in ("TRIGGERED", "NEW")]
     out["split_messages"] = bool(values.get("split_messages", True))
     out["aligned_only"] = bool(values.get("aligned_only"))
+    out["fno5_only"] = bool(values.get("fno5_only"))
     out["lookback_days"] = max(2, min(60, int(values.get("lookback_days") or DEFAULTS["lookback_days"])))
     out["telegram"] = bool(values.get("telegram"))
     token = str(values.get("telegram_token") or "").strip()
@@ -106,6 +121,10 @@ def clean_settings(values: dict, old: Optional[dict] = None) -> dict:
             problems.append("Pick EW5, EW3 or both.")
         if not out["timeframes"]:
             problems.append("Pick at least one timeframe.")
+        if out["full_enabled"] and not out["full_timeframes"]:
+            problems.append("Pick at least one timeframe for the weekly full scan.")
+        if not (out["sides_fno"] or out["sides_cash"]):
+            problems.append("Pick bullish, bearish or both for F&O or cash stocks.")
         if not out["events"]:
             problems.append("Pick what to be notified about.")
     if problems:
@@ -138,10 +157,46 @@ def slots(settings: dict, now: Optional[datetime] = None, days: int = 15) -> lis
     return sorted(found.items())
 
 
+def missed(settings: dict, last_started: Optional[str], now: Optional[datetime] = None) -> Optional[dict]:
+    """
+    The newest scan that was due today (up to now) but has not run since: {"at": "12:30",
+    "kind": "regular" / "full"}, or None. last_started = alerts_last_run.json's "started".
+    """
+    if not settings.get("enabled"):
+        return None
+    now = now or datetime.now()
+    day_start = datetime(now.year, now.month, now.day)
+    due = [(at, kind) for at, kind in slots(settings, day_start - timedelta(seconds=1), days=2)
+           if day_start <= at <= now]
+    if not due:
+        return None
+    at, kind = due[-1]
+    try:
+        ran = datetime.fromisoformat(str(last_started)) if last_started else None
+    except ValueError:
+        ran = None
+    if ran is not None and ran >= at - timedelta(minutes=2):
+        return None
+    return {"at": f"{at:%H:%M}", "kind": kind}
+
+
 def next_runs(settings: dict, now: Optional[datetime] = None, count: int = 3) -> list[str]:
     """The next scheduled times, labelled (F&O / all stocks)."""
     names = {"regular": universe.UNIVERSES[settings.get("universe", "fno")], "full": "All stocks"}
     return [f"{at:%a %d %b %H:%M} ({names[kind]})" for at, kind in slots(settings, now)[:count]]
+
+
+def side_rules(settings: dict) -> dict[str, list[str]]:
+    """Sides to report per kind of stock: {"fno": [...], "cash": [...]}."""
+    return {"fno": list(settings.get("sides_fno", DEFAULTS["sides_fno"])),
+            "cash": list(settings.get("sides_cash", DEFAULTS["sides_cash"]))}
+
+
+def timeframes_for(settings: dict, kind: str) -> list[str]:
+    """The timeframes a scan runs on: the weekly full scan has its own."""
+    if kind == "full":
+        return list(settings.get("full_timeframes") or settings.get("timeframes") or DEFAULTS["full_timeframes"])
+    return list(settings.get("timeframes") or DEFAULTS["timeframes"])
 
 
 def public(settings: dict) -> dict:

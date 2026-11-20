@@ -18,6 +18,33 @@ public final class Notifier {
 
     private Notifier() { }
 
+    static final String EXTRA_RUN = "run_scan";
+    private static final int DUE_ID = 5;
+
+    /** A scheduled scan that Android would not start in the background: one tap starts it. */
+    static void scanDue(Context c, String kind) {
+        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+        channel(nm);
+        Intent open = new Intent(c, MainActivity.class).putExtra(MainActivity.EXTRA_TAB, "alerts")
+                .putExtra(EXTRA_RUN, kind == null ? "regular" : kind)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pi = PendingIntent.getActivity(c, DUE_ID, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(c, CHANNEL) : new Notification.Builder(c);
+        String text = "Android blocked it in the background. Tap to run it now; in the Alerts tab allow "
+                + "Alarms & reminders and set Battery to Unrestricted so it starts by itself.";
+        nm.notify(DUE_ID, b.setContentTitle("⏰ Scheduled " + ("full".equals(kind) ? "full scan" : "scan") + " is due: tap to run")
+                .setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text))
+                .setSmallIcon(R.drawable.ic_stat).setAutoCancel(true).setContentIntent(pi).build());
+    }
+
+    private static void channel(NotificationManager nm) {
+        if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null) {
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "Signal alerts", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("Stocks triggered or set up today, found by the scheduled scans");
+            nm.createNotificationChannel(ch);
+        }
+    }
+
     public static void show(String title, String linesJson) {
         show(title, linesJson, ID);
     }
@@ -27,11 +54,7 @@ public final class Notifier {
         Context c = App.get();
         if (c == null) return;
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null) {
-            NotificationChannel ch = new NotificationChannel(CHANNEL, "Signal alerts", NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("Stocks triggered or set up today, found by the scheduled scans");
-            nm.createNotificationChannel(ch);
-        }
+        channel(nm);
         String[] lines;
         try {
             JSONArray a = new JSONArray(linesJson);

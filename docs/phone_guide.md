@@ -56,6 +56,8 @@ Same as the desktop:
     in the next, each on 0-100 with the 30 / 50 / 70 lines (the desktop shows all four in one pane).
   The content is the desktop chart's: same candles, EMAs, wave count, levels, markers and
   indicator values.
+- **↗ Open in TradingView** above a chart opens that stock in the TradingView app or browser at
+  the chart's timeframe (EW5, EW3 and Charts tabs).
 - **Back button** closes an open overlay or list first.
 - **Share results CSV** (Run tab) sends a results file to any app.
 
@@ -86,7 +88,9 @@ On the EW5 / EW3 tabs:
   Elliott Wave filters and the stock-attribute filters (market cap, CNX sector, F&O, macro
   sector, sector index) together, all saved with *Save filters*.
 - **📊 Charts by stock attribute** (also closed): signals by **market cap**, **F&O** and
-  **macro sector**, LONG / SHORT stacked. Indices and commodities show as *Index* / *Commodity*.
+  **macro sector**, LONG / SHORT stacked. Indices and commodities (not in tickers.csv) show as
+  *not in tickers.csv*. The filter values are exactly those in the file (F&O: `true` / `false`;
+  an empty cell: *(blank)*).
 - **Drill-down**: a tapped bar keeps only those signals for everything below it: the next
   attribute charts, the stat cards, the breakdown charts and the table. The breakdown charts
   drill down the same way into the charts after them and the table. *Clear chart filter*
@@ -125,10 +129,19 @@ the full history of every stock the phone does not have yet. To spread that out,
 **Data → Update data** with *All stocks* once on Wi-Fi, or import the desktop's stock.csv.
 
 Settings: days, times (add or remove), the stocks for these scans (F&O / all), the weekly
-full scan (on / off, day, time), whether to download first, EW5 / EW3, timeframes,
+full scan (on / off, day, time, its own timeframes), whether to download first, EW5 / EW3, the
+weekday scans' timeframes, which sides to report for F&O stocks (default LONG and SHORT) and
+for cash stocks (default LONG only: a cash stock cannot be held short; they are in the weekly
+full scan),
 what to be notified about, separate or one message, *only ALIGNED* signals, and how many days back a setup may still
 trigger today. **Run now** starts a scan at once; **Test notification** shows what the alerts
 look like.
+
+**F&O 5-day grade.** Every stock in an alert carries its grade (see *How to use it* → *F&O 5-day
+grade*): ⭐A eligible, ☆B possible, nothing when not eligible. Graded stocks come first within
+each timeframe, a triggered one gets *exit by the close of …*, and **Only F&O 5-day eligible
+signals** limits the alerts to them. The EW5 / EW3 tabs have the same grade as a column, a
+filter and a line under the signal's heading.
 
 **Telegram (optional, off by default).** Switch *Telegram* to **On** to also get the day's
 list in a Telegram chat, with trigger and stop for each stock:
@@ -153,8 +166,9 @@ group's chat ID. The phone notification is sent either way.
 
 Within each part of a message a splitter line, e.g. ═══════ **60m** ═══════, starts every
 timeframe. Every stock in a message, new or *Earlier today*, ends with a **📈 60m / 4hr / 1D chart** link
-that opens TradingView on that stock at the signal's timeframe (interval 60, 240 or 1D), in
-the chart layout set in `config.yaml` → `tradingview.layout`. Indices and commodities open
+that opens TradingView on that stock at the signal's timeframe (interval 60, 240 or 1D), e.g.
+`https://www.tradingview.com/chart/?symbol=NSE%3AYESBANK&interval=240` (a saved chart layout can
+be added in `config.yaml` → `tradingview.layout`). Indices and commodities open
 their TradingView symbols (NIFTY, BANKNIFTY, gold futures …); `M&M` opens as `NSE:M_M`.
 - **Custom**: your own header and line with placeholders such as `{icon} {ticker} {side}`,
   `{trigger}`, `{stop}`, `{target1}`, `{risk_pct}`, `{alignment}` or `{tradingview}`. Tap a
@@ -166,6 +180,14 @@ aligned before mixed and against. Stocks already sent earlier in the day follow 
 *Earlier today*, one line each. The notification title names the stocks, e.g.
 *⚡ 2 triggered today: RELIANCE, SBIN*. **Preview** shows the messages with today's stocks
 (or two examples).
+
+**If a scan does not start.** Android only lets the app start a scan by itself when
+**Alarms & reminders** is allowed for it, or its battery use is *Unrestricted*. Since 2.6 the app
+asks for Alarms & reminders when it opens (while alerts are on and it is not allowed), the
+Alerts tab shows a red warning until one of the two is set, and the Scheduler log says
+*Alarms & reminders NOT allowed* next to the next scan. If Android still blocks a scan, a
+notification *Scheduled scan is due: tap to run* appears; one tap starts it. A scan that was
+due today but did not run shows at the top of the Alerts tab with **Run it now**.
 
 **Scans while the phone is locked.** Scans are set as alarm-clock alarms (you will see the
 alarm icon in the status bar), which phones keep even in deep sleep. The tab checks the
@@ -204,9 +226,26 @@ tab's default window is the last 365 days, and each dashboard shows the dates of
 displays under the file name. The only known difference is DTosc K / D on a perfectly flat price stretch, where both
 versions divide zero by zero.
 
+### Speed: several cores at once
+
+Since 2.7 the phone uses its cores in parallel (set in `config.yaml` → `phone`):
+
+- **Data update**: four parts download and recalculate at the same time, with at most six
+  requests to Yahoo in flight (more and Yahoo starts refusing). About 3× faster.
+- **EW5 / EW3 runs** (Run / Backtest tab and the scheduled scans): Python uses one core per
+  process, so the app starts **four worker processes**, each with its own Python, and shares the
+  parts between them; a scheduled scan also runs EW5 and EW3 in one pass, reading every part
+  once. About 3× faster on an 8-core phone. Each worker needs about 250 MB while it runs and
+  ends when its share is done.
+
+The results are exactly the same as one part after the other (the parts are joined in the same
+order; a test checks it). If a worker cannot start or Android stops it, its parts are run in
+the app itself, so a run never fails because of the workers. `engine_workers: 1` switches the
+workers off (for a phone with little memory).
+
 ### Storage and battery
 
 - About 250 MB of storage for all tickers, plus results files.
-- Memory stays around 0.6 GB during a run (one group of about 15 tickers at a time).
+- Memory: about 0.6 GB in the app during a run, plus about 250 MB for each engine worker (four by default).
 - A long job keeps the phone awake through a notification. It ends by itself when the job
   is finished.

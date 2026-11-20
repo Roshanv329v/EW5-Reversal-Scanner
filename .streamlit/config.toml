@@ -4,6 +4,10 @@ headless = true
 
 [theme]
 base = "dark"
+primaryColor = "#7c83ff"            # indigo accents (buttons, selected tabs, sliders)
+backgroundColor = "#0b1020"
+secondaryBackgroundColor = "#151c31"
+textColor = "#e6e9f2"
 
 [browser]
 gatherUsageStats = false
